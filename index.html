@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#663399" />
+    <meta name="description" content="Innov8mate - Connect, Collaborate, and Create opportunities in academia" />
+    
+    <!-- Preconnect to external resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    
+    <!-- Preload critical fonts -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- Preload hero background image -->
+    <link rel="preload" href="/pexels-ivan-s-7213362.jpg" as="image" />
+    
+    <!-- Font Awesome with defer -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'" />
+    
+    <title>UnitEd - Innovate • Collaborate • Elevate</title>
+    
+    <style>
+      html, body, #root {
+        background-color: #0f172a !important;
+        margin: 0;
+        padding: 0;
+      }
+      
+      .page-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        animation: fadeOut 0.5s ease-out 1s forwards;
+      }
+      
+      @keyframes fadeOut {
+        to {
+          opacity: 0;
+          visibility: hidden;
+        }
+      }
+      
+      .loader-content {
+        text-align: center;
+        animation: slideUp 0.6s ease-out;
+      }
+      
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      .loader-logo {
+        font-size: 3rem;
+        font-weight: 800;
+        color: #ffffff;
+        margin-bottom: 0.5rem;
+      }
+      
+      .loader-logo span {
+        color: #2563EB;
+      }
+      
+      .loader-tagline {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #94a3b8;
+        margin-bottom: 1.5rem;
+        letter-spacing: 0.05em;
+      }
+      
+      .loader-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(37, 99, 235, 0.3);
+        border-top-color: #2563EB;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-loader">
+      <div class="loader-content">
+        <div class="loader-logo">Unit<span>Ed</span></div>
+        <div class="loader-tagline">• Innovate • Collaborate • Elevate</div>
+        <div class="loader-spinner"></div>
+      </div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
