@@ -57,6 +57,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        united: {
+          blue: "hsl(var(--united-blue))",
+          purple: "hsl(var(--united-purple))",
+          orange: "hsl(var(--united-orange))",
+          green: "hsl(var(--united-green))",
+          amber: "hsl(var(--united-amber))",
+          red: "hsl(var(--united-red))",
+          dark: "#0f172a",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
