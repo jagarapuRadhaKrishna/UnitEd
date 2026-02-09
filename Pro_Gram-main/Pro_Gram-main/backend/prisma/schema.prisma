@@ -1,0 +1,305 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model - Enhanced with profile and posts
+model User {
+  id                String              @id @default(cuid())
+  email             String              @unique
+  password          String
+  firstName         String
+  lastName          String
+  role              Role                @default(STUDENT)
+  department        String?
+  designation       String?             // For faculty (Professor, Associate Professor, etc.)
+  batchYear         Int?                // For students
+  rollNumber        String?             @unique
+  bio               String?
+  profilePicture    String?
+  skills            String[]            @default([])
+  achievements      String[]            @default([])
+  socialLinks       SocialLink[]
+  
+  // Relationships
+  posts             Post[]              @relation("PostAuthor")
+  applications      Application[]       @relation("Applicant")
+  invitations       Invitation[]        @relation("InvitedBy")
+  receivedInvitations Invitation[]      @relation("InvitedUser")
+  chatrooms         Chatroom[]          @relation("ChatroomMember")
+  messages          Message[]
+  
+  // Metadata
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  lastLogin         DateTime?
+  isVerified        Boolean             @default(false)
+  isActive          Boolean             @default(true)
+  
+  @@index([email])
+  @@index([role])
+}
+
+enum Role {
+  STUDENT
+  FACULTY
+}
+
+model SocialLink {
+  id        String    @id @default(cuid())
+  type      String    // "github", "linkedin", "portfolio", etc.
+  url       String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  @@unique([userId, type])
+}
+
+// Post/Opportunity Model - Core entity for projects and research
+model Post {
+  id                    String              @id @default(cuid())
+  title                 String
+  description           String              @db.Text
+  purpose               String?             // "research", "project", "internship", etc.
+  category              PostCategory        @default(PROJECT)
+  
+  // Author information
+  author                User                @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  authorId              String
+  
+  // Post Details
+  requiredSkills        String[]            @default([])
+  teamSizeNeeded        Int?
+  duration              String?             // "3 months", "6 months", etc.
+  deadline              DateTime?
+  location              String?
+  
+  // Status and Visibility
+  status                PostStatus          @default(OPEN)
+  isPublished           Boolean             @default(true)
+  visibility            PostVisibility      @default(PUBLIC)
+  
+  // Applications and team
+  applications          Application[]
+  invitations           Invitation[]
+  acceptedApplicants    String[]            @default([])  // User IDs of accepted applicants
+  teamMembers           TeamMember[]
+  
+  // Discussion/Chat
+  chatroom              Chatroom?           @relation("PostChat")
+  
+  // Engagement
+  views                 Int                 @default(0)
+  likes                 String[]            @default([])     // Store user IDs
+  comments              Comment[]
+  
+  // Tags and Metadata
+  tags                  String[]            @default([])
+  attachments           Attachment[]
+  
+  // Timestamps
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  publishedAt           DateTime?
+  closedAt              DateTime?
+  
+  @@index([authorId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+}
+
+enum PostCategory {
+  PROJECT
+  RESEARCH
+  INTERNSHIP
+  COMPETITION
+  WORKSHOP
+  OTHER
+}
+
+enum PostStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  CLOSED
+  CANCELLED
+}
+
+enum PostVisibility {
+  PUBLIC        // Anyone can see
+  DEPARTMENT    // Only department members
+  PRIVATE       // Author and team only
+}
+
+// Team Member Model - For managing post team members
+model TeamMember {
+  id        String    @id @default(cuid())
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  userId    String    // Can extend to User relation if needed
+  role      String    // "lead", "member", "reviewer", etc.
+  joinedAt  DateTime  @default(now())
+  
+  @@unique([postId, userId])
+  @@index([postId])
+}
+
+// Application Model - For post applications
+model Application {
+  id            String            @id @default(cuid())
+  post          Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId        String
+  applicant     User              @relation("Applicant", fields: [applicantId], references: [id], onDelete: Cascade)
+  applicantId   String
+  
+  // Application details
+  coverLetter   String?           @db.Text
+  status        ApplicationStatus @default(PENDING)
+  appliedAt     DateTime          @default(now())
+  respondedAt   DateTime?
+  
+  // Rating and feedback
+  rating        Int?              // 1-5 stars
+  feedback      String?           @db.Text
+  
+  @@unique([postId, applicantId])
+  @@index([postId])
+  @@index([applicantId])
+  @@index([status])
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  INTERVIEW
+  OFFERED
+}
+
+// Invitation Model - For direct invitations to users
+model Invitation {
+  id             String            @id @default(cuid())
+  post           Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId         String
+  invitedBy      User              @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  invitedById    String
+  invitedUser    User              @relation("InvitedUser", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  invitedUserId  String
+  
+  message        String?           @db.Text
+  status         InvitationStatus  @default(PENDING)
+  createdAt      DateTime          @default(now())
+  respondedAt    DateTime?
+  
+  @@unique([postId, invitedUserId])
+  @@index([postId])
+  @@index([invitedUserId])
+  @@index([status])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+// Chatroom Model - For team communication
+model Chatroom {
+  id            String     @id @default(cuid())
+  post          Post       @relation("PostChat", fields: [postId], references: [id], onDelete: Cascade)
+  postId        String     @unique
+  
+  members       User[]     @relation("ChatroomMember")
+  messages      Message[]
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([postId])
+}
+
+// Message Model - For chatroom messages
+model Message {
+  id            String     @id @default(cuid())
+  chatroom      Chatroom   @relation(fields: [chatroomId], references: [id], onDelete: Cascade)
+  chatroomId    String
+  sender        User       @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderId      String
+  
+  content       String     @db.Text
+  type          MessageType @default(TEXT)
+  fileUrl       String?
+  fileName      String?
+  
+  readBy        String[]   @default([])     // User IDs who read this
+  createdAt     DateTime   @default(now())
+  
+  @@index([chatroomId])
+  @@index([senderId])
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  SYSTEM
+  ANNOUNCEMENT
+}
+
+// Comment Model - For post comments
+model Comment {
+  id         String      @id @default(cuid())
+  post       Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId     String
+  authorId   String      // Can extend to User relation if needed
+  content    String      @db.Text
+  likes      String[]    @default([])     // User IDs
+  
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  
+  @@index([postId])
+}
+
+// Attachment Model - For file attachments on posts
+model Attachment {
+  id         String     @id @default(cuid())
+  post       Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId     String
+  
+  fileName   String
+  fileUrl    String
+  fileType   String     // "image", "pdf", "document", etc.
+  fileSize   Int        // in bytes
+  
+  uploadedAt DateTime   @default(now())
+  
+  @@index([postId])
+}
+
+// Notification Model - For user notifications
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // "application_status", "invitation", "message", etc.
+  title     String
+  message   String   @db.Text
+  data      Json?    // Additional data (links, ids, etc.)
+  
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  
+  @@index([userId])
+  @@index([createdAt])
+}

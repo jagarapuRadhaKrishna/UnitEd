@@ -1,0 +1,246 @@
+/* Design Tokens - Colors, Typography, Spacing, etc. */
+:root {
+  /* Color Palette */
+  --color-primary: #0052cc;
+  --color-primary-light: #3399ff;
+  --color-primary-dark: #0041a8;
+  --color-secondary: #6c757d;
+  --color-secondary-light: #868e96;
+  --color-accent: #17c1c5;
+  --color-accent-light: #20d6d9;
+  --color-warning: #ff7f50;
+  --color-success: #28a745;
+  --color-error: #dc3545;
+  --color-info: #17a2b8;
+
+  /* Background Colors */
+  --color-background: #ffffff;
+  --color-background-light: #f8f9fa;
+  --color-background-dark: #343a40;
+  --color-background-gradient: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+
+  /* Text Colors */
+  --color-text-primary: #212529;
+  --color-text-secondary: #6c757d;
+  --color-text-light: #ffffff;
+  --color-text-muted: #868e96;
+
+  /* Border Colors */
+  --color-border: #dee2e6;
+  --color-border-light: #e9ecef;
+
+  /* Spacing Scale */
+  --spacing-xxs: 0.25rem;  /* 4px */
+  --spacing-xs: 0.5rem;    /* 8px */
+  --spacing-sm: 0.75rem;   /* 12px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;    /* 24px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-xxl: 3rem;     /* 48px */
+
+  /* Border Radius */
+  --radius-sm: 0.25rem;    /* 4px */
+  --radius-md: 0.5rem;     /* 8px */
+  --radius-lg: 1rem;       /* 16px */
+  --radius-xl: 1.5rem;     /* 24px */
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-heading: var(--font-family-base);
+
+  /* Font Sizes */
+  --font-size-xs: 0.75rem;   /* 12px */
+  --font-size-sm: 0.875rem;  /* 14px */
+  --font-size-md: 1rem;      /* 16px */
+  --font-size-lg: 1.125rem;  /* 18px */
+  --font-size-xl: 1.25rem;   /* 20px */
+  --font-size-2xl: 1.5rem;   /* 24px */
+  --font-size-3xl: 1.875rem; /* 30px */
+  --font-size-4xl: 2.25rem;  /* 36px */
+
+  /* Font Weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line Heights */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+
+  /* Z-index Scale */
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-modal: 1040;
+  --z-index-popover: 1050;
+  --z-index-tooltip: 1060;
+
+  /* Transitions */
+  --transition-fast: 150ms;
+  --transition-normal: 250ms;
+  --transition-slow: 350ms;
+  --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base Styles */
+body {
+  font-family: var(--font-family-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-background-light);
+  line-height: var(--line-height-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography Styles */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+h1 { font-size: var(--font-size-4xl); }
+h2 { font-size: var(--font-size-3xl); }
+h3 { font-size: var(--font-size-2xl); }
+h4 { font-size: var(--font-size-xl); }
+h5 { font-size: var(--font-size-lg); }
+h6 { font-size: var(--font-size-md); }
+
+/* Component Classes */
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xs) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+  transition: all var(--transition-normal) var(--transition-timing);
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-light);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+  background-color: var(--color-secondary);
+  color: var(--color-text-light);
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Cards */
+.card {
+  background-color: var(--color-background);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition-normal) var(--transition-timing),
+              box-shadow var(--transition-normal) var(--transition-timing);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Form Elements */
+.input {
+  width: 100%;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+  transition: border-color var(--transition-normal) var(--transition-timing),
+              box-shadow var(--transition-normal) var(--transition-timing);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.15);
+}
+
+/* Navigation */
+.nav-link {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal) var(--transition-timing);
+}
+
+.nav-link:hover {
+  color: var(--color-primary);
+  background-color: rgba(0, 82, 204, 0.05);
+}
+
+.nav-link.active {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Grid Layout */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-lg);
+}
+
+.grid {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1024px) {
+  .container {
+    max-width: 960px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    max-width: 720px;
+  }
+  
+  h1 { font-size: var(--font-size-3xl); }
+  h2 { font-size: var(--font-size-2xl); }
+}
+
+@media (max-width: 640px) {
+  .container {
+    max-width: 540px;
+    padding: 0 var(--spacing-md);
+  }
+}
