@@ -94,7 +94,7 @@ const CreatePostPage: React.FC = () => {
           <React.Fragment key={label}>
             <div className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                i < activeStep ? 'bg-united-green text-white' : i === activeStep ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground'
+                i < activeStep ? 'bg-united-green text-primary-foreground' : i === activeStep ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground'
               }`}>
                 {i < activeStep ? <CheckCircle size={16} /> : i + 1}
               </div>

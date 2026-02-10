@@ -56,7 +56,7 @@ const SkillMatchedPostsPage: React.FC = () => {
           <CardContent>
             <p className="text-lg text-muted-foreground mb-2">No opportunities matching your skills yet</p>
             <p className="text-sm text-muted-foreground mb-4">Try updating your skills or check back later</p>
-            <Button onClick={() => navigate('/profile')} className="bg-united-blue hover:bg-united-blue/90">Update Your Skills</Button>
+            <Button onClick={() => navigate('/profile')}>Update Your Skills</Button>
           </CardContent>
         </Card>
       ) : (
@@ -102,7 +102,7 @@ const SkillMatchedPostsPage: React.FC = () => {
                 </div>
 
                 <div className="flex gap-2 mt-3 pt-3 border-t">
-                  <Button size="sm" className="flex-1 bg-united-blue hover:bg-united-blue/90" onClick={e => { e.stopPropagation(); navigate(`/post/${post.id}`); }}>View Details</Button>
+                  <Button size="sm" className="flex-1" onClick={e => { e.stopPropagation(); navigate(`/post/${post.id}`); }}>View Details</Button>
                   <Button size="sm" variant="outline" className="flex-1" onClick={e => { e.stopPropagation(); navigate(`/post/${post.id}`); }}>Apply</Button>
                 </div>
               </CardContent>

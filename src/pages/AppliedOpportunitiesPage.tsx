@@ -11,7 +11,7 @@ import { Calendar, Users, CheckCircle, Clock, XCircle, MessageCircle } from 'luc
 
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ReactNode }> = {
   applied: { color: 'text-united-amber', bg: 'bg-united-amber/10', icon: <Clock className="w-4 h-4" /> },
-  shortlisted: { color: 'text-united-blue', bg: 'bg-united-blue/10', icon: <Users className="w-4 h-4" /> },
+  shortlisted: { color: 'text-primary', bg: 'bg-primary/10', icon: <Users className="w-4 h-4" /> },
   accepted: { color: 'text-united-green', bg: 'bg-united-green/10', icon: <CheckCircle className="w-4 h-4" /> },
   rejected: { color: 'text-united-red', bg: 'bg-united-red/10', icon: <XCircle className="w-4 h-4" /> },
   withdrawn: { color: 'text-muted-foreground', bg: 'bg-muted', icon: <XCircle className="w-4 h-4" /> },
@@ -57,7 +57,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
                     <p className="text-sm text-muted-foreground mb-3">Posted by <strong>{app.post?.author.name}</strong></p>
                     <div className="flex flex-wrap gap-1.5 mb-3">
                       {app.applicant.skills.slice(0, 4).map(skill => (
-                        <Badge key={skill} variant="secondary" className="text-xs bg-united-blue/5 text-united-blue">{skill}</Badge>
+                        <Badge key={skill} variant="secondary" className="text-xs bg-primary/5 text-primary">{skill}</Badge>
                       ))}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground pt-2 border-t">
@@ -86,7 +86,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
             <CardContent>
               <p className="text-lg text-muted-foreground mb-2">No applications found</p>
               <p className="text-sm text-muted-foreground mb-4">You haven't applied to any opportunities yet</p>
-              <Button onClick={() => navigate('/home')} className="bg-united-blue hover:bg-united-blue/90">Browse Opportunities</Button>
+              <Button onClick={() => navigate('/home')}>Browse Opportunities</Button>
             </CardContent>
           </Card>
         )}

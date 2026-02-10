@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -18,10 +18,10 @@ const PublicNavbar: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex justify-end items-center py-4">
           <div className="flex gap-3">
-            <Button asChild className="bg-united-blue hover:bg-blue-700 text-white font-semibold">
+            <Button asChild className="bg-primary hover:bg-primary/80 text-primary-foreground font-semibold">
               <Link to="/login">Login</Link>
             </Button>
-            <Button asChild className="bg-white text-united-blue hover:bg-gray-100 font-semibold">
+            <Button asChild className="bg-card text-primary hover:bg-muted font-semibold">
               <Link to="/register">Register</Link>
             </Button>
           </div>
