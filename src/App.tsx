@@ -15,7 +15,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import RoleSelection from "./pages/RoleSelection";
 import StudentRegister from "./pages/StudentRegister";
 import FacultyRegister from "./pages/FacultyRegister";
-import NotFound from "./pages/NotFound";
+import NotFoundPage from "./pages/NotFoundPage";
 import HomePage from "./pages/HomePage";
 import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -29,6 +29,15 @@ import SkillMatchedPostsPage from "./pages/SkillMatchedPostsPage";
 import PostManagePage from "./pages/PostManagePage";
 import RecommendedCandidatesPage from "./pages/RecommendedCandidatesPage";
 import CandidateProfilePage from "./pages/CandidateProfilePage";
+import ChatroomsPage from "./pages/ChatroomsPage";
+import ChatroomPage from "./pages/ChatroomPage";
+import ForumsPage from "./pages/ForumsPage";
+import ForumThreadPage from "./pages/ForumThreadPage";
+import CreateThreadPage from "./pages/CreateThreadPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import SettingsPage from "./pages/SettingsPage";
+import UserProfilePage from "./pages/UserProfilePage";
+import AboutPage from "./pages/AboutPage";
 
 const queryClient = new QueryClient();
 
@@ -72,19 +81,19 @@ const App = () => {
                 <Route path="/post/:postId/candidates" element={<RecommendedCandidatesPage />} />
                 <Route path="/candidate/:candidateId" element={<CandidateProfilePage />} />
                 <Route path="/post/manage/:id" element={<PostManagePage />} />
-                <Route path="/notifications" element={<div className="p-8 text-center text-2xl text-muted-foreground">Notifications - Coming in Phase 6</div>} />
-                <Route path="/chatrooms" element={<div className="p-8 text-center text-2xl text-muted-foreground">Chatrooms - Coming in Phase 6</div>} />
-                <Route path="/chatroom/:id" element={<div className="p-8 text-center text-2xl text-muted-foreground">Chatroom - Coming in Phase 6</div>} />
-                <Route path="/forums" element={<div className="p-8 text-center text-2xl text-muted-foreground">Forums - Coming in Phase 6</div>} />
-                <Route path="/forum/:threadId" element={<div className="p-8 text-center text-2xl text-muted-foreground">Forum Thread - Coming in Phase 6</div>} />
-                <Route path="/forum/create" element={<div className="p-8 text-center text-2xl text-muted-foreground">Create Thread - Coming in Phase 6</div>} />
-                <Route path="/about" element={<div className="p-8 text-center text-2xl text-muted-foreground">About - Coming in Phase 6</div>} />
-                <Route path="/settings" element={<div className="p-8 text-center text-2xl text-muted-foreground">Settings - Coming in Phase 6</div>} />
-                <Route path="/settings/profile" element={<div className="p-8 text-center text-2xl text-muted-foreground">Profile Settings - Coming in Phase 6</div>} />
-                <Route path="/profile/:id" element={<div className="p-8 text-center text-2xl text-muted-foreground">User Profile - Coming in Phase 6</div>} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/chatrooms" element={<ChatroomsPage />} />
+                <Route path="/chatroom/:id" element={<ChatroomPage />} />
+                <Route path="/forums" element={<ForumsPage />} />
+                <Route path="/forum/:threadId" element={<ForumThreadPage />} />
+                <Route path="/forum/create" element={<CreateThreadPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings/profile" element={<ProfilePage />} />
+                <Route path="/profile/:id" element={<UserProfilePage />} />
               </Route>
 
-              <Route path="*" element={<NotFound />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </AuthProvider>
         </BrowserRouter>
