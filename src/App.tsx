@@ -16,6 +16,10 @@ import RoleSelection from "./pages/RoleSelection";
 import StudentRegister from "./pages/StudentRegister";
 import FacultyRegister from "./pages/FacultyRegister";
 import NotFound from "./pages/NotFound";
+import HomePage from "./pages/HomePage";
+import DashboardPage from "./pages/DashboardPage";
+import ProfilePage from "./pages/ProfilePage";
+import CreatePostPage from "./pages/CreatePostPage";
 
 const queryClient = new QueryClient();
 
@@ -44,11 +48,11 @@ const App = () => {
 
               {/* Protected Routes */}
               <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
-                <Route path="/home" element={<div className="p-8 text-center text-2xl text-muted-foreground">Home - Coming in Phase 4</div>} />
-                <Route path="/dashboard" element={<div className="p-8 text-center text-2xl text-muted-foreground">Dashboard - Coming in Phase 4</div>} />
-                <Route path="/profile" element={<div className="p-8 text-center text-2xl text-muted-foreground">Profile - Coming in Phase 4</div>} />
-                <Route path="/create-post" element={<div className="p-8 text-center text-2xl text-muted-foreground">Create Post - Coming in Phase 4</div>} />
-                <Route path="/create-opportunity" element={<div className="p-8 text-center text-2xl text-muted-foreground">Create Post - Coming in Phase 4</div>} />
+                <Route path="/home" element={<HomePage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/create-post" element={<CreatePostPage />} />
+                <Route path="/create-opportunity" element={<CreatePostPage />} />
                 <Route path="/post/:id" element={<div className="p-8 text-center text-2xl text-muted-foreground">Post Detail - Coming in Phase 4</div>} />
                 <Route path="/my-posts" element={<div className="p-8 text-center text-2xl text-muted-foreground">My Posts - Coming in Phase 5</div>} />
                 <Route path="/matched-posts" element={<div className="p-8 text-center text-2xl text-muted-foreground">Skill Matched Posts - Coming in Phase 5</div>} />
