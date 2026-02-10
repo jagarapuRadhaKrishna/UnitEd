@@ -141,11 +141,13 @@ const FacultyRegister: React.FC = () => {
 
               {/* Skills */}
               <h3 className="text-lg font-semibold text-gray-900 pt-2">Skills & Expertise *</h3>
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap gap-2 mb-2" role="list" aria-label="Selected skills">
                 {skills.map(s => (
-                  <Badge key={s} variant="secondary" className="cursor-pointer" onClick={() => setSkills(skills.filter(sk => sk !== s))}>
+                  <button key={s} type="button" role="listitem" aria-label={`Remove ${s}`}
+                    className="inline-flex items-center rounded-full border border-transparent bg-secondary text-secondary-foreground px-2.5 py-0.5 text-xs font-semibold hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
+                    onClick={() => setSkills(skills.filter(sk => sk !== s))}>
                     {s} <X size={14} className="ml-1" />
-                  </Badge>
+                  </button>
                 ))}
               </div>
               <Input placeholder="Search skills..." value={skillSearch} onChange={e => setSkillSearch(e.target.value)} />
