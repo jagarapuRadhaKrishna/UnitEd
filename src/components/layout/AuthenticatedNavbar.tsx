@@ -115,7 +115,7 @@ const AuthenticatedNavbar: React.FC = () => {
         </button>
 
         {/* Desktop Nav */}
-        <nav className="hidden lg:flex items-center gap-1 overflow-x-auto">
+        <nav className="hidden md:flex items-center gap-1 overflow-x-auto">
           <NavLinks />
         </nav>
 
@@ -165,7 +165,7 @@ const AuthenticatedNavbar: React.FC = () => {
           {/* Mobile Menu */}
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden">
+              <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu size={22} />
               </Button>
             </SheetTrigger>
