@@ -47,7 +47,7 @@ const AcceptedApplicationsPage: React.FC = () => {
     switch (status) {
       case 'accepted': return 'bg-united-green/10 text-united-green';
       case 'applied': return 'bg-united-amber/10 text-united-amber';
-      case 'shortlisted': return 'bg-united-blue/10 text-united-blue';
+      case 'shortlisted': return 'bg-primary/10 text-primary';
       default: return 'bg-united-red/10 text-united-red';
     }
   };
@@ -133,7 +133,7 @@ const AcceptedApplicationsPage: React.FC = () => {
           <Card className="py-12 text-center">
             <CardContent>
               <p className="text-muted-foreground mb-4">No applications found</p>
-              <Button onClick={() => navigate('/home')} className="bg-united-blue hover:bg-united-blue/90">Browse Opportunities</Button>
+              <Button onClick={() => navigate('/home')}>Browse Opportunities</Button>
             </CardContent>
           </Card>
         )}

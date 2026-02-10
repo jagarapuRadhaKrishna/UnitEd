@@ -58,7 +58,7 @@ const MyPostsPage: React.FC = () => {
         <Card className="py-12 text-center">
           <CardContent>
             <p className="text-lg text-muted-foreground mb-2">You haven't created any posts yet</p>
-            <Button onClick={() => navigate('/create-post')} className="bg-united-blue hover:bg-united-blue/90 mt-2">
+            <Button onClick={() => navigate('/create-post')} className="mt-2">
               Create Your First Post
             </Button>
           </CardContent>

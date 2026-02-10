@@ -53,6 +53,7 @@ All colors MUST be HSL.
     --united-green: 160 84% 39%;
     --united-amber: 38 92% 50%;
     --united-red: 0 84% 60%;
+    --united-dark: 222 47% 11%;
   }
 
   .dark {

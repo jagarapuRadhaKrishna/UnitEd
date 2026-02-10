@@ -31,13 +31,10 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #1E3A8A 0%, #2563EB 50%, #3B82F6 100%)' }}
-    >
+    <div className="min-h-screen flex items-center relative overflow-hidden bg-gradient-to-br from-blue-900 via-primary to-blue-400">
       {/* Dot pattern */}
       <div className="absolute inset-0 opacity-10" style={{
-        backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 80%, white 1px, transparent 1px)',
+        backgroundImage: 'radial-gradient(circle at 20% 50%, hsl(0 0% 100%) 1px, transparent 1px), radial-gradient(circle at 80% 80%, hsl(0 0% 100%) 1px, transparent 1px)',
         backgroundSize: '50px 50px',
       }} />
 
@@ -46,15 +43,15 @@ const LoginPage: React.FC = () => {
           <CardContent className="p-8">
             {/* Logo */}
             <div className="text-center mb-8">
-              <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)' }}>
-                <GraduationCap size={40} color="#FFFFFF" strokeWidth={2.5} />
+              <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg bg-gradient-to-br from-primary to-blue-400">
+                <GraduationCap size={40} className="text-primary-foreground" strokeWidth={2.5} />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome Back</h1>
-              <p className="text-gray-500">Sign in to continue to UnitEd</p>
+              <h1 className="text-2xl font-bold text-foreground mb-1">Welcome Back</h1>
+              <p className="text-muted-foreground">Sign in to continue to UnitEd</p>
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg mb-4 text-sm">
                 {error}
                 <button onClick={() => setError('')} className="float-right font-bold">×</button>
               </div>
@@ -64,7 +61,7 @@ const LoginPage: React.FC = () => {
               <div>
                 <Label htmlFor="email">Email Address</Label>
                 <div className="relative mt-1">
-                  <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                     placeholder="john.doe.csd@anits.edu.in" required className="pl-10"
@@ -75,7 +72,7 @@ const LoginPage: React.FC = () => {
               <div>
                 <Label htmlFor="password">Password</Label>
                 <div className="relative mt-1">
-                  <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password" required className="pl-10"
@@ -84,28 +81,28 @@ const LoginPage: React.FC = () => {
               </div>
 
               <div className="text-right">
-                <Link to="/forgot-password" className="text-sm text-united-blue hover:underline">Forgot Password?</Link>
+                <Link to="/forgot-password" className="text-sm text-primary hover:underline">Forgot Password?</Link>
               </div>
 
-              <Button type="submit" className="w-full py-5 bg-united-blue hover:bg-blue-700 text-base font-semibold" disabled={loading}>
+              <Button type="submit" className="w-full py-5 text-base font-semibold" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
 
               <div className="relative my-6">
                 <Separator />
-                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-xs text-gray-400">OR</span>
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">OR</span>
               </div>
 
-              <p className="text-center text-sm text-gray-500">
+              <p className="text-center text-sm text-muted-foreground">
                 Don't have an account?{' '}
-                <Link to="/register" className="text-united-blue font-semibold hover:underline">Register here</Link>
+                <Link to="/register" className="text-primary font-semibold hover:underline">Register here</Link>
               </p>
             </form>
           </CardContent>
         </Card>
 
         <div className="text-center mt-4">
-          <Link to="/" className="text-white/80 hover:text-white text-sm">← Back to Home</Link>
+          <Link to="/" className="text-primary-foreground/80 hover:text-primary-foreground text-sm">← Back to Home</Link>
         </div>
       </div>
     </div>

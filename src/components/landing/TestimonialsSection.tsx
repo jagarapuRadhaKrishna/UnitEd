@@ -17,43 +17,43 @@ const stats = [
 
 const TestimonialsSection: React.FC = () => {
   return (
-    <section className="py-16 md:py-24" style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)' }}>
+    <section className="py-16 md:py-24 bg-gradient-to-br from-primary/5 to-primary/10">
       <div className="max-w-6xl mx-auto px-4">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
           {stats.map((stat, index) => (
-            <div key={index} className="text-center p-6 rounded-xl bg-white/80 backdrop-blur-sm transition-all duration-300 hover:-translate-y-2 hover:bg-white hover:shadow-lg">
-              <h3 className="text-4xl font-bold text-united-blue mb-2">{stat.number}</h3>
-              <p className="text-gray-500 font-medium">{stat.label}</p>
+            <div key={index} className="text-center p-6 rounded-xl bg-card/80 backdrop-blur-sm transition-all duration-300 hover:-translate-y-2 hover:bg-card hover:shadow-lg">
+              <h3 className="text-4xl font-bold text-primary mb-2">{stat.number}</h3>
+              <p className="text-muted-foreground font-medium">{stat.label}</p>
             </div>
           ))}
         </div>
 
         {/* Testimonials */}
-        <h2 className="text-4xl font-bold text-center text-gray-900 mb-4">What Our Users Say</h2>
-        <p className="text-gray-500 text-center mb-12 max-w-[600px] mx-auto text-lg">
+        <h2 className="text-4xl font-bold text-center text-foreground mb-4">What Our Users Say</h2>
+        <p className="text-muted-foreground text-center mb-12 max-w-[600px] mx-auto text-lg">
           Join thousands of students and faculty who are already collaborating
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {testimonials.map((testimonial, index) => (
-            <div key={index} className="p-6 rounded-xl bg-white h-full relative transition-all duration-300 hover:-translate-y-2 hover:shadow-xl">
+            <div key={index} className="p-6 rounded-xl bg-card h-full relative transition-all duration-300 hover:-translate-y-2 hover:shadow-xl">
               <div className="absolute top-5 right-5 opacity-10">
-                <Quote size={48} className="text-united-blue" />
+                <Quote size={48} className="text-primary" />
               </div>
 
               <div className="flex items-center mb-5">
-                <Avatar className="w-14 h-14 mr-4 border-[3px] border-united-blue">
+                <Avatar className="w-14 h-14 mr-4 border-[3px] border-primary">
                   <AvatarImage src={testimonial.avatar} alt={testimonial.name} />
                   <AvatarFallback>{testimonial.name[0]}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-0.5">{testimonial.name}</h4>
-                  <p className="text-sm text-gray-500">{testimonial.role}</p>
+                  <h4 className="font-semibold text-foreground mb-0.5">{testimonial.name}</h4>
+                  <p className="text-sm text-muted-foreground">{testimonial.role}</p>
                 </div>
               </div>
 
-              <p className="text-gray-700 leading-relaxed italic">"{testimonial.quote}"</p>
+              <p className="text-muted-foreground leading-relaxed italic">"{testimonial.quote}"</p>
             </div>
           ))}
         </div>

@@ -180,7 +180,7 @@ const PostDetailPage: React.FC = () => {
             <h3 className="font-semibold mb-2 flex items-center gap-2"><Award className="w-4 h-4" /> Required Skills</h3>
             <div className="flex flex-wrap gap-2">
               {postData.skillRequirements.map(sr => (
-                <Badge key={sr.skill} variant="outline" className="bg-united-blue/5 border-united-blue/20 text-united-blue">
+                <Badge key={sr.skill} variant="outline" className="bg-primary/5 border-primary/20 text-primary">
                   {sr.skill} ({sr.acceptedCount || 0}/{sr.requiredCount})
                 </Badge>
               ))}
@@ -202,7 +202,7 @@ const PostDetailPage: React.FC = () => {
               <Button
                 onClick={() => setOpenApplyDialog(true)}
                 disabled={hasApplied || postData.status !== 'active'}
-                className="bg-united-blue hover:bg-united-blue/90"
+                className=""
               >
                 {hasApplied ? <><CheckCircle className="w-4 h-4 mr-2" /> Applied</> : <><Send className="w-4 h-4 mr-2" /> Apply Now</>}
               </Button>
@@ -268,7 +268,7 @@ const PostDetailPage: React.FC = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenApplyDialog(false)}>Cancel</Button>
-            <Button onClick={handleApply} disabled={!motivation.trim()} className="bg-united-blue hover:bg-united-blue/90">Submit Application</Button>
+            <Button onClick={handleApply} disabled={!motivation.trim()}>Submit Application</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
