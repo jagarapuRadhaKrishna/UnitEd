@@ -20,6 +20,15 @@ import HomePage from "./pages/HomePage";
 import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import CreatePostPage from "./pages/CreatePostPage";
+import PostDetailPage from "./pages/PostDetailPage";
+import AppliedOpportunitiesPage from "./pages/AppliedOpportunitiesPage";
+import AcceptedApplicationsPage from "./pages/AcceptedApplicationsPage";
+import InvitationsPage from "./pages/InvitationsPage";
+import MyPostsPage from "./pages/MyPostsPage";
+import SkillMatchedPostsPage from "./pages/SkillMatchedPostsPage";
+import PostManagePage from "./pages/PostManagePage";
+import RecommendedCandidatesPage from "./pages/RecommendedCandidatesPage";
+import CandidateProfilePage from "./pages/CandidateProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -53,16 +62,16 @@ const App = () => {
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/create-post" element={<CreatePostPage />} />
                 <Route path="/create-opportunity" element={<CreatePostPage />} />
-                <Route path="/post/:id" element={<div className="p-8 text-center text-2xl text-muted-foreground">Post Detail - Coming in Phase 4</div>} />
-                <Route path="/my-posts" element={<div className="p-8 text-center text-2xl text-muted-foreground">My Posts - Coming in Phase 5</div>} />
-                <Route path="/matched-posts" element={<div className="p-8 text-center text-2xl text-muted-foreground">Skill Matched Posts - Coming in Phase 5</div>} />
-                <Route path="/applications" element={<div className="p-8 text-center text-2xl text-muted-foreground">Applications - Coming in Phase 5</div>} />
-                <Route path="/applied" element={<div className="p-8 text-center text-2xl text-muted-foreground">Applied - Coming in Phase 5</div>} />
-                <Route path="/accepted-applications" element={<div className="p-8 text-center text-2xl text-muted-foreground">Accepted - Coming in Phase 5</div>} />
-                <Route path="/invitations" element={<div className="p-8 text-center text-2xl text-muted-foreground">Invitations - Coming in Phase 5</div>} />
-                <Route path="/post/:postId/candidates" element={<div className="p-8 text-center text-2xl text-muted-foreground">Candidates - Coming in Phase 5</div>} />
-                <Route path="/candidate/:candidateId" element={<div className="p-8 text-center text-2xl text-muted-foreground">Candidate Profile - Coming in Phase 5</div>} />
-                <Route path="/post/manage/:id" element={<div className="p-8 text-center text-2xl text-muted-foreground">Post Manage - Coming in Phase 5</div>} />
+                <Route path="/post/:id" element={<PostDetailPage />} />
+                <Route path="/my-posts" element={<MyPostsPage />} />
+                <Route path="/matched-posts" element={<SkillMatchedPostsPage />} />
+                <Route path="/applications" element={<AppliedOpportunitiesPage />} />
+                <Route path="/applied" element={<AppliedOpportunitiesPage />} />
+                <Route path="/accepted-applications" element={<AcceptedApplicationsPage />} />
+                <Route path="/invitations" element={<InvitationsPage />} />
+                <Route path="/post/:postId/candidates" element={<RecommendedCandidatesPage />} />
+                <Route path="/candidate/:candidateId" element={<CandidateProfilePage />} />
+                <Route path="/post/manage/:id" element={<PostManagePage />} />
                 <Route path="/notifications" element={<div className="p-8 text-center text-2xl text-muted-foreground">Notifications - Coming in Phase 6</div>} />
                 <Route path="/chatrooms" element={<div className="p-8 text-center text-2xl text-muted-foreground">Chatrooms - Coming in Phase 6</div>} />
                 <Route path="/chatroom/:id" element={<div className="p-8 text-center text-2xl text-muted-foreground">Chatroom - Coming in Phase 6</div>} />
