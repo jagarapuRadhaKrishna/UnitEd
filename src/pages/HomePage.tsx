@@ -1,54 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, Filter, Users, Calendar, MessageSquare } from 'lucide-react';
+import { Search, Filter, Users, Calendar, MessageSquare, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockPosts as importedMockPosts, getUserOwnedPosts } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+interface SkillRequirement {
+  skill: string;
+  requiredCount: number;
+  acceptedCount?: number;
+}
 
 interface HomePost {
   id: string;
   title: string;
   description: string;
-  author: { id?: string; name: string; avatar?: string; type: 'Student' | 'Faculty' };
+  author: { id: string; name: string; avatar?: string; type: 'Student' | 'Faculty' };
   skills: string[];
   requiredMembers: number;
   acceptedMembers: number;
-  purpose: 'Research' | 'Project' | 'Hackathon';
+  purpose: string;
   createdAt: string;
   isOwned: boolean;
 }
-
-const mapPosts = (posts: typeof importedMockPosts): HomePost[] =>
-  posts.map(p => ({
-    id: p.id,
-    title: p.title,
-    description: p.description,
-    author: { id: p.author.id, name: p.author.name, avatar: p.author.avatar, type: p.author.type === 'faculty' ? 'Faculty' : 'Student' },
-    skills: p.skillRequirements.map(sr => sr.skill),
-    requiredMembers: p.skillRequirements.reduce((s, sr) => s + sr.requiredCount, 0),
-    acceptedMembers: p.skillRequirements.reduce((s, sr) => s + (sr.acceptedCount || 0), 0),
-    purpose: p.purpose as HomePost['purpose'],
-    createdAt: p.createdAt,
-    isOwned: false,
-  }));
-
-const mapUserPosts = (user: any): HomePost[] =>
-  getUserOwnedPosts(user).map(p => ({
-    id: p.id,
-    title: p.title,
-    description: p.description,
-    author: { id: p.author.id, name: p.author.name, avatar: p.author.avatar, type: p.author.type === 'faculty' ? 'Faculty' : 'Student' },
-    skills: p.skillRequirements.map(sr => sr.skill),
-    requiredMembers: p.skillRequirements.reduce((s, sr) => s + sr.requiredCount, 0),
-    acceptedMembers: p.skillRequirements.reduce((s, sr) => s + (sr.acceptedCount || 0), 0),
-    purpose: p.purpose as HomePost['purpose'],
-    createdAt: p.createdAt,
-    isOwned: true,
-  }));
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -58,27 +35,101 @@ const HomePage: React.FC = () => {
   const initialTab = (location.state as any)?.activeTab ?? 'all';
   const [filterTab, setFilterTab] = useState(initialTab);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [posts, setPosts] = useState<HomePost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*, profiles!posts_author_id_fkey(id, first_name, last_name, role, profile_picture_url)')
+        .in('status', ['active', 'filled'])
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        // If foreign key doesn't exist, try without join
+        const { data: plainData, error: plainError } = await supabase
+          .from('posts')
+          .select('*')
+          .in('status', ['active', 'filled'])
+          .order('created_at', { ascending: false });
+
+        if (!plainError && plainData) {
+          // Fetch author profiles separately
+          const authorIds = [...new Set(plainData.map(p => p.author_id))];
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, role, profile_picture_url')
+            .in('id', authorIds);
+
+          const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+          setPosts(plainData.map(p => {
+            const author = profileMap.get(p.author_id);
+            const reqs = (p.skill_requirements as unknown as SkillRequirement[]) || [];
+            return {
+              id: p.id,
+              title: p.title,
+              description: p.description,
+              author: {
+                id: p.author_id,
+                name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
+                avatar: author?.profile_picture_url || undefined,
+                type: author?.role === 'faculty' ? 'Faculty' : 'Student',
+              },
+              skills: reqs.map(r => r.skill),
+              requiredMembers: reqs.reduce((s, r) => s + r.requiredCount, 0),
+              acceptedMembers: reqs.reduce((s, r) => s + (r.acceptedCount || 0), 0),
+              purpose: p.purpose,
+              createdAt: p.created_at,
+              isOwned: p.author_id === user?.id,
+            };
+          }));
+        }
+      } else if (data) {
+        setPosts(data.map((p: any) => {
+          const author = p.profiles;
+          const reqs = (p.skill_requirements as unknown as SkillRequirement[]) || [];
+          return {
+            id: p.id,
+            title: p.title,
+            description: p.description,
+            author: {
+              id: p.author_id,
+              name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
+              avatar: author?.profile_picture_url || undefined,
+              type: author?.role === 'faculty' ? 'Faculty' : 'Student',
+            },
+            skills: reqs.map(r => r.skill),
+            requiredMembers: reqs.reduce((s, r) => s + r.requiredCount, 0),
+            acceptedMembers: reqs.reduce((s, r) => s + (r.acceptedCount || 0), 0),
+            purpose: p.purpose,
+            createdAt: p.created_at,
+            isOwned: p.author_id === user?.id,
+          };
+        }));
+      }
+      setLoading(false);
+    };
+
+    fetchPosts();
+  }, [user?.id]);
 
   const userSkills = user?.skills || [];
-  const allPosts = [...mapPosts(importedMockPosts), ...mapUserPosts(user)];
-  const allSkills = Array.from(new Set(allPosts.flatMap(p => p.skills)));
+  const allSkills = Array.from(new Set(posts.flatMap(p => p.skills)));
 
   const handleSkillToggle = (skill: string) => {
     setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
   };
 
-  const isMyPost = (post: HomePost) => {
-    const currentUser: any = user || JSON.parse(localStorage.getItem('user') || '{}');
-    return (currentUser.id && currentUser.id === post.author.id) ||
-      (currentUser.firstName && currentUser.lastName && `${currentUser.firstName} ${currentUser.lastName}` === post.author.name);
-  };
+  const isMyPost = (post: HomePost) => user?.id === post.author.id;
 
-  const filteredPosts = allPosts.filter(post => {
+  const filteredPosts = posts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       post.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const currentUser: any = user || {};
 
-    if (currentUser.role === 'faculty') return matchesSearch && isMyPost(post);
+    if (user?.role === 'faculty') return matchesSearch && isMyPost(post);
 
     let matchesTab = true;
     if (filterTab === 'all') matchesTab = !isMyPost(post);
@@ -92,6 +143,14 @@ const HomePage: React.FC = () => {
 
     return matchesSearch && matchesTab && matchesUserSkills;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -109,7 +168,7 @@ const HomePage: React.FC = () => {
             </p>
           </div>
           <Button onClick={() => navigate('/create-post')} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            Create Post
+            <Plus size={16} className="mr-1" /> Create Post
           </Button>
         </div>
 
@@ -194,8 +253,19 @@ const HomePage: React.FC = () => {
         {/* Posts Grid */}
         {filteredPosts.length === 0 ? (
           <Card className="p-12 text-center">
-            <h3 className="text-lg font-semibold text-muted-foreground mb-1">No posts found</h3>
-            <p className="text-sm text-muted-foreground/70">Try adjusting your filters or search terms</p>
+            <h3 className="text-lg font-semibold text-muted-foreground mb-1">
+              {posts.length === 0 ? 'No posts yet' : 'No posts found'}
+            </h3>
+            <p className="text-sm text-muted-foreground/70 mb-4">
+              {posts.length === 0
+                ? 'Be the first to create an opportunity!'
+                : 'Try adjusting your filters or search terms'}
+            </p>
+            {posts.length === 0 && (
+              <Button onClick={() => navigate('/create-post')} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <Plus size={16} className="mr-1" /> Create First Post
+              </Button>
+            )}
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -240,7 +310,7 @@ const HomePage: React.FC = () => {
                       <Button size="sm" className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground text-xs" onClick={() => navigate(`/post/${post.id}`)}>
                         View
                       </Button>
-                      {post.acceptedMembers === post.requiredMembers && (
+                      {post.acceptedMembers === post.requiredMembers && post.requiredMembers > 0 && (
                         <Button size="sm" variant="outline" className="flex-1 border-accent text-accent text-xs" onClick={() => navigate(`/chatroom/${post.id}`)}>
                           <MessageSquare size={14} className="mr-1" /> Chat
                         </Button>
