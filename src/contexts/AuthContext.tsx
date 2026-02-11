@@ -232,23 +232,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     setError(null);
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
-            role: userData.role,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-          },
-        },
-      });
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Registration failed - no user returned');
-
-      // Update the profile with all extended fields
-      const profileUpdates: Record<string, any> = {
+      // Build metadata with ALL profile fields so the trigger saves them
+      const metadata: Record<string, any> = {
+        role: userData.role,
         first_name: userData.firstName,
         middle_name: userData.middleName || null,
         last_name: userData.lastName,
@@ -260,42 +246,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       if (userData.role === 'student') {
-        profileUpdates.roll_number = userData.rollNumber || null;
-        profileUpdates.department = userData.department || null;
-        profileUpdates.year_of_graduation = userData.yearOfGraduation || null;
-        profileUpdates.experience = userData.experience?.toString() || null;
-        profileUpdates.projects = userData.projects?.filter(p => p.title).map((p, i) => ({
+        metadata.roll_number = userData.rollNumber || null;
+        metadata.department = userData.department || null;
+        metadata.year_of_graduation = userData.yearOfGraduation?.toString() || null;
+        metadata.experience = userData.experience?.toString() || null;
+        metadata.projects = userData.projects?.filter(p => p.title).map((p, i) => ({
           id: `proj_${i}`, title: p.title, description: p.description, link: p.link,
         })) || [];
-        profileUpdates.achievements = userData.achievements?.filter(a => a).map((a, i) => ({
+        metadata.achievements = userData.achievements?.filter(a => a).map((a, i) => ({
           id: `ach_${i}`, title: a,
         })) || [];
-        profileUpdates.resume_url = userData.resumeUrl || null;
+        metadata.resume_url = userData.resumeUrl || null;
       } else {
-        profileUpdates.employee_id = userData.employeeId || null;
-        profileUpdates.designation = userData.designation || null;
-        profileUpdates.date_of_joining = userData.dateOfJoining || null;
-        profileUpdates.qualification = userData.qualification || null;
-        profileUpdates.specialization = userData.specialization ? [userData.specialization] : [];
-        profileUpdates.total_experience = userData.totalExperience || null;
-        profileUpdates.teaching_experience = userData.teachingExperience || null;
-        profileUpdates.industry_experience = userData.industryExperience || null;
-        profileUpdates.projects = userData.researchProjects?.filter(p => p.title).map((p, i) => ({
+        metadata.employee_id = userData.employeeId || null;
+        metadata.designation = userData.designation || null;
+        metadata.date_of_joining = userData.dateOfJoining || null;
+        metadata.qualification = userData.qualification || null;
+        metadata.specialization = userData.specialization || null;
+        metadata.total_experience = userData.totalExperience?.toString() || null;
+        metadata.teaching_experience = userData.teachingExperience?.toString() || null;
+        metadata.industry_experience = userData.industryExperience?.toString() || null;
+        metadata.projects = userData.researchProjects?.filter(p => p.title).map((p, i) => ({
           id: `proj_${i}`, title: p.title, description: p.description, link: p.doi,
         })) || userData.projects?.filter(p => p.title).map((p, i) => ({
           id: `proj_${i}`, title: p.title, description: p.description, link: p.link,
         })) || [];
-        profileUpdates.resume_url = userData.cvUrl || null;
+        metadata.resume_url = userData.cvUrl || null;
       }
 
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('id', authData.user.id);
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-      }
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: metadata,
+        },
+      });
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Registration failed - no user returned');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Registration failed.';
       setError(msg);
