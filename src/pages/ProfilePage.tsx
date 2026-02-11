@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Edit, Save, X, MapPin, Mail, Phone, Briefcase, GraduationCap,
-  Award, ExternalLink, Plus, Trash2, Github, Linkedin, Globe, ArrowLeft, Star, Upload,
+  Award, ExternalLink, Plus, Trash2, Github, Linkedin, Globe, ArrowLeft, Star, Upload, Camera,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,26 @@ const ProfilePage: React.FC = () => {
     resume: (user as any)?.resume || '', coverLetter: (user as any)?.coverLetter || '',
   });
   const [newSkill, setNewSkill] = useState('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const filePath = `${user.id}/avatar.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from('profile-pictures')
+      .upload(filePath, file, { upsert: true });
+    if (uploadError) {
+      toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+      return;
+    }
+    const { data: { publicUrl } } = supabase.storage
+      .from('profile-pictures')
+      .getPublicUrl(filePath);
+    await updateProfile({ profilePicture: `${publicUrl}?t=${Date.now()}` });
+    toast({ title: 'Photo updated', description: 'Your profile picture has been changed.' });
+  };
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [achievementDialogOpen, setAchievementDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState({ title: '', description: '', link: '', skills: [] as string[] });
@@ -100,10 +121,19 @@ const ProfilePage: React.FC = () => {
         <Card className="mb-4">
           <CardContent className="p-5">
             <div className="flex flex-col md:flex-row gap-4 items-center md:items-start">
-              <Avatar className="h-28 w-28 border-4 border-card shadow-lg">
-                <AvatarImage src={user.profilePicture} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-28 w-28 border-4 border-card shadow-lg">
+                  <AvatarImage src={user.profilePicture} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-2xl">{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
+                </Avatar>
+                <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1.5 shadow-md hover:bg-primary/90 transition-colors"
+                >
+                  <Camera size={14} />
+                </button>
+              </div>
               <div className="flex-1 text-center md:text-left">
                 {editingSections.header ? (
                   <div className="space-y-2">

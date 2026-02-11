@@ -83,14 +83,20 @@ const AuthenticatedNavbar: React.FC = () => {
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
-    // For now, convert to data URL and save to profile
-    // TODO: migrate to Supabase Storage
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const url = reader.result as string;
-      await updateProfile({ profilePicture: url });
-    };
-    reader.readAsDataURL(file);
+    const ext = file.name.split('.').pop() || 'jpg';
+    const filePath = `${user.id}/avatar.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('profile-pictures')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) { console.error('Upload failed:', uploadError); return; }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('profile-pictures')
+      .getPublicUrl(filePath);
+
+    await updateProfile({ profilePicture: `${publicUrl}?t=${Date.now()}` });
   };
 
   const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`;
