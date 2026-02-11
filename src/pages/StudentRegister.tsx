@@ -38,8 +38,8 @@ const StudentRegister: React.FC = () => {
     setError('');
     if (!formData.firstName || !formData.lastName) { setError('First and last names are required'); return; }
     if (!formData.rollNumber || !/^A\d{11}$/.test(formData.rollNumber)) { setError('Roll number must be A followed by 11 digits'); return; }
-    if (!formData.email || !/^[a-zA-Z]+\.[0-9]{2}\.(cse|csd|aim|csc|it|ece)@anits\.edu\.in$/i.test(formData.email)) {
-      setError('Use format: firstname.YY.dept@anits.edu.in (dept: cse/csd/aim/csc/it/ece)'); return;
+    if (!formData.email || !/^[a-zA-Z]+\.[0-9]{2}\.(cse|csd|csm|aim|csc|it|ece)@anits\.edu\.in$/i.test(formData.email)) {
+      setError('Use format: firstname.YY.dept@anits.edu.in (dept: cse/csd/csm/aim/csc/it/ece)'); return;
     }
     if (!formData.department || !formData.yearOfGraduation) { setError('Department and year are required'); return; }
     if (skills.length === 0) { setError('Select at least one skill'); return; }
