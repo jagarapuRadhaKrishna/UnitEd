@@ -1,61 +1,131 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAllPosts } from '@/data/mockData';
-import { getPostApplications, updateApplicationStatus } from '@/services/applicationService';
-import type { Application } from '@/types/united';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Users, CheckCircle, XCircle, Mail, Award, Clock } from 'lucide-react';
+
+interface AppWithProfile {
+  id: string;
+  applicant_id: string;
+  status: string;
+  cover_letter: string | null;
+  applied_at: string;
+  applied_for_skill: string | null;
+  applicant: {
+    name: string;
+    email: string;
+    skills: string[];
+  };
+}
 
 const PostManagePage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-
-  const allPosts = getAllPosts(user);
-  const storedPosts = JSON.parse(localStorage.getItem('posts') || '[]');
-  const post = [...allPosts, ...storedPosts].find(p => p.id === id);
+  const [applications, setApplications] = useState<AppWithProfile[]>([]);
+  const [postTitle, setPostTitle] = useState('');
+  const [totalRequired, setTotalRequired] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) setApplications(getPostApplications(id));
+    if (!id) return;
+    const fetchData = async () => {
+      setLoading(true);
+
+      // Fetch post
+      const { data: post } = await supabase
+        .from('posts')
+        .select('title, skill_requirements')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (post) {
+        setPostTitle(post.title);
+        const reqs = (post.skill_requirements as unknown as { requiredCount: number }[]) || [];
+        setTotalRequired(reqs.reduce((s, r) => s + r.requiredCount, 0));
+      }
+
+      // Fetch applications for this post
+      const { data: apps } = await supabase
+        .from('applications')
+        .select('*')
+        .eq('post_id', id)
+        .order('applied_at', { ascending: false });
+
+      if (apps && apps.length > 0) {
+        // Fetch applicant profiles
+        const applicantIds = [...new Set(apps.map(a => a.applicant_id))];
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email, skills')
+          .in('id', applicantIds);
+
+        const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+        setApplications(apps.map(a => {
+          const profile = profileMap.get(a.applicant_id);
+          return {
+            id: a.id,
+            applicant_id: a.applicant_id,
+            status: a.status,
+            cover_letter: a.cover_letter,
+            applied_at: a.applied_at,
+            applied_for_skill: a.applied_for_skill,
+            applicant: {
+              name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Unknown',
+              email: profile?.email || '',
+              skills: profile?.skills || [],
+            },
+          };
+        }));
+      }
+      setLoading(false);
+    };
+    fetchData();
   }, [id]);
 
-  const handleStatusUpdate = (appId: string, status: 'shortlisted' | 'accepted' | 'rejected') => {
-    if (!user?.id) return;
-    try {
-      updateApplicationStatus(appId, user.id, status);
-      if (id) setApplications(getPostApplications(id));
-      toast({ title: `Application ${status}` });
-    } catch (error: any) {
+  const handleStatusUpdate = async (appId: string, status: 'shortlisted' | 'accepted' | 'rejected') => {
+    const { error } = await supabase
+      .from('applications')
+      .update({ status, reviewed_at: new Date().toISOString() })
+      .eq('id', appId);
+
+    if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
     }
+    setApplications(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
+    toast({ title: `Application ${status}` });
   };
 
   const pending = applications.filter(a => a.status === 'applied' || a.status === 'shortlisted');
   const accepted = applications.filter(a => a.status === 'accepted');
   const rejected = applications.filter(a => a.status === 'rejected');
 
-  const totalRequired = post?.skillRequirements?.reduce((s: number, r: any) => s + r.requiredCount, 0) || 0;
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-4">
       <div className="flex items-center gap-3 mb-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/applications')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/my-posts')}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Manage Applicants</h1>
-          <p className="text-muted-foreground">{post?.title || 'Post'}</p>
+          <p className="text-muted-foreground">{postTitle || 'Post'}</p>
         </div>
       </div>
 
@@ -96,8 +166,9 @@ const PostManagePage: React.FC = () => {
                 <CardContent className="p-5">
                   <div className="flex gap-3">
                     <Avatar className="h-14 w-14">
-                      <AvatarImage src={app.applicant.avatar} />
-                      <AvatarFallback className="bg-united-purple text-white font-semibold">{app.applicant.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                      <AvatarFallback className="bg-united-purple text-white font-semibold">
+                        {app.applicant.name.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -108,7 +179,7 @@ const PostManagePage: React.FC = () => {
                       </div>
                       <div className="flex gap-3 text-sm text-muted-foreground mb-2">
                         <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {app.applicant.email}</span>
-                        <span>Applied: {new Date(app.appliedAt).toLocaleDateString()}</span>
+                        <span>Applied: {new Date(app.applied_at).toLocaleDateString()}</span>
                       </div>
                       <div className="flex flex-wrap gap-1 mb-3">
                         <span className="flex items-center gap-1 text-xs text-muted-foreground mr-1"><Award className="w-3 h-3" /> Skills:</span>
@@ -116,19 +187,19 @@ const PostManagePage: React.FC = () => {
                           <Badge key={skill} variant="secondary" className="text-[10px] bg-united-purple/5 text-united-purple">{skill}</Badge>
                         ))}
                       </div>
-                      {app.coverLetter && (
+                      {app.cover_letter && (
                         <div className="bg-muted/50 rounded-lg p-3 mb-3">
-                          <p className="text-sm italic text-muted-foreground">"{app.coverLetter}"</p>
+                          <p className="text-sm italic text-muted-foreground">"{app.cover_letter}"</p>
                         </div>
                       )}
                       <div className="flex gap-2">
                         <Button size="sm" className="bg-united-green hover:bg-united-green/90" onClick={() => handleStatusUpdate(app.id, 'accepted')}>
                           <CheckCircle className="w-3.5 h-3.5 mr-1" /> Accept
                         </Button>
-                        <Button size="sm" variant="outline" className="text-united-red border-united-red/30 hover:bg-united-red/5" onClick={() => handleStatusUpdate(app.id, 'rejected')}>
+                        <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => handleStatusUpdate(app.id, 'rejected')}>
                           <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
                         </Button>
-                        <Button size="sm" variant="ghost" className="text-united-purple" onClick={() => navigate(`/candidate/${app.applicantId}`)}>
+                        <Button size="sm" variant="ghost" className="text-united-purple" onClick={() => navigate(`/candidate/${app.applicant_id}`)}>
                           View Profile
                         </Button>
                       </div>

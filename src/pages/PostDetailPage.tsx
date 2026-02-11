@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAllPosts } from '@/data/mockData';
-import { createApplication, getUserApplications } from '@/services/applicationService';
-import { createInvitation, getPostInvitations } from '@/services/invitationService';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,45 +10,120 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase, MessageSquare,
+  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase,
 } from 'lucide-react';
+
+interface SkillRequirement {
+  skill: string;
+  requiredCount: number;
+  acceptedCount?: number;
+}
+
+interface PostDetail {
+  id: string;
+  title: string;
+  description: string;
+  purpose: string;
+  status: string;
+  author_id: string;
+  skill_requirements: SkillRequirement[];
+  created_at: string;
+  current_members: number;
+  max_members: number | null;
+  author: { id: string; name: string; avatar?: string; type: string };
+  applicationCount: number;
+}
 
 const PostDetailPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [post, setPost] = useState<PostDetail | null>(null);
+  const [loading, setLoading] = useState(true);
   const [openApplyDialog, setOpenApplyDialog] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
   const [motivation, setMotivation] = useState('');
   const [experience, setExperience] = useState('');
-  const [invitedCandidateIds, setInvitedCandidateIds] = useState<Set<string>>(new Set());
-
-  const allPosts = getAllPosts(user);
-  const postData = allPosts.find(p => p.id === id);
-
-  const isAuthor = user?.id === postData?.author.id ||
-    `${user?.firstName} ${user?.lastName}` === postData?.author.name;
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user?.id && postData?.id) {
-      const userApps = getUserApplications(user.id);
-      setHasApplied(userApps.some(app => app.postId === postData.id));
-    }
-  }, [user?.id, postData?.id]);
+    if (!id) return;
+    const fetchPost = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
 
-  useEffect(() => {
-    if (isAuthor && postData?.id) {
-      const invitations = getPostInvitations(postData.id);
-      setInvitedCandidateIds(new Set(invitations.map(inv => inv.inviteeId)));
-    }
-  }, [isAuthor, postData?.id]);
+      if (error || !data) {
+        setLoading(false);
+        return;
+      }
 
-  if (!postData) {
+      // Fetch author profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, role, profile_picture_url')
+        .eq('id', data.author_id)
+        .maybeSingle();
+
+      // Count applications
+      const { count } = await supabase
+        .from('applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', id);
+
+      // Check if current user already applied
+      if (user?.id) {
+        const { data: existingApp } = await supabase
+          .from('applications')
+          .select('id')
+          .eq('post_id', id)
+          .eq('applicant_id', user.id)
+          .maybeSingle();
+        setHasApplied(!!existingApp);
+      }
+
+      const reqs = (data.skill_requirements as unknown as SkillRequirement[]) || [];
+
+      setPost({
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        purpose: data.purpose,
+        status: data.status,
+        author_id: data.author_id,
+        skill_requirements: reqs,
+        created_at: data.created_at,
+        current_members: data.current_members,
+        max_members: data.max_members,
+        author: {
+          id: data.author_id,
+          name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Unknown',
+          avatar: profile?.profile_picture_url || undefined,
+          type: profile?.role === 'faculty' ? 'Faculty' : 'Student',
+        },
+        applicationCount: count || 0,
+      });
+      setLoading(false);
+    };
+    fetchPost();
+  }, [id, user?.id]);
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!post) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h2 className="text-2xl font-bold mb-4">Post not found</h2>
@@ -61,54 +134,29 @@ const PostDetailPage: React.FC = () => {
     );
   }
 
-  const totalRequired = postData.skillRequirements.reduce((s, r) => s + r.requiredCount, 0);
-  const totalAccepted = postData.skillRequirements.reduce((s, r) => s + (r.acceptedCount || 0), 0);
+  const isAuthor = user?.id === post.author_id;
+  const totalRequired = post.skill_requirements.reduce((s, r) => s + r.requiredCount, 0);
+  const totalAccepted = post.skill_requirements.reduce((s, r) => s + (r.acceptedCount || 0), 0);
   const progress = totalRequired > 0 ? (totalAccepted / totalRequired) * 100 : 0;
 
-  const handleApply = () => {
-    if (!user?.id) return;
-    try {
-      createApplication({
-        postId: postData.id, applicantId: user.id,
-        coverLetter: motivation,
-        answers: [{ question: 'Experience', answer: experience }],
-      });
-      setHasApplied(true);
-      setOpenApplyDialog(false);
-      toast({ title: 'Application submitted!', description: 'Your application has been sent successfully.' });
-    } catch (error: any) {
+  const handleApply = async () => {
+    if (!user?.id || !id) return;
+    setSubmitting(true);
+    const { error } = await supabase.from('applications').insert({
+      post_id: id,
+      applicant_id: user.id,
+      cover_letter: motivation,
+      answers: [{ question: 'Experience', answer: experience }],
+    });
+    setSubmitting(false);
+    if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
     }
+    setHasApplied(true);
+    setOpenApplyDialog(false);
+    toast({ title: 'Application submitted!', description: 'Your application has been sent successfully.' });
   };
-
-  const handleInvite = (candidateId: string) => {
-    if (!user?.id) return;
-    try {
-      createInvitation(postData.id, user.id, candidateId);
-      setInvitedCandidateIds(prev => new Set([...prev, candidateId]));
-      toast({ title: 'Invitation sent!' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    }
-  };
-
-  // Get matched candidates for the author view
-  const getMatchedUsers = () => {
-    const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-    const postSkills = postData.skillRequirements.map(sr => sr.skill.toLowerCase());
-    return registeredUsers
-      .filter((u: any) => u.id !== user?.id)
-      .map((u: any) => {
-        const userSkills = (u.skills || []).map((s: string) => s.toLowerCase());
-        const matchCount = postSkills.filter(ps => userSkills.some((us: string) => us.includes(ps) || ps.includes(us))).length;
-        const matchScore = postSkills.length > 0 ? Math.round((matchCount / postSkills.length) * 100) : 0;
-        return { id: u.id, name: `${u.firstName} ${u.lastName}`, skills: u.skills || [], avatar: u.profilePicture, role: u.role, department: u.department, matchScore };
-      })
-      .filter((c: any) => c.matchScore > 0)
-      .sort((a: any, b: any) => b.matchScore - a.matchScore);
-  };
-
-  const matchedUsers = isAuthor ? getMatchedUsers() : [];
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-4">
@@ -116,39 +164,38 @@ const PostDetailPage: React.FC = () => {
         <ArrowLeft className="w-4 h-4 mr-2" /> Back
       </Button>
 
-      {/* Post Header */}
       <Card className="mb-6">
         <CardContent className="p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <Badge variant="secondary" className="bg-united-purple/10 text-united-purple">{postData.purpose}</Badge>
-                <Badge variant={postData.status === 'active' ? 'default' : 'secondary'}>
-                  {postData.status === 'active' ? 'Open' : postData.status}
+                <Badge variant="secondary" className="bg-united-purple/10 text-united-purple">{post.purpose}</Badge>
+                <Badge variant={post.status === 'active' ? 'default' : 'secondary'}>
+                  {post.status === 'active' ? 'Open' : post.status}
                 </Badge>
               </div>
-              <h1 className="text-2xl font-bold text-foreground mb-2">{postData.title}</h1>
-              <p className="text-muted-foreground mb-4">{postData.description}</p>
+              <h1 className="text-2xl font-bold text-foreground mb-2">{post.title}</h1>
+              <p className="text-muted-foreground mb-4">{post.description}</p>
             </div>
           </div>
 
           {/* Author */}
           <div className="flex items-center gap-3 mb-4 p-3 bg-muted/50 rounded-lg">
             <Avatar>
-              <AvatarImage src={postData.author.avatar} />
-              <AvatarFallback className="bg-united-purple text-white">{postData.author.name[0]}</AvatarFallback>
+              <AvatarImage src={post.author.avatar} />
+              <AvatarFallback className="bg-united-purple text-white">{post.author.name[0]}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-semibold text-sm">{postData.author.name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{postData.author.type}</p>
+              <p className="font-semibold text-sm">{post.author.name}</p>
+              <p className="text-xs text-muted-foreground capitalize">{post.author.type}</p>
             </div>
           </div>
 
-          {/* Stats Row */}
+          {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="w-4 h-4" />
-              <span>{new Date(postData.createdAt).toLocaleDateString()}</span>
+              <span>{new Date(post.created_at).toLocaleDateString()}</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Users className="w-4 h-4" />
@@ -156,15 +203,15 @@ const PostDetailPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Briefcase className="w-4 h-4" />
-              <span>{postData.applications.length} applications</span>
+              <span>{post.applicationCount} applications</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Target className="w-4 h-4" />
-              <span>{postData.skillRequirements.length} skills needed</span>
+              <span>{post.skill_requirements.length} skills needed</span>
             </div>
           </div>
 
-          {/* Team Progress */}
+          {/* Progress */}
           <div className="mb-4">
             <div className="flex justify-between text-sm mb-1">
               <span className="text-muted-foreground">Team Progress</span>
@@ -179,7 +226,7 @@ const PostDetailPage: React.FC = () => {
           <div className="mb-4">
             <h3 className="font-semibold mb-2 flex items-center gap-2"><Award className="w-4 h-4" /> Required Skills</h3>
             <div className="flex flex-wrap gap-2">
-              {postData.skillRequirements.map(sr => (
+              {post.skill_requirements.map(sr => (
                 <Badge key={sr.skill} variant="outline" className="bg-primary/5 border-primary/20 text-primary">
                   {sr.skill} ({sr.acceptedCount || 0}/{sr.requiredCount})
                 </Badge>
@@ -191,18 +238,17 @@ const PostDetailPage: React.FC = () => {
           <div className="flex gap-3 pt-4">
             {isAuthor ? (
               <>
-                <Button onClick={() => navigate(`/post/manage/${postData.id}`)} className="bg-united-purple hover:bg-united-purple/90">
+                <Button onClick={() => navigate(`/post/manage/${post.id}`)} className="bg-united-purple hover:bg-united-purple/90">
                   <Users className="w-4 h-4 mr-2" /> Manage Applicants
                 </Button>
-                <Button variant="outline" onClick={() => navigate(`/post/${postData.id}/candidates`)}>
+                <Button variant="outline" onClick={() => navigate(`/post/${post.id}/candidates`)}>
                   <UserCheck className="w-4 h-4 mr-2" /> View Candidates
                 </Button>
               </>
             ) : (
               <Button
                 onClick={() => setOpenApplyDialog(true)}
-                disabled={hasApplied || postData.status !== 'active'}
-                className=""
+                disabled={hasApplied || post.status !== 'active'}
               >
                 {hasApplied ? <><CheckCircle className="w-4 h-4 mr-2" /> Applied</> : <><Send className="w-4 h-4 mr-2" /> Apply Now</>}
               </Button>
@@ -211,50 +257,11 @@ const PostDetailPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Recommended Candidates (Author Only) */}
-      {isAuthor && matchedUsers.length > 0 && (
-        <Card>
-          <CardContent className="p-6">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Star className="w-5 h-5 text-united-orange" /> Recommended Candidates</h3>
-            <div className="space-y-3">
-              {matchedUsers.slice(0, 5).map((candidate: any) => (
-                <div key={candidate.id} className="flex items-center justify-between p-3 border rounded-lg hover:border-united-purple/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={candidate.avatar} />
-                      <AvatarFallback className="bg-united-purple/10 text-united-purple text-sm">{candidate.name.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium text-sm">{candidate.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{candidate.role} • {candidate.matchScore}% match</p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={invitedCandidateIds.has(candidate.id) ? 'secondary' : 'default'}
-                    disabled={invitedCandidateIds.has(candidate.id)}
-                    onClick={() => handleInvite(candidate.id)}
-                    className={invitedCandidateIds.has(candidate.id) ? '' : 'bg-united-purple hover:bg-united-purple/90'}
-                  >
-                    {invitedCandidateIds.has(candidate.id) ? 'Invited' : 'Invite'}
-                  </Button>
-                </div>
-              ))}
-            </div>
-            {matchedUsers.length > 5 && (
-              <Button variant="link" onClick={() => navigate(`/post/${postData.id}/candidates`)} className="mt-3 text-united-purple">
-                View all {matchedUsers.length} candidates →
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Apply Dialog */}
       <Dialog open={openApplyDialog} onOpenChange={setOpenApplyDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Apply for {postData.title}</DialogTitle>
+            <DialogTitle>Apply for {post.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -268,7 +275,9 @@ const PostDetailPage: React.FC = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenApplyDialog(false)}>Cancel</Button>
-            <Button onClick={handleApply} disabled={!motivation.trim()}>Submit Application</Button>
+            <Button onClick={handleApply} disabled={!motivation.trim() || submitting}>
+              {submitting ? 'Submitting...' : 'Submit Application'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
