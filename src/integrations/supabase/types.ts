@@ -14,6 +14,403 @@ export type Database = {
   }
   public: {
     Tables: {
+      applications: {
+        Row: {
+          answers: Json | null
+          applicant_id: string
+          applied_at: string
+          applied_for_skill: string | null
+          cover_letter: string | null
+          id: string
+          is_recommended: boolean | null
+          match_score: number | null
+          post_id: string
+          resume: string | null
+          reviewed_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json | null
+          applicant_id: string
+          applied_at?: string
+          applied_for_skill?: string | null
+          cover_letter?: string | null
+          id?: string
+          is_recommended?: boolean | null
+          match_score?: number | null
+          post_id: string
+          resume?: string | null
+          reviewed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json | null
+          applicant_id?: string
+          applied_at?: string
+          applied_for_skill?: string | null
+          cover_letter?: string | null
+          id?: string
+          is_recommended?: boolean | null
+          match_score?: number | null
+          post_id?: string
+          resume?: string | null
+          reviewed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatroom_members: {
+        Row: {
+          chatroom_id: string
+          id: string
+          joined_at: string
+          last_seen_at: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          chatroom_id: string
+          id?: string
+          joined_at?: string
+          last_seen_at?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          chatroom_id?: string
+          id?: string
+          joined_at?: string
+          last_seen_at?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatroom_members_chatroom_id_fkey"
+            columns: ["chatroom_id"]
+            isOneToOne: false
+            referencedRelation: "chatrooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatrooms: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          expires_at: string | null
+          id: string
+          last_activity: string
+          post_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_activity?: string
+          post_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_activity?: string
+          post_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatrooms_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_replies: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          parent_reply_id: string | null
+          thread_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          parent_reply_id?: string | null
+          thread_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          parent_reply_id?: string | null
+          thread_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_replies_parent_reply_id_fkey"
+            columns: ["parent_reply_id"]
+            isOneToOne: false
+            referencedRelation: "forum_replies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_replies_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "forum_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_threads: {
+        Row: {
+          author_id: string
+          category: string
+          content: string
+          created_at: string
+          id: string
+          is_locked: boolean | null
+          is_pinned: boolean | null
+          title: string
+          updated_at: string
+          view_count: number | null
+        }
+        Insert: {
+          author_id: string
+          category?: string
+          content: string
+          created_at?: string
+          id?: string
+          is_locked?: boolean | null
+          is_pinned?: boolean | null
+          title: string
+          updated_at?: string
+          view_count?: number | null
+        }
+        Update: {
+          author_id?: string
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_locked?: boolean | null
+          is_pinned?: boolean | null
+          title?: string
+          updated_at?: string
+          view_count?: number | null
+        }
+        Relationships: []
+      }
+      invitations: {
+        Row: {
+          created_at: string
+          id: string
+          invitee_id: string
+          inviter_id: string
+          post_id: string
+          responded_at: string | null
+          seen_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invitee_id: string
+          inviter_id: string
+          post_id: string
+          responded_at?: string | null
+          seen_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invitee_id?: string
+          inviter_id?: string
+          post_id?: string
+          responded_at?: string | null
+          seen_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          chatroom_id: string
+          content: string
+          created_at: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          read_by: string[] | null
+          sender_id: string
+          type: string
+        }
+        Insert: {
+          chatroom_id: string
+          content: string
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          read_by?: string[] | null
+          sender_id: string
+          type?: string
+        }
+        Update: {
+          chatroom_id?: string
+          content?: string
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          read_by?: string[] | null
+          sender_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_chatroom_id_fkey"
+            columns: ["chatroom_id"]
+            isOneToOne: false
+            referencedRelation: "chatrooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          link: string | null
+          message: string
+          read: boolean
+          related_chatroom_id: string | null
+          related_post_id: string | null
+          related_user_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message: string
+          read?: boolean
+          related_chatroom_id?: string | null
+          related_post_id?: string | null
+          related_user_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message?: string
+          read?: boolean
+          related_chatroom_id?: string | null
+          related_post_id?: string | null
+          related_user_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      posts: {
+        Row: {
+          author_id: string
+          chat_grace_days: number | null
+          chatroom_enabled: boolean
+          chatroom_id: string | null
+          created_at: string
+          current_members: number
+          deadline: string | null
+          description: string
+          expires_at: string | null
+          id: string
+          max_members: number | null
+          purpose: string
+          skill_requirements: Json
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          chat_grace_days?: number | null
+          chatroom_enabled?: boolean
+          chatroom_id?: string | null
+          created_at?: string
+          current_members?: number
+          deadline?: string | null
+          description: string
+          expires_at?: string | null
+          id?: string
+          max_members?: number | null
+          purpose: string
+          skill_requirements?: Json
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          chat_grace_days?: number | null
+          chatroom_enabled?: boolean
+          chatroom_id?: string | null
+          created_at?: string
+          current_members?: number
+          deadline?: string | null
+          description?: string
+          expires_at?: string | null
+          id?: string
+          max_members?: number | null
+          purpose?: string
+          skill_requirements?: Json
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           achievements: Json | null
