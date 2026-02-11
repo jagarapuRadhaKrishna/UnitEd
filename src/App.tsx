@@ -22,6 +22,7 @@ import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import CreatePostPage from "./pages/CreatePostPage";
 import PostDetailPage from "./pages/PostDetailPage";
+import EditPostPage from "./pages/EditPostPage";
 import AppliedOpportunitiesPage from "./pages/AppliedOpportunitiesPage";
 import AcceptedApplicationsPage from "./pages/AcceptedApplicationsPage";
 import InvitationsPage from "./pages/InvitationsPage";
@@ -74,6 +75,7 @@ const App = () => {
                 <Route path="/create-post" element={<CreatePostPage />} />
                 <Route path="/create-opportunity" element={<CreatePostPage />} />
                 <Route path="/post/:id" element={<PostDetailPage />} />
+                <Route path="/edit-post/:id" element={<EditPostPage />} />
                 <Route path="/my-posts" element={<MyPostsPage />} />
                 <Route path="/matched-posts" element={<SkillMatchedPostsPage />} />
                 <Route path="/applications" element={<AppliedOpportunitiesPage />} />
