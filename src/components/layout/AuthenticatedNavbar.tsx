@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Bell, User, LogOut, Settings, Camera, Menu, X, Sun, Moon } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserInvitations } from '@/services/invitationService';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,34 +27,37 @@ const navItems = [
 const AuthenticatedNavbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const { theme, setTheme } = useTheme();
   const [invitationCount, setInvitationCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
-  const [profileImage, setProfileImage] = useState(user?.profilePicture || '');
   const [mobileOpen, setMobileOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch pending invitation count from Supabase
   useEffect(() => {
-    const handleProfileUpdate = () => {
-      const stored = localStorage.getItem('currentUser');
-      if (stored) setProfileImage(JSON.parse(stored).profilePicture || '');
-    };
-    window.addEventListener('profileUpdated', handleProfileUpdate);
-    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
-  }, []);
+    if (!user?.id) { setInvitationCount(0); return; }
 
-  useEffect(() => {
-    if (user?.role === 'student' && user?.id) {
-      const load = () => {
-        const inv = getUserInvitations(user.id);
-        setInvitationCount(inv.filter(i => i.status === 'pending' || !i.seenAt).length);
-      };
-      load();
-      window.addEventListener('invitationUpdate', load);
-      return () => window.removeEventListener('invitationUpdate', load);
-    }
-  }, [user]);
+    const fetchInvCount = async () => {
+      const { count } = await supabase
+        .from('invitations')
+        .select('*', { count: 'exact', head: true })
+        .eq('invitee_id', user.id)
+        .eq('status', 'pending');
+      setInvitationCount(count || 0);
+    };
+
+    fetchInvCount();
+
+    const channel = supabase
+      .channel('navbar-invitations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invitations', filter: `invitee_id=eq.${user.id}` }, () => {
+        fetchInvCount();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   // Fetch unread notification count from Supabase
   useEffect(() => {
@@ -78,23 +80,15 @@ const AuthenticatedNavbar: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user?.id) return;
+    // For now, convert to data URL and save to profile
+    // TODO: migrate to Supabase Storage
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const url = reader.result as string;
-      setProfileImage(url);
-      const stored = localStorage.getItem('currentUser');
-      if (stored) {
-        const data = JSON.parse(stored);
-        data.profilePicture = url;
-        localStorage.setItem('currentUser', JSON.stringify(data));
-        const users = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-        const idx = users.findIndex((u: any) => u.id === data.id);
-        if (idx !== -1) { users[idx].profilePicture = url; localStorage.setItem('registeredUsers', JSON.stringify(users)); }
-        window.dispatchEvent(new Event('profileUpdated'));
-      }
+      await updateProfile({ profilePicture: url });
     };
     reader.readAsDataURL(file);
   };
@@ -173,7 +167,7 @@ const AuthenticatedNavbar: React.FC = () => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={profileImage} />
+                  <AvatarImage src={user?.profilePicture || ''} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
                 </Avatar>
               </Button>
