@@ -14,7 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          achievements: Json | null
+          bio: string | null
+          cgpa: string | null
+          contact_no: string | null
+          cover_letter: string | null
+          created_at: string
+          date_of_joining: string | null
+          department: string | null
+          designation: string | null
+          email: string | null
+          employee_id: string | null
+          experience: string | null
+          first_name: string | null
+          gender: string | null
+          github: string | null
+          id: string
+          industry_experience: number | null
+          last_name: string | null
+          leetcode: string | null
+          linkedin: string | null
+          location: string | null
+          middle_name: string | null
+          portfolio: string | null
+          profile_picture_url: string | null
+          projects: Json | null
+          qualification: string | null
+          resume_url: string | null
+          role: string
+          roll_number: string | null
+          skills: string[] | null
+          specialization: string[] | null
+          teaching_experience: number | null
+          total_experience: number | null
+          updated_at: string
+          year_of_graduation: number | null
+        }
+        Insert: {
+          achievements?: Json | null
+          bio?: string | null
+          cgpa?: string | null
+          contact_no?: string | null
+          cover_letter?: string | null
+          created_at?: string
+          date_of_joining?: string | null
+          department?: string | null
+          designation?: string | null
+          email?: string | null
+          employee_id?: string | null
+          experience?: string | null
+          first_name?: string | null
+          gender?: string | null
+          github?: string | null
+          id: string
+          industry_experience?: number | null
+          last_name?: string | null
+          leetcode?: string | null
+          linkedin?: string | null
+          location?: string | null
+          middle_name?: string | null
+          portfolio?: string | null
+          profile_picture_url?: string | null
+          projects?: Json | null
+          qualification?: string | null
+          resume_url?: string | null
+          role?: string
+          roll_number?: string | null
+          skills?: string[] | null
+          specialization?: string[] | null
+          teaching_experience?: number | null
+          total_experience?: number | null
+          updated_at?: string
+          year_of_graduation?: number | null
+        }
+        Update: {
+          achievements?: Json | null
+          bio?: string | null
+          cgpa?: string | null
+          contact_no?: string | null
+          cover_letter?: string | null
+          created_at?: string
+          date_of_joining?: string | null
+          department?: string | null
+          designation?: string | null
+          email?: string | null
+          employee_id?: string | null
+          experience?: string | null
+          first_name?: string | null
+          gender?: string | null
+          github?: string | null
+          id?: string
+          industry_experience?: number | null
+          last_name?: string | null
+          leetcode?: string | null
+          linkedin?: string | null
+          location?: string | null
+          middle_name?: string | null
+          portfolio?: string | null
+          profile_picture_url?: string | null
+          projects?: Json | null
+          qualification?: string | null
+          resume_url?: string | null
+          role?: string
+          roll_number?: string | null
+          skills?: string[] | null
+          specialization?: string[] | null
+          teaching_experience?: number | null
+          total_experience?: number | null
+          updated_at?: string
+          year_of_graduation?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
