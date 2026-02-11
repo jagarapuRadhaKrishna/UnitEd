@@ -41,8 +41,6 @@ const ProfilePage: React.FC = () => {
   const handleSave = async (section: string) => {
     try {
       await updateProfile(formData as any);
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-      localStorage.setItem('user', JSON.stringify({ ...currentUser, ...formData }));
       toggleEdit(section);
       toast({ title: 'Profile updated', description: 'Your changes have been saved.' });
       setTimeout(() => window.dispatchEvent(new Event('profileUpdated')), 100);
