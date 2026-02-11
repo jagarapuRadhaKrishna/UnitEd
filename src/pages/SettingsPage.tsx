@@ -5,21 +5,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Settings, Bell, Shield, Eye, Palette, User, Lock, LogOut } from 'lucide-react';
+import { Settings, Bell, Shield, Eye, Palette, User, Lock, LogOut, Sun, Moon, Monitor } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 const SettingsPage: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [pushNotifs, setPushNotifs] = useState(true);
   const [profilePublic, setProfilePublic] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
 
   const handleSave = () => {
     toast({ title: 'Settings saved', description: 'Your preferences have been updated.' });
@@ -94,14 +94,42 @@ const SettingsPage: React.FC = () => {
           <Card>
             <CardContent className="p-6 space-y-4">
               <h3 className="font-semibold">Appearance</h3>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="dark-mode">Dark Mode</Label>
-                  <p className="text-xs text-muted-foreground">Toggle dark theme</p>
-                </div>
-                <Switch id="dark-mode" checked={darkMode} onCheckedChange={setDarkMode} />
+              <p className="text-sm text-muted-foreground">Choose your preferred theme</p>
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => setTheme('light')}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                    theme === 'light'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-muted-foreground/30'
+                  }`}
+                >
+                  <Sun className="w-6 h-6" />
+                  <span className="text-sm font-medium">Light</span>
+                </button>
+                <button
+                  onClick={() => setTheme('dark')}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                    theme === 'dark'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-muted-foreground/30'
+                  }`}
+                >
+                  <Moon className="w-6 h-6" />
+                  <span className="text-sm font-medium">Dark</span>
+                </button>
+                <button
+                  onClick={() => setTheme('system')}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                    theme === 'system'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-muted-foreground/30'
+                  }`}
+                >
+                  <Monitor className="w-6 h-6" />
+                  <span className="text-sm font-medium">System</span>
+                </button>
               </div>
-              <Button onClick={handleSave} className="mt-2">Save Appearance</Button>
             </CardContent>
           </Card>
         </TabsContent>
