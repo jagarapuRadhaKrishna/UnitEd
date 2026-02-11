@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Trash2, Calendar, Plus } from 'lucide-react';
+import { Users, Trash2, Calendar, Plus, Edit2 } from 'lucide-react';
 
 interface SkillRequirement {
   skill: string;
@@ -171,8 +171,8 @@ const MyPostsPage: React.FC = () => {
                       <Users className="w-3.5 h-3.5 mr-1" /> View Applications
                     </Button>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/post/${post.id}`)}>
-                        View Post
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/edit-post/${post.id}`)}>
+                        <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
                       </Button>
                       <Button size="sm" variant="outline" className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => { setSelectedPostId(post.id); setDeleteDialogOpen(true); }}>
                         <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
