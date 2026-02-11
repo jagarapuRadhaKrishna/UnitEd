@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Bell, User, LogOut, Settings, Camera, Menu, X } from 'lucide-react';
+import { Bell, User, LogOut, Settings, Camera, Menu, X, Sun, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserInvitations } from '@/services/invitationService';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ const AuthenticatedNavbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [invitationCount, setInvitationCount] = useState(0);
   const [profileImage, setProfileImage] = useState(user?.profilePicture || '');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -121,6 +123,17 @@ const AuthenticatedNavbar: React.FC = () => {
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Theme Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label="Toggle theme"
+          >
+            <Sun size={20} className="rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon size={20} className="absolute rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          </Button>
+
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/notifications')}>
             <Bell size={20} />
