@@ -125,6 +125,14 @@ const HomePage: React.FC = () => {
 
   const isMyPost = (post: HomePost) => user?.id === post.author.id;
 
+  // Calculate match score for each post based on user skills
+  const getMatchScore = (post: HomePost): number => {
+    if (userSkills.length === 0 || post.skills.length === 0) return 0;
+    const lowerUserSkills = userSkills.map(s => s.toLowerCase());
+    const matched = post.skills.filter(s => lowerUserSkills.some(us => us.includes(s.toLowerCase()) || s.toLowerCase().includes(us)));
+    return Math.round((matched.length / post.skills.length) * 100);
+  };
+
   const filteredPosts = posts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       post.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -137,11 +145,13 @@ const HomePage: React.FC = () => {
       matchesTab = !isMyPost(post) && (selectedSkills.length === 0 || selectedSkills.some(s => post.skills.includes(s)));
     } else if (filterTab === 'my') matchesTab = isMyPost(post);
 
-    const matchesUserSkills = (filterTab === 'all' || filterTab === 'skill')
-      ? (userSkills.length === 0 || post.skills.some(s => userSkills.includes(s)))
-      : true;
-
-    return matchesSearch && matchesTab && matchesUserSkills;
+    return matchesSearch && matchesTab;
+  }).sort((a, b) => {
+    // In "All Posts" and "Skill-Based" tabs, sort by match score descending
+    if (filterTab === 'all' || filterTab === 'skill') {
+      return getMatchScore(b) - getMatchScore(a);
+    }
+    return 0;
   });
 
   if (loading) {
@@ -274,11 +284,22 @@ const HomePage: React.FC = () => {
               return (
                 <Card key={post.id} className="flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <CardContent className="p-4 pb-2 flex-1 space-y-2">
-                    {owned && (
-                      <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-united-amber/15 text-united-amber border border-united-amber/30">
-                        📌 My Post
-                      </span>
-                    )}
+                    <div className="flex items-center justify-between gap-1">
+                      {owned && (
+                        <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-united-amber/15 text-united-amber border border-united-amber/30">
+                          📌 My Post
+                        </span>
+                      )}
+                      {!owned && getMatchScore(post) > 0 && (
+                        <span className={`ml-auto inline-block px-2 py-0.5 text-[10px] font-bold rounded ${
+                          getMatchScore(post) >= 75 ? 'bg-united-green/15 text-united-green' :
+                          getMatchScore(post) >= 40 ? 'bg-united-amber/15 text-united-amber' :
+                          'bg-primary/10 text-primary'
+                        }`}>
+                          🎯 {getMatchScore(post)}% match
+                        </span>
+                      )}
+                    </div>
                     <div>
                       <h3 className="font-semibold text-sm leading-snug">{post.title}</h3>
                       <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -293,9 +314,12 @@ const HomePage: React.FC = () => {
                     </span>
                     <p className="text-xs text-muted-foreground line-clamp-2">{post.description}</p>
                     <div className="flex flex-wrap gap-1">
-                      {post.skills.slice(0, 3).map(skill => (
-                        <span key={skill} className="px-1.5 py-0.5 text-[10px] rounded bg-secondary text-foreground">{skill}</span>
-                      ))}
+                      {post.skills.slice(0, 3).map(skill => {
+                        const isMatched = userSkills.some(us => us.toLowerCase().includes(skill.toLowerCase()) || skill.toLowerCase().includes(us.toLowerCase()));
+                        return (
+                          <span key={skill} className={`px-1.5 py-0.5 text-[10px] rounded ${isMatched ? 'bg-accent/20 text-accent-foreground font-semibold' : 'bg-secondary text-foreground'}`}>{skill}</span>
+                        );
+                      })}
                       {post.skills.length > 3 && (
                         <span className="px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground">+{post.skills.length - 3}</span>
                       )}
