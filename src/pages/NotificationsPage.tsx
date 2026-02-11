@@ -1,61 +1,101 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserNotifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } from '@/services/notificationService';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import type { Notification } from '@/types/united';
 import {
-  Bell, CheckCheck, Trash2, Mail, MailOpen, UserPlus, MessageSquare,
-  Briefcase, CheckCircle, XCircle, Users,
+  Bell, CheckCheck, Trash2, Mail, UserPlus, MessageSquare,
+  Briefcase, CheckCircle, XCircle, Users, Loader2,
 } from 'lucide-react';
 
 const iconMap: Record<string, React.ReactNode> = {
-  application_received: <UserPlus className="w-4 h-4 text-united-blue" />,
-  application_accepted: <CheckCircle className="w-4 h-4 text-united-green" />,
-  application_rejected: <XCircle className="w-4 h-4 text-united-red" />,
-  invitation_received: <Mail className="w-4 h-4 text-united-purple" />,
-  chatroom_created: <MessageSquare className="w-4 h-4 text-united-orange" />,
-  chatroom_invite: <Users className="w-4 h-4 text-united-blue" />,
-  chatroom_expiring: <Bell className="w-4 h-4 text-united-amber" />,
-  new_message: <MessageSquare className="w-4 h-4 text-united-green" />,
-  post_filled: <Briefcase className="w-4 h-4 text-united-purple" />,
+  application_received: <UserPlus className="w-4 h-4 text-primary" />,
+  application_accepted: <CheckCircle className="w-4 h-4 text-accent-foreground" />,
+  application_rejected: <XCircle className="w-4 h-4 text-destructive" />,
+  invitation_received: <Mail className="w-4 h-4 text-primary" />,
+  chatroom_created: <MessageSquare className="w-4 h-4 text-accent-foreground" />,
+  chatroom_invite: <Users className="w-4 h-4 text-primary" />,
+  chatroom_expiring: <Bell className="w-4 h-4 text-secondary-foreground" />,
+  new_message: <MessageSquare className="w-4 h-4 text-accent-foreground" />,
+  post_filled: <Briefcase className="w-4 h-4 text-primary" />,
   post_closed: <Briefcase className="w-4 h-4 text-muted-foreground" />,
 };
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  link: string | null;
+  created_at: string;
+}
 
 const NotificationsPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const loadNotifications = () => {
-    if (user?.id) setNotifications(getUserNotifications(user.id));
+  useEffect(() => {
+    if (user?.id) fetchNotifications();
+  }, [user?.id]);
+
+  const fetchNotifications = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    setNotifications(data || []);
+    setLoading(false);
   };
 
-  useEffect(() => { loadNotifications(); }, [user?.id]);
+  // Real-time
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel('notifications-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => fetchNotifications())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const handleClick = (notif: Notification) => {
-    if (!notif.read) { markAsRead(notif.id); loadNotifications(); }
+  const handleClick = async (notif: Notification) => {
+    if (!notif.read) {
+      await supabase.from('notifications').update({ read: true }).eq('id', notif.id);
+      fetchNotifications();
+    }
     if (notif.link) navigate(notif.link);
   };
 
-  const handleMarkAllRead = () => {
-    if (user?.id) { markAllAsRead(user.id); loadNotifications(); }
+  const handleMarkAllRead = async () => {
+    if (!user?.id) return;
+    await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    fetchNotifications();
   };
 
-  const handleDeleteAll = () => {
-    if (user?.id) { deleteAllNotifications(user.id); loadNotifications(); }
+  const handleDeleteAll = async () => {
+    if (!user?.id) return;
+    await supabase.from('notifications').delete().eq('user_id', user.id);
+    fetchNotifications();
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    deleteNotification(id);
-    loadNotifications();
+    await supabase.from('notifications').delete().eq('id', id);
+    fetchNotifications();
   };
+
+  if (loading) {
+    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
@@ -104,7 +144,7 @@ const NotificationsPage: React.FC = () => {
                     {!notif.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{notif.message}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(notif.createdAt).toLocaleString()}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(notif.created_at).toLocaleString()}</p>
                 </div>
                 <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7" onClick={(e) => handleDelete(e, notif.id)}>
                   <Trash2 className="w-3 h-3 text-muted-foreground" />
