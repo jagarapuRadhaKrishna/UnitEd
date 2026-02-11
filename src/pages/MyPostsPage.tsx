@@ -1,46 +1,103 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAllPosts } from '@/data/mockData';
-import { getApplicationStats } from '@/services/applicationService';
-import type { Post } from '@/types/united';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Edit2, Trash2, Calendar, Plus } from 'lucide-react';
+import { Users, Trash2, Calendar, Plus } from 'lucide-react';
+
+interface SkillRequirement {
+  skill: string;
+  requiredCount: number;
+  acceptedCount?: number;
+}
+
+interface MyPost {
+  id: string;
+  title: string;
+  description: string;
+  purpose: string;
+  status: string;
+  skill_requirements: SkillRequirement[];
+  created_at: string;
+  applicationCount: number;
+}
 
 const MyPostsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<MyPost[]>([]);
+  const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      const allPosts = getAllPosts(user);
-      const storedPosts: Post[] = JSON.parse(localStorage.getItem('posts') || '[]');
-      const userPosts = [...allPosts, ...storedPosts].filter(
-        p => p.author.id === user.id || p.author.name === `${user.firstName} ${user.lastName}`
-      );
-      // Deduplicate
-      const seen = new Set<string>();
-      setPosts(userPosts.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; }));
-    }
-  }, [user]);
+    if (!user?.id) return;
+    const fetchMyPosts = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('author_id', user.id)
+        .order('created_at', { ascending: false });
 
-  const handleDelete = () => {
+      if (error || !data) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch application counts for all posts
+      const postIds = data.map(p => p.id);
+      const { data: apps } = await supabase
+        .from('applications')
+        .select('post_id')
+        .in('post_id', postIds.length > 0 ? postIds : ['__none__']);
+
+      const appCounts = new Map<string, number>();
+      (apps || []).forEach(a => appCounts.set(a.post_id, (appCounts.get(a.post_id) || 0) + 1));
+
+      setPosts(data.map(p => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        purpose: p.purpose,
+        status: p.status,
+        skill_requirements: (p.skill_requirements as unknown as SkillRequirement[]) || [],
+        created_at: p.created_at,
+        applicationCount: appCounts.get(p.id) || 0,
+      })));
+      setLoading(false);
+    };
+    fetchMyPosts();
+  }, [user?.id]);
+
+  const handleDelete = async () => {
     if (!selectedPostId) return;
-    const storedPosts: Post[] = JSON.parse(localStorage.getItem('posts') || '[]');
-    localStorage.setItem('posts', JSON.stringify(storedPosts.filter(p => p.id !== selectedPostId)));
+    setDeleting(true);
+    const { error } = await supabase.from('posts').delete().eq('id', selectedPostId);
+    setDeleting(false);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
     setPosts(prev => prev.filter(p => p.id !== selectedPostId));
     setDeleteDialogOpen(false);
     toast({ title: 'Post deleted' });
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -66,10 +123,9 @@ const MyPostsPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {posts.map(post => {
-            const totalRequired = post.skillRequirements.reduce((s, r) => s + r.requiredCount, 0);
-            const totalAccepted = post.skillRequirements.reduce((s, r) => s + (r.acceptedCount || 0), 0);
+            const totalRequired = post.skill_requirements.reduce((s, r) => s + r.requiredCount, 0);
+            const totalAccepted = post.skill_requirements.reduce((s, r) => s + (r.acceptedCount || 0), 0);
             const progress = totalRequired > 0 ? (totalAccepted / totalRequired) * 100 : 0;
-            const stats = getApplicationStats(post.id);
 
             return (
               <Card key={post.id} className="hover:-translate-y-1 hover:shadow-md transition-all duration-300 flex flex-col">
@@ -85,20 +141,20 @@ const MyPostsPage: React.FC = () => {
 
                   <div className="text-xs text-muted-foreground mb-2 space-y-1">
                     <p><strong>Purpose:</strong> {post.purpose}</p>
-                    <p className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(post.createdAt).toLocaleDateString()}</p>
+                    <p className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(post.created_at).toLocaleDateString()}</p>
                   </div>
 
                   <div className="flex flex-wrap gap-1 mb-3">
-                    {post.skillRequirements.slice(0, 3).map(sr => (
+                    {post.skill_requirements.slice(0, 3).map(sr => (
                       <Badge key={sr.skill} variant="outline" className="text-[10px]">{sr.skill}</Badge>
                     ))}
-                    {post.skillRequirements.length > 3 && (
-                      <Badge variant="secondary" className="text-[10px]">+{post.skillRequirements.length - 3}</Badge>
+                    {post.skill_requirements.length > 3 && (
+                      <Badge variant="secondary" className="text-[10px]">+{post.skill_requirements.length - 3}</Badge>
                     )}
                   </div>
 
                   <div className="text-xs text-muted-foreground flex gap-3 mb-3">
-                    <span><strong>{stats.total}</strong> Applications</span>
+                    <span><strong>{post.applicationCount}</strong> Applications</span>
                     <span><strong>{totalAccepted}</strong>/{totalRequired} Members</span>
                   </div>
 
@@ -115,10 +171,10 @@ const MyPostsPage: React.FC = () => {
                       <Users className="w-3.5 h-3.5 mr-1" /> View Applications
                     </Button>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/post/manage/${post.id}`)}>
-                        <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/post/${post.id}`)}>
+                        View Post
                       </Button>
-                      <Button size="sm" variant="outline" className="flex-1 text-united-red border-united-red/30 hover:bg-united-red/5" onClick={() => { setSelectedPostId(post.id); setDeleteDialogOpen(true); }}>
+                      <Button size="sm" variant="outline" className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => { setSelectedPostId(post.id); setDeleteDialogOpen(true); }}>
                         <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
                       </Button>
                     </div>
@@ -136,7 +192,9 @@ const MyPostsPage: React.FC = () => {
           <p className="text-muted-foreground">Are you sure you want to delete this post? This action cannot be undone.</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
