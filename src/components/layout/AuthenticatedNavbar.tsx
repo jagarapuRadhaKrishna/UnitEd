@@ -4,6 +4,7 @@ import { Bell, User, LogOut, Settings, Camera, Menu, X, Sun, Moon } from 'lucide
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserInvitations } from '@/services/invitationService';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,7 @@ const AuthenticatedNavbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [invitationCount, setInvitationCount] = useState(0);
+  const [notificationCount, setNotificationCount] = useState(0);
   const [profileImage, setProfileImage] = useState(user?.profilePicture || '');
   const [mobileOpen, setMobileOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,6 +56,27 @@ const AuthenticatedNavbar: React.FC = () => {
       return () => window.removeEventListener('invitationUpdate', load);
     }
   }, [user]);
+
+  // Fetch unread notification count from Supabase
+  useEffect(() => {
+    if (!user?.id) { setNotificationCount(0); return; }
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+      setNotificationCount(count || 0);
+    };
+    fetchCount();
+    const channel = supabase
+      .channel('navbar-notifications')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
+        fetchCount();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -137,9 +160,11 @@ const AuthenticatedNavbar: React.FC = () => {
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/notifications')}>
             <Bell size={20} />
-            <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
-              3
-            </span>
+            {notificationCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
+                {notificationCount}
+              </span>
+            )}
           </Button>
 
           {/* Profile Dropdown */}
