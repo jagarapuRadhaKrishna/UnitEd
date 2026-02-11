@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Plus, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { AVAILABLE_SKILLS, type SkillRequirement } from '@/types/united';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,16 +58,26 @@ const CreatePostPage: React.FC = () => {
     setErrors({});
   };
 
-  const handleSubmit = () => {
-    if (!validateStep(2)) return;
-    const newPost = {
-      id: Date.now().toString(), title, description, purpose, skillRequirements,
-      author: { id: user?.id || '', name: `${user?.firstName} ${user?.lastName}`, type: user?.role as 'student' | 'faculty' },
-      createdAt: new Date().toISOString(), applications: [], status: 'open', chatroomEnabled: false,
-    };
-    // Store in localStorage for persistence
-    const existing = JSON.parse(localStorage.getItem('userCreatedPosts') || '[]');
-    localStorage.setItem('userCreatedPosts', JSON.stringify([...existing, newPost]));
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!validateStep(2) || !user?.id) return;
+    setSubmitting(true);
+    const totalMembers = skillRequirements.reduce((s, r) => s + r.requiredCount, 0);
+    const { error } = await supabase.from('posts').insert({
+      title,
+      description,
+      purpose: purpose as string,
+      skill_requirements: skillRequirements as unknown as import('@/integrations/supabase/types').Json,
+      author_id: user.id,
+      max_members: totalMembers,
+      status: 'active',
+    });
+    setSubmitting(false);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
     toast({ title: 'Success!', description: 'Opportunity posted successfully.' });
     navigate('/home');
   };
@@ -255,8 +266,8 @@ const CreatePostPage: React.FC = () => {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/home')}>Cancel</Button>
           {activeStep === steps.length - 1 ? (
-            <Button onClick={handleSubmit} className="bg-accent hover:bg-accent/90 text-accent-foreground px-6">
-              <CheckCircle size={16} className="mr-1" /> Post Opportunity
+            <Button onClick={handleSubmit} disabled={submitting} className="bg-accent hover:bg-accent/90 text-accent-foreground px-6">
+              <CheckCircle size={16} className="mr-1" /> {submitting ? 'Posting...' : 'Post Opportunity'}
             </Button>
           ) : (
             <Button onClick={handleNext} className="bg-accent hover:bg-accent/90 text-accent-foreground">
