@@ -210,6 +210,11 @@ const PostDetailPage: React.FC = () => {
                 <UserPlus className="w-4 h-4 mr-1" /> Invite
               </Button>
             )}
+            {!isAuthor && post.status === 'active' && !hasApplied && (
+              <Button size="sm" variant="outline" onClick={() => setOpenApplyDialog(true)} className="border-united-purple text-united-purple hover:bg-united-purple/10">
+                <UserPlus className="w-4 h-4 mr-1" /> Invite
+              </Button>
+            )}
           </div>
 
           {/* Stats */}
