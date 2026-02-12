@@ -126,13 +126,91 @@ const InvitationsPage: React.FC = () => {
           type: action === 'accepted' ? 'invitation_accepted' : 'invitation_declined',
           title: action === 'accepted' ? 'Invitation Accepted! 🎉' : 'Invitation Declined',
           message: `${user?.firstName || ''} ${user?.lastName || ''} ${action} your invitation for "${inv.post_title}"`,
-          link: '/invitations',
+          link: action === 'accepted' ? '/chatrooms' : '/invitations',
           related_post_id: inv.post_id,
           related_user_id: user?.id,
         });
+
+        // If accepted, create a chatroom for the post (if one doesn't exist) and add both users
+        if (action === 'accepted') {
+          try {
+            // Check if chatroom already exists for this post
+            const { data: existingChatroom } = await supabase
+              .from('chatrooms')
+              .select('id')
+              .eq('post_id', inv.post_id)
+              .eq('status', 'active')
+              .maybeSingle();
+
+            let chatroomId: string;
+
+            if (existingChatroom) {
+              chatroomId = existingChatroom.id;
+            } else {
+              // Create new chatroom
+              const { data: newChatroom, error: crError } = await supabase
+                .from('chatrooms')
+                .insert({ post_id: inv.post_id, status: 'active' })
+                .select('id')
+                .single();
+              if (crError || !newChatroom) throw crError;
+              chatroomId = newChatroom.id;
+
+              // Add the post author (inviter) as admin
+              await supabase.from('chatroom_members').insert({
+                chatroom_id: chatroomId,
+                user_id: inv.inviter_id,
+                role: 'admin',
+              });
+
+              // Update post with chatroom reference
+              await supabase.from('posts').update({
+                chatroom_id: chatroomId,
+                chatroom_enabled: true,
+              }).eq('id', inv.post_id);
+            }
+
+            // Check if invitee is already a member
+            const { data: existingMember } = await supabase
+              .from('chatroom_members')
+              .select('id')
+              .eq('chatroom_id', chatroomId)
+              .eq('user_id', user!.id)
+              .maybeSingle();
+
+            if (!existingMember) {
+              await supabase.from('chatroom_members').insert({
+                chatroom_id: chatroomId,
+                user_id: user!.id,
+                role: 'member',
+              });
+            }
+
+            // Send welcome message
+            await supabase.from('messages').insert({
+              chatroom_id: chatroomId,
+              sender_id: user!.id,
+              content: `${user?.firstName || ''} ${user?.lastName || ''} joined the team for "${inv.post_title}" 🎉`,
+              type: 'system',
+            });
+
+            // Notify invitee about chatroom
+            await supabase.from('notifications').insert({
+              user_id: user!.id,
+              type: 'chatroom_created',
+              title: 'Chat Room Ready! 💬',
+              message: `A chat room has been created for "${inv.post_title}". Start collaborating!`,
+              link: `/chatroom/${chatroomId}`,
+              related_post_id: inv.post_id,
+              related_chatroom_id: chatroomId,
+            });
+          } catch (chatError) {
+            console.error('Error creating chatroom:', chatError);
+          }
+        }
       }
 
-      toast({ title: action === 'accepted' ? 'Invitation accepted!' : 'Invitation declined' });
+      toast({ title: action === 'accepted' ? 'Invitation accepted! Chat room created 🎉' : 'Invitation declined' });
       fetchInvitations();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
