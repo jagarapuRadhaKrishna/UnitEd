@@ -137,16 +137,22 @@ const ChatroomPage: React.FC = () => {
 
   const handleSend = async () => {
     if (!messageText.trim() || !user?.id || !id) return;
+    const text = messageText.trim();
+    setMessageText('');
     try {
       const { error } = await supabase.from('messages').insert({
         chatroom_id: id, sender_id: user.id,
-        content: messageText.trim(), type: 'text',
+        content: text, type: 'text',
       });
       if (error) throw error;
-      await supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id);
-      setMessageText('');
+      // Immediately refetch messages for instant UI update
+      await Promise.all([
+        fetchMessages(),
+        supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id),
+      ]);
     } catch (e) {
       console.error(e);
+      setMessageText(text); // Restore on error
     }
   };
 
@@ -187,7 +193,11 @@ const ChatroomPage: React.FC = () => {
       });
       if (error) throw error;
 
-      await supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id);
+      // Immediately refetch for instant UI update
+      await Promise.all([
+        fetchMessages(),
+        supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id),
+      ]);
       toast.success(`${isImage ? 'Image' : 'File'} sent!`);
     } catch (err: any) {
       console.error(err);
