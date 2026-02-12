@@ -161,8 +161,8 @@ const AuthenticatedNavbar: React.FC = () => {
           <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/notifications')}>
             <Bell size={20} />
             {notificationCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
-                {notificationCount}
+              <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[11px] font-bold rounded-full h-5 min-w-[20px] px-1 flex items-center justify-center shadow-sm border-2 border-background">
+                {notificationCount > 99 ? '99+' : notificationCount}
               </span>
             )}
           </Button>
