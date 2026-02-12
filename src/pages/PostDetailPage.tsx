@@ -46,9 +46,11 @@ const PostDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [openApplyDialog, setOpenApplyDialog] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
+  const [hasInvited, setHasInvited] = useState(false);
   const [motivation, setMotivation] = useState('');
   const [experience, setExperience] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -80,13 +82,12 @@ const PostDetailPage: React.FC = () => {
 
       // Check if current user already applied
       if (user?.id) {
-        const { data: existingApp } = await supabase
-          .from('applications')
-          .select('id')
-          .eq('post_id', id)
-          .eq('applicant_id', user.id)
-          .maybeSingle();
-        setHasApplied(!!existingApp);
+        const [appRes, invRes] = await Promise.all([
+          supabase.from('applications').select('id').eq('post_id', id).eq('applicant_id', user.id).maybeSingle(),
+          supabase.from('invitations').select('id').eq('post_id', id).eq('inviter_id', user.id).eq('invitee_id', data.author_id).in('status', ['pending', 'accepted']).maybeSingle(),
+        ]);
+        setHasApplied(!!appRes.data);
+        setHasInvited(!!invRes.data);
       }
 
       const reqs = (data.skill_requirements as unknown as SkillRequirement[]) || [];
@@ -138,6 +139,38 @@ const PostDetailPage: React.FC = () => {
   const totalRequired = post.skill_requirements.reduce((s, r) => s + r.requiredCount, 0);
   const totalAccepted = post.skill_requirements.reduce((s, r) => s + (r.acceptedCount || 0), 0);
   const progress = totalRequired > 0 ? (totalAccepted / totalRequired) * 100 : 0;
+
+  const handleInvite = async () => {
+    if (!user?.id || !id || !post) return;
+    setInviting(true);
+    try {
+      const { error } = await supabase.from('invitations').insert({
+        post_id: id,
+        inviter_id: user.id,
+        invitee_id: post.author_id,
+        status: 'pending',
+      });
+      if (error) throw error;
+
+      // Notify the post author
+      await supabase.from('notifications').insert({
+        user_id: post.author_id,
+        type: 'invitation_received',
+        title: 'New Invitation Received',
+        message: `${user?.firstName || ''} ${user?.lastName || ''} invited you to collaborate on "${post.title}"`,
+        link: '/invitations',
+        related_post_id: id,
+        related_user_id: user.id,
+      });
+
+      setHasInvited(true);
+      toast({ title: 'Invitation sent!', description: `${post.author.name} will see it in their invitations.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setInviting(false);
+    }
+  };
 
   const handleApply = async () => {
     if (!user?.id || !id) return;
@@ -210,9 +243,9 @@ const PostDetailPage: React.FC = () => {
                 <UserPlus className="w-4 h-4 mr-1" /> Invite
               </Button>
             )}
-            {!isAuthor && post.status === 'active' && !hasApplied && (
-              <Button size="sm" variant="outline" onClick={() => setOpenApplyDialog(true)} className="border-united-purple text-united-purple hover:bg-united-purple/10">
-                <UserPlus className="w-4 h-4 mr-1" /> Invite
+            {!isAuthor && post.status === 'active' && (
+              <Button size="sm" variant="outline" onClick={handleInvite} disabled={hasInvited || inviting} className="border-united-purple text-united-purple hover:bg-united-purple/10">
+                <UserPlus className="w-4 h-4 mr-1" /> {hasInvited ? 'Invited' : inviting ? 'Sending...' : 'Invite'}
               </Button>
             )}
           </div>
