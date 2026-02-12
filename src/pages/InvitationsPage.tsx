@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Mail, CheckCircle, XCircle, Clock, Calendar, Info, Loader2 } from 'lucide-react';
+import { Send, Mail, CheckCircle, XCircle, Clock, Calendar, Info, Loader2, MessageCircle } from 'lucide-react';
 
 interface InvitationItem {
   id: string;
@@ -23,6 +24,7 @@ interface InvitationItem {
 }
 
 const InvitationsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [sent, setSent] = useState<InvitationItem[]>([]);
@@ -293,6 +295,23 @@ const InvitationsPage: React.FC = () => {
                 <Button size="sm" onClick={() => handleRespond(inv.id, 'accepted')}>Accept</Button>
                 <Button size="sm" variant="outline" onClick={() => handleRespond(inv.id, 'declined')}>Decline</Button>
               </div>
+            )}
+            {inv.status === 'accepted' && (
+              <Button size="sm" onClick={async () => {
+                const { data: chatroom } = await supabase
+                  .from('chatrooms')
+                  .select('id')
+                  .eq('post_id', inv.post_id)
+                  .eq('status', 'active')
+                  .maybeSingle();
+                if (chatroom) {
+                  navigate(`/chatroom/${chatroom.id}`);
+                } else {
+                  toast({ title: 'Chat room not found', variant: 'destructive' });
+                }
+              }} className="bg-primary">
+                <MessageCircle className="w-4 h-4 mr-1" /> Go to Chat
+              </Button>
             )}
           </div>
         </div>
