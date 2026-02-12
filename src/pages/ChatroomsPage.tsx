@@ -153,7 +153,7 @@ const ChatroomsPage: React.FC = () => {
   };
 
   const getFullName = (m: MemberProfile) => {
-    return `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown';
+    return m.first_name || m.last_name || 'Unknown';
   };
 
   if (loading) {
