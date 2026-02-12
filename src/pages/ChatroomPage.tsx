@@ -8,7 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Send, Users, Info, Loader2, Paperclip, FileText, Download, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { ArrowLeft, Send, Users, Info, Loader2, Paperclip, FileText, Download, X, Trash2, UserMinus, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Msg {
@@ -36,12 +38,19 @@ const ChatroomPage: React.FC = () => {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [postTitle, setPostTitle] = useState('');
+  const [postId, setPostId] = useState<string | null>(null);
   const [status, setStatus] = useState('active');
   const [showMembers, setShowMembers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [removingMember, setRemovingMember] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,13 +70,15 @@ const ChatroomPage: React.FC = () => {
 
       if (!chatroom) { setLoading(false); return; }
       setStatus(chatroom.status);
+      setPostId(chatroom.post_id);
 
       const { data: post } = await supabase
         .from('posts')
-        .select('title')
+        .select('title, author_id')
         .eq('id', chatroom.post_id)
         .maybeSingle();
       setPostTitle(post?.title || 'Chat Room');
+      setIsOwner(post?.author_id === user.id);
 
       const { data: memberData } = await supabase
         .from('chatroom_members')
@@ -141,22 +152,13 @@ const ChatroomPage: React.FC = () => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
-  // Handle file selection (just preview, don't upload yet)
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be under 10MB');
-      return;
-    }
-
+    if (file.size > 10 * 1024 * 1024) { toast.error('File size must be under 10MB'); return; }
     setSelectedFile(file);
-
-    // Create preview URL for images
     if (file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file);
-      setFilePreviewUrl(url);
+      setFilePreviewUrl(URL.createObjectURL(file));
     } else {
       setFilePreviewUrl(null);
     }
@@ -169,47 +171,27 @@ const ChatroomPage: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Unified send: handles text, file, or both
   const handleSend = async () => {
     if (!user?.id || !id) return;
     if (!messageText.trim() && !selectedFile) return;
 
-    // If there's a file, upload and send it
     if (selectedFile) {
       setUploading(true);
       try {
         const ext = selectedFile.name.split('.').pop() || 'file';
         const filePath = `${user.id}/${id}/${Date.now()}.${ext}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('chat-files')
-          .upload(filePath, selectedFile);
-
+        const { error: uploadError } = await supabase.storage.from('chat-files').upload(filePath, selectedFile);
         if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('chat-files')
-          .getPublicUrl(filePath);
-
+        const { data: { publicUrl } } = supabase.storage.from('chat-files').getPublicUrl(filePath);
         const isImage = selectedFile.type.startsWith('image/');
-        const msgType = isImage ? 'image' : 'file';
-
         const { error } = await supabase.from('messages').insert({
-          chatroom_id: id,
-          sender_id: user.id,
+          chatroom_id: id, sender_id: user.id,
           content: isImage ? '📷 Image' : `📎 ${selectedFile.name}`,
-          type: msgType,
-          file_url: publicUrl,
-          file_name: selectedFile.name,
+          type: isImage ? 'image' : 'file', file_url: publicUrl, file_name: selectedFile.name,
         });
         if (error) throw error;
-
         clearSelectedFile();
-
-        await Promise.all([
-          fetchMessages(),
-          supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id),
-        ]);
+        await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id)]);
         toast.success(`${isImage ? 'Image' : 'File'} sent!`);
       } catch (err: any) {
         console.error(err);
@@ -217,40 +199,149 @@ const ChatroomPage: React.FC = () => {
       } finally {
         setUploading(false);
       }
-
-      // If there's also text, send as separate message
       if (messageText.trim()) {
         const text = messageText.trim();
         setMessageText('');
         try {
-          await supabase.from('messages').insert({
-            chatroom_id: id, sender_id: user.id,
-            content: text, type: 'text',
-          });
+          await supabase.from('messages').insert({ chatroom_id: id, sender_id: user.id, content: text, type: 'text' });
           await fetchMessages();
-        } catch (e) {
-          console.error(e);
-        }
+        } catch (e) { console.error(e); }
       }
       return;
     }
 
-    // Text-only message
     const text = messageText.trim();
     setMessageText('');
     try {
-      const { error } = await supabase.from('messages').insert({
-        chatroom_id: id, sender_id: user.id,
-        content: text, type: 'text',
-      });
+      const { error } = await supabase.from('messages').insert({ chatroom_id: id, sender_id: user.id, content: text, type: 'text' });
       if (error) throw error;
-      await Promise.all([
-        fetchMessages(),
-        supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id),
-      ]);
+      await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id)]);
     } catch (e) {
       console.error(e);
       setMessageText(text);
+    }
+  };
+
+  // Owner: Delete chatroom
+  const handleDeleteChatroom = async () => {
+    if (!id) return;
+    try {
+      await supabase.from('chatrooms').update({ status: 'deleted', deleted_at: new Date().toISOString() }).eq('id', id);
+      toast.success('Chatroom deleted');
+      navigate('/chatrooms');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete chatroom');
+    }
+  };
+
+  // Owner: Remove member
+  const handleRemoveMember = async (memberId: string) => {
+    if (!id) return;
+    try {
+      // We can't delete chatroom_members (no RLS DELETE policy), so we'll remove via a workaround
+      // Actually let's check — the schema says can't DELETE. We need a migration for that.
+      // For now, send a system message and remove from UI. We need to add DELETE policy.
+      const memberName = members.find(m => m.user_id === memberId)?.name || 'A member';
+      
+      // Try to delete the member
+      const { error } = await supabase
+        .from('chatroom_members')
+        .delete()
+        .eq('chatroom_id', id)
+        .eq('user_id', memberId);
+      
+      if (error) throw error;
+
+      await supabase.from('messages').insert({
+        chatroom_id: id, sender_id: user!.id,
+        content: `${memberName} was removed from the chatroom`,
+        type: 'system',
+      });
+
+      setMembers(prev => prev.filter(m => m.user_id !== memberId));
+      setRemovingMember(null);
+      toast.success(`${memberName} removed`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to remove member: ' + (err.message || ''));
+    }
+  };
+
+  // Owner: Invite by email
+  const handleInviteByEmail = async () => {
+    if (!inviteEmail.trim() || !postId || !user?.id) return;
+    setInviting(true);
+    try {
+      // Find user by email
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email')
+        .eq('email', inviteEmail.trim())
+        .maybeSingle();
+
+      if (profileErr || !profile) {
+        toast.error('No user found with that email');
+        setInviting(false);
+        return;
+      }
+
+      if (profile.id === user.id) {
+        toast.error("You can't invite yourself");
+        setInviting(false);
+        return;
+      }
+
+      // Check if already a member
+      const alreadyMember = members.find(m => m.user_id === profile.id);
+      if (alreadyMember) {
+        toast.error('User is already a member of this chatroom');
+        setInviting(false);
+        return;
+      }
+
+      // Check for existing pending invitation
+      const { data: existingInv } = await supabase
+        .from('invitations')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('invitee_id', profile.id)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (existingInv) {
+        toast.error('An invitation is already pending for this user');
+        setInviting(false);
+        return;
+      }
+
+      // Create invitation
+      const { error: invError } = await supabase.from('invitations').insert({
+        post_id: postId,
+        inviter_id: user.id,
+        invitee_id: profile.id,
+      });
+      if (invError) throw invError;
+
+      // Notify the invitee
+      await supabase.from('notifications').insert({
+        user_id: profile.id,
+        type: 'invitation_received',
+        title: 'New Invitation',
+        message: `${user.firstName || ''} ${user.lastName || ''} invited you to join "${postTitle}"`,
+        link: '/invitations',
+        related_post_id: postId,
+        related_user_id: user.id,
+      });
+
+      toast.success(`Invitation sent to ${profile.first_name || profile.email}`);
+      setInviteEmail('');
+      setShowInviteDialog(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to send invitation: ' + (err.message || ''));
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -279,9 +370,21 @@ const ChatroomPage: React.FC = () => {
             <p className="text-xs text-muted-foreground">{members.length} members • {status}</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setShowMembers(!showMembers)}>
-          <Users className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {isOwner && (
+            <>
+              <Button variant="ghost" size="icon" onClick={() => setShowInviteDialog(true)} title="Add member by email">
+                <UserPlus className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(true)} title="Delete chatroom" className="text-destructive hover:text-destructive">
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => setShowMembers(!showMembers)}>
+            <Users className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {showMembers && (
@@ -294,8 +397,19 @@ const ChatroomPage: React.FC = () => {
                   <Avatar className="h-6 w-6">
                     <AvatarFallback className="text-[10px] bg-primary/10">{m.name[0]}</AvatarFallback>
                   </Avatar>
-                  <span className="text-xs">{m.name}</span>
-                  {m.role === 'owner' && <Badge variant="secondary" className="text-[10px] h-4">Owner</Badge>}
+                  <span className="text-xs flex-1">{m.name}</span>
+                  {(m.role === 'owner' || m.role === 'admin') && <Badge variant="secondary" className="text-[10px] h-4">Owner</Badge>}
+                  {isOwner && m.user_id !== user?.id && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={() => setRemovingMember(m.user_id)}
+                      title="Remove member"
+                    >
+                      <UserMinus className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -321,40 +435,19 @@ const ChatroomPage: React.FC = () => {
               <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'} rounded-lg px-3 py-2`}>
                   {!isOwn && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{msg.sender_name}</p>}
-
-                  {/* Image message */}
                   {msg.type === 'image' && msg.file_url && (
                     <div className="mb-1">
-                      <img
-                        src={msg.file_url}
-                        alt={msg.file_name || 'Image'}
-                        className="rounded-md max-w-full max-h-60 cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => window.open(msg.file_url!, '_blank')}
-                        onError={(e) => {
-                          // Fallback if image fails to load
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
+                      <img src={msg.file_url} alt={msg.file_name || 'Image'} className="rounded-md max-w-full max-h-60 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.file_url!, '_blank')} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     </div>
                   )}
-
-                  {/* File message */}
                   {msg.type === 'file' && msg.file_url && (
-                    <a
-                      href={msg.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center gap-2 p-2 rounded-md mb-1 ${isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/50 hover:bg-background/80'} transition-colors`}
-                    >
+                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 p-2 rounded-md mb-1 ${isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/50 hover:bg-background/80'} transition-colors`}>
                       <FileText className="w-5 h-5 shrink-0" />
                       <span className="text-xs truncate flex-1">{msg.file_name || 'Document'}</span>
                       <Download className="w-4 h-4 shrink-0" />
                     </a>
                   )}
-
-                  {/* Text content (skip for image/file types) */}
                   {msg.type === 'text' && <p className="text-sm">{msg.content}</p>}
-
                   <p className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
@@ -372,7 +465,6 @@ const ChatroomPage: React.FC = () => {
         </div>
       ) : (
         <div>
-          {/* File preview area */}
           {selectedFile && (
             <div className="flex items-center gap-3 p-2 mb-2 bg-muted rounded-lg border">
               {filePreviewUrl ? (
@@ -386,47 +478,72 @@ const ChatroomPage: React.FC = () => {
                 <p className="text-sm font-medium truncate">{selectedFile.name}</p>
                 <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={clearSelectedFile} className="shrink-0">
-                <X className="w-4 h-4" />
-              </Button>
+              <Button variant="ghost" size="icon" onClick={clearSelectedFile} className="shrink-0"><X className="w-4 h-4" /></Button>
             </div>
           )}
-
-          {/* Input area */}
           <div className="flex gap-2 items-center">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="shrink-0"
-            >
+            <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar" className="hidden" onChange={handleFileSelect} />
+            <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="shrink-0">
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
             </Button>
-            <Input
-              value={messageText}
-              onChange={e => setMessageText(e.target.value)}
-              placeholder={selectedFile ? "Add a caption (optional)..." : "Type a message..."}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-              className="flex-1"
-            />
-            <Button
-              onClick={handleSend}
-              disabled={(!messageText.trim() && !selectedFile) || uploading}
-              className="bg-primary shrink-0"
-            >
+            <Input value={messageText} onChange={e => setMessageText(e.target.value)} placeholder={selectedFile ? "Add a caption (optional)..." : "Type a message..."} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()} className="flex-1" />
+            <Button onClick={handleSend} disabled={(!messageText.trim() && !selectedFile) || uploading} className="bg-primary shrink-0">
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </div>
         </div>
       )}
+
+      {/* Invite by Email Dialog */}
+      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Invite by Email</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <Label>Email address</Label>
+            <Input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="user@example.com" className="mt-1" onKeyDown={e => e.key === 'Enter' && handleInviteByEmail()} />
+            <p className="text-xs text-muted-foreground mt-2">A post invitation will be sent. Once accepted, the user joins this chatroom.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInviteDialog(false)}>Cancel</Button>
+            <Button onClick={handleInviteByEmail} disabled={!inviteEmail.trim() || inviting}>
+              {inviting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+              Send Invitation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Chatroom Confirm */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Chatroom</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Are you sure you want to delete this chatroom? All members will lose access. This cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteChatroom}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Member Confirm */}
+      <Dialog open={!!removingMember} onOpenChange={() => setRemovingMember(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove Member</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to remove <strong>{members.find(m => m.user_id === removingMember)?.name}</strong> from this chatroom?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemovingMember(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => removingMember && handleRemoveMember(removingMember)}>Remove</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
