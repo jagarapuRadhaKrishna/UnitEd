@@ -47,6 +47,7 @@ const PostDetailPage: React.FC = () => {
   const [openApplyDialog, setOpenApplyDialog] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
   const [hasInvited, setHasInvited] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
   const [motivation, setMotivation] = useState('');
   const [experience, setExperience] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -84,10 +85,11 @@ const PostDetailPage: React.FC = () => {
       if (user?.id) {
         const [appRes, invRes] = await Promise.all([
           supabase.from('applications').select('id').eq('post_id', id).eq('applicant_id', user.id).maybeSingle(),
-          supabase.from('invitations').select('id').eq('post_id', id).eq('inviter_id', user.id).eq('invitee_id', data.author_id).in('status', ['pending', 'accepted']).maybeSingle(),
+          supabase.from('invitations').select('id, status').eq('post_id', id).eq('inviter_id', user.id).eq('invitee_id', data.author_id).in('status', ['pending', 'accepted']).maybeSingle(),
         ]);
         setHasApplied(!!appRes.data);
         setHasInvited(!!invRes.data);
+        setInviteStatus(invRes.data?.status || null);
       }
 
       const reqs = (data.skill_requirements as unknown as SkillRequirement[]) || [];
@@ -244,8 +246,16 @@ const PostDetailPage: React.FC = () => {
               </Button>
             )}
             {!isAuthor && post.status === 'active' && (
-              <Button size="sm" variant="outline" onClick={handleInvite} disabled={hasInvited || inviting} className="border-united-purple text-united-purple hover:bg-united-purple/10">
-                <UserPlus className="w-4 h-4 mr-1" /> {hasInvited ? 'Invited' : inviting ? 'Sending...' : 'Invite'}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleInvite}
+                disabled={hasInvited || inviting}
+                className={`border-united-purple text-united-purple hover:bg-united-purple/10 ${inviteStatus === 'accepted' ? 'bg-green-50 border-green-500 text-green-700 hover:bg-green-100' : ''}`}
+                title={inviteStatus === 'accepted' ? 'Already Accepted' : inviteStatus === 'pending' ? 'Invitation Pending' : ''}
+              >
+                <UserPlus className="w-4 h-4 mr-1" />
+                {inviteStatus === 'accepted' ? 'Already Accepted' : hasInvited ? 'Invited' : inviting ? 'Sending...' : 'Invite'}
               </Button>
             )}
           </div>
