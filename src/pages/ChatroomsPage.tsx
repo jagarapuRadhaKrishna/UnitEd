@@ -211,7 +211,7 @@ const ChatroomsPage: React.FC = () => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
                         <p className="font-semibold text-sm truncate">
-                          {displayMembers.map(m => getFullName(m)).join(', ')}
+                          {displayMembers.map(m => getFullName(m)).join(' & ')}
                         </p>
                         <Badge variant={chat.status === 'active' ? 'default' : 'secondary'} className="text-[10px] shrink-0">{chat.status}</Badge>
                       </div>
