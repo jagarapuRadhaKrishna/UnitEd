@@ -153,6 +153,20 @@ const PostDetailPage: React.FC = () => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
       return;
     }
+
+    // Notify post author about new application
+    if (post && post.author_id !== user.id) {
+      await supabase.from('notifications').insert({
+        user_id: post.author_id,
+        type: 'application_received',
+        title: 'New Application Received',
+        message: `${user?.firstName || ''} ${user?.lastName || ''} applied for "${post.title}"`,
+        link: `/applications`,
+        related_post_id: id,
+        related_user_id: user.id,
+      });
+    }
+
     setHasApplied(true);
     setOpenApplyDialog(false);
     toast({ title: 'Application submitted!', description: 'Your application has been sent successfully.' });
