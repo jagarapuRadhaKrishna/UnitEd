@@ -182,9 +182,8 @@ const ChatroomsPage: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {chatrooms.map(chat => {
-            // Show other members (not self)
-            const otherMembers = (chat.members || []).filter(m => m.user_id !== user?.id);
-            const displayMembers = otherMembers.length > 0 ? otherMembers : chat.members;
+            // Show all members with first names
+            const displayMembers = chat.members || [];
 
             return (
               <Card key={chat.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => navigate(`/chatroom/${chat.id}`)}>
