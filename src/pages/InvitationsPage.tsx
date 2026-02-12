@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Send, Mail, CheckCircle, XCircle, Clock, Calendar, Info, Loader2, MessageCircle } from 'lucide-react';
 
@@ -20,6 +20,7 @@ interface InvitationItem {
   post_title: string;
   post_purpose: string;
   person_name: string;
+  person_avatar: string | null;
   person_skills: string[];
 }
 
@@ -59,7 +60,7 @@ const InvitationsPage: React.FC = () => {
 
       const [postsRes, profilesRes] = await Promise.all([
         supabase.from('posts').select('id, title, purpose').in('id', postIds),
-        supabase.from('profiles').select('id, first_name, last_name, skills').in('id', userIds),
+        supabase.from('profiles').select('id, first_name, last_name, skills, profile_picture_url').in('id', userIds),
       ]);
 
       const postMap: Record<string, any> = {};
@@ -86,6 +87,7 @@ const InvitationsPage: React.FC = () => {
           post_title: post?.title || 'Unknown Post',
           post_purpose: post?.purpose || '',
           person_name: person ? `${person.first_name || ''} ${person.last_name || ''}`.trim() : 'Unknown',
+          person_avatar: person?.profile_picture_url || null,
           person_skills: person?.skills || [],
         };
 
@@ -260,6 +262,7 @@ const InvitationsPage: React.FC = () => {
         <div className="flex items-start justify-between">
           <div className="flex gap-3 flex-1">
             <Avatar>
+              <AvatarImage src={inv.person_avatar || undefined} />
               <AvatarFallback className="bg-primary/10 text-primary text-sm">{inv.person_name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
