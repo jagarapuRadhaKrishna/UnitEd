@@ -112,11 +112,26 @@ const InvitationsPage: React.FC = () => {
 
   const handleRespond = async (invitationId: string, action: 'accepted' | 'declined') => {
     try {
+      const inv = received.find(i => i.id === invitationId);
       const { error } = await supabase
         .from('invitations')
         .update({ status: action, responded_at: new Date().toISOString() })
         .eq('id', invitationId);
       if (error) throw error;
+
+      // Notify the inviter about the response
+      if (inv) {
+        await supabase.from('notifications').insert({
+          user_id: inv.inviter_id,
+          type: action === 'accepted' ? 'invitation_accepted' : 'invitation_declined',
+          title: action === 'accepted' ? 'Invitation Accepted! 🎉' : 'Invitation Declined',
+          message: `${user?.firstName || ''} ${user?.lastName || ''} ${action} your invitation for "${inv.post_title}"`,
+          link: '/invitations',
+          related_post_id: inv.post_id,
+          related_user_id: user?.id,
+        });
+      }
+
       toast({ title: action === 'accepted' ? 'Invitation accepted!' : 'Invitation declined' });
       fetchInvitations();
     } catch (error: any) {
