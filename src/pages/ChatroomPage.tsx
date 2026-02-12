@@ -366,8 +366,10 @@ const ChatroomPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/chatrooms')}><ArrowLeft className="w-4 h-4" /></Button>
           <div>
-            <h2 className="font-semibold text-sm">{postTitle}</h2>
-            <p className="text-xs text-muted-foreground">{members.length} members • {status}</p>
+            <h2 className="font-semibold text-sm">
+              {members.filter(m => m.user_id !== user?.id).map(m => m.name).join(' & ') || postTitle}
+            </h2>
+            <p className="text-xs text-muted-foreground">{postTitle} • {members.length} members</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
