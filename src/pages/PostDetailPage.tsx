@@ -194,15 +194,22 @@ const PostDetailPage: React.FC = () => {
           </div>
 
           {/* Author */}
-          <div className="flex items-center gap-3 mb-4 p-3 bg-muted/50 rounded-lg">
-            <Avatar>
-              <AvatarImage src={post.author.avatar} />
-              <AvatarFallback className="bg-united-purple text-white">{post.author.name[0]}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-semibold text-sm">{post.author.name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{post.author.type}</p>
+          <div className="flex items-center justify-between mb-4 p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-3">
+              <Avatar>
+                <AvatarImage src={post.author.avatar} />
+                <AvatarFallback className="bg-united-purple text-white">{post.author.name[0]}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-semibold text-sm">{post.author.name}</p>
+                <p className="text-xs text-muted-foreground capitalize">{post.author.type}</p>
+              </div>
             </div>
+            {isAuthor && post.status === 'active' && (
+              <Button size="sm" onClick={() => navigate(`/post/${post.id}/candidates`)} className="bg-united-purple hover:bg-united-purple/90">
+                <UserPlus className="w-4 h-4 mr-1" /> Invite
+              </Button>
+            )}
           </div>
 
           {/* Stats */}
