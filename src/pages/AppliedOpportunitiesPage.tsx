@@ -148,13 +148,12 @@ const AppliedOpportunitiesPage: React.FC = () => {
 
       if (error) throw error;
 
-      // Find the application to get details for notification
       const app = receivedApps.find(a => a.id === appId);
       if (app) {
         // Send notification to the applicant
         const notifTitle = newStatus === 'accepted' ? 'Application Accepted! 🎉' : newStatus === 'rejected' ? 'Application Update' : 'Application Shortlisted';
         const notifMessage = newStatus === 'accepted'
-          ? `Your application for "${app.post_title}" has been accepted!`
+          ? `Your application for "${app.post_title}" has been accepted! You can now join the chatroom.`
           : newStatus === 'rejected'
           ? `Your application for "${app.post_title}" was not selected.`
           : `Your application for "${app.post_title}" has been shortlisted!`;
@@ -164,20 +163,81 @@ const AppliedOpportunitiesPage: React.FC = () => {
           type: `application_${newStatus}`,
           title: notifTitle,
           message: notifMessage,
-          link: `/applications`,
+          link: newStatus === 'accepted' ? '/chatrooms' : '/applications',
           related_post_id: app.post_id,
           related_user_id: user?.id,
         });
+
+        // On accept: create or join chatroom for both users
+        if (newStatus === 'accepted' && user?.id) {
+          await createOrJoinChatroom(app.post_id, user.id, app.applicant_id);
+        }
       }
 
       toast.success(`Application ${newStatus} successfully`);
-      // Refetch to update UI
       await fetchAll();
     } catch (err: any) {
       console.error('Error updating application:', err);
       toast.error('Failed to update application status');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const createOrJoinChatroom = async (postId: string, ownerId: string, applicantId: string) => {
+    try {
+      // Check if chatroom already exists for this post
+      const { data: existingChatroom } = await supabase
+        .from('chatrooms')
+        .select('id')
+        .eq('post_id', postId)
+        .maybeSingle();
+
+      let chatroomId: string;
+
+      if (existingChatroom) {
+        chatroomId = existingChatroom.id;
+      } else {
+        // Create new chatroom
+        const { data: newChatroom, error: crError } = await supabase
+          .from('chatrooms')
+          .insert({ post_id: postId, status: 'active' })
+          .select('id')
+          .single();
+        if (crError || !newChatroom) throw crError;
+        chatroomId = newChatroom.id;
+
+        // Add owner as member
+        await supabase.from('chatroom_members').insert({
+          chatroom_id: chatroomId, user_id: ownerId, role: 'owner',
+        });
+      }
+
+      // Add applicant as member (ignore if already exists)
+      const { data: existingMember } = await supabase
+        .from('chatroom_members')
+        .select('id')
+        .eq('chatroom_id', chatroomId)
+        .eq('user_id', applicantId)
+        .maybeSingle();
+
+      if (!existingMember) {
+        await supabase.from('chatroom_members').insert({
+          chatroom_id: chatroomId, user_id: applicantId, role: 'member',
+        });
+      }
+
+      // Update post with chatroom_id
+      await supabase.from('posts').update({ chatroom_id: chatroomId, chatroom_enabled: true }).eq('id', postId);
+
+      // Send system message
+      await supabase.from('messages').insert({
+        chatroom_id: chatroomId, sender_id: ownerId,
+        content: `${receivedApps.find(a => a.post_id === postId)?.applicant_name || 'A new member'} has joined the team! 🎉`,
+        type: 'system',
+      });
+    } catch (err) {
+      console.error('Error creating chatroom:', err);
     }
   };
 
