@@ -139,46 +139,50 @@ const InvitationsPage: React.FC = () => {
         if (action === 'accepted') {
           try {
             // Check if chatroom already exists for this post
-            const { data: existingChatroom } = await supabase
+            let { data: chatroom } = await supabase
               .from('chatrooms')
               .select('id')
               .eq('post_id', inv.post_id)
               .eq('status', 'active')
               .maybeSingle();
 
-            let chatroomId: string;
-
-            if (existingChatroom) {
-              chatroomId = existingChatroom.id;
-            } else {
-              // Create new chatroom
-              const { data: newChatroom, error: crError } = await supabase
+            if (!chatroom) {
+              // Create chatroom without .select() to avoid RLS race
+              const { error: crErr } = await supabase
                 .from('chatrooms')
-                .insert({ post_id: inv.post_id, status: 'active' })
+                .insert({ post_id: inv.post_id, status: 'active' });
+              if (crErr) throw crErr;
+
+              // Query separately
+              const { data: newCr } = await supabase
+                .from('chatrooms')
                 .select('id')
-                .single();
-              if (crError || !newChatroom) throw crError;
-              chatroomId = newChatroom.id;
+                .eq('post_id', inv.post_id)
+                .eq('status', 'active')
+                .maybeSingle();
+
+              if (!newCr) throw new Error('Chatroom created but not found');
+              chatroom = newCr;
 
               // Update post with chatroom reference
               await supabase.from('posts').update({
-                chatroom_id: chatroomId,
+                chatroom_id: chatroom.id,
                 chatroom_enabled: true,
               }).eq('id', inv.post_id);
             }
 
-            // Add both inviter and invitee to chatroom if not already members
+            // Add both inviter and invitee as members
             const bothUsers = [inv.inviter_id, inv.invitee_id];
             for (const uid of bothUsers) {
               const { data: existing } = await supabase
                 .from('chatroom_members')
                 .select('id')
-                .eq('chatroom_id', chatroomId)
+                .eq('chatroom_id', chatroom.id)
                 .eq('user_id', uid)
                 .maybeSingle();
               if (!existing) {
                 await supabase.from('chatroom_members').insert({
-                  chatroom_id: chatroomId,
+                  chatroom_id: chatroom.id,
                   user_id: uid,
                   role: uid === inv.inviter_id ? 'admin' : 'member',
                 });
@@ -187,7 +191,7 @@ const InvitationsPage: React.FC = () => {
 
             // Send welcome message
             await supabase.from('messages').insert({
-              chatroom_id: chatroomId,
+              chatroom_id: chatroom.id,
               sender_id: user!.id,
               content: `${user?.firstName || ''} ${user?.lastName || ''} accepted the invitation for "${inv.post_title}" 🎉 You can now chat!`,
               type: 'system',
@@ -200,9 +204,9 @@ const InvitationsPage: React.FC = () => {
                 type: 'chatroom_created',
                 title: 'Chat Room Ready! 💬',
                 message: `A chat room has been created for "${inv.post_title}". Start collaborating!`,
-                link: `/chatroom/${chatroomId}`,
+                link: `/chatroom/${chatroom.id}`,
                 related_post_id: inv.post_id,
-                related_chatroom_id: chatroomId,
+                related_chatroom_id: chatroom.id,
               });
             }
           } catch (chatError) {
