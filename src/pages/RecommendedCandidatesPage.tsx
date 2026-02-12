@@ -109,6 +109,18 @@ const RecommendedCandidatesPage: React.FC = () => {
       });
       if (error) throw error;
       setInvitedIds(prev => new Set([...prev, candidateId]));
+
+      // Send notification to the invitee
+      await supabase.from('notifications').insert({
+        user_id: candidateId,
+        type: 'invitation_received',
+        title: 'New Invitation',
+        message: `${user.firstName || ''} ${user.lastName || ''} invited you to join "${post?.title || 'a project'}"`,
+        link: '/invitations',
+        related_post_id: postId,
+        related_user_id: user.id,
+      });
+
       toast({ title: `Invitation sent to ${name}` });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
