@@ -251,11 +251,10 @@ const PostDetailPage: React.FC = () => {
                 variant="outline"
                 onClick={handleInvite}
                 disabled={hasInvited || inviting}
-                className={`border-united-purple text-united-purple hover:bg-united-purple/10 ${inviteStatus === 'accepted' ? 'bg-green-50 border-green-500 text-green-700 hover:bg-green-100' : ''}`}
-                title={inviteStatus === 'accepted' ? 'Already Accepted' : inviteStatus === 'pending' ? 'Invitation Pending' : ''}
+                className="border-united-purple/40 text-united-purple hover:bg-united-purple/10"
               >
                 <UserPlus className="w-4 h-4 mr-1" />
-                {inviteStatus === 'accepted' ? 'Already Accepted' : hasInvited ? 'Invited' : inviting ? 'Sending...' : 'Invite'}
+                {hasInvited ? 'Invited' : inviting ? 'Sending...' : 'Invite'}
               </Button>
             )}
           </div>
