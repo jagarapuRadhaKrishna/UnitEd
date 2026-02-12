@@ -24,6 +24,7 @@ interface ChatroomItem {
   last_message: string | null;
   unread_count: number;
   members: MemberProfile[];
+  is_invitation_based: boolean;
 }
 
 const ChatroomsPage: React.FC = () => {
@@ -118,6 +119,14 @@ const ChatroomsPage: React.FC = () => {
         if (!lastMsgMap[m.chatroom_id]) lastMsgMap[m.chatroom_id] = m.content;
       });
 
+      // Check which posts have accepted invitations (invitation-based chatrooms)
+      const { data: invitations } = await supabase
+        .from('invitations')
+        .select('post_id')
+        .in('post_id', postIds)
+        .eq('status', 'accepted');
+      const invitationPostIds = new Set((invitations || []).map(i => i.post_id));
+
       const items: ChatroomItem[] = rooms.map(r => ({
         id: r.id,
         post_title: postMap[r.post_id] || 'Unknown Post',
@@ -127,6 +136,7 @@ const ChatroomsPage: React.FC = () => {
         last_message: lastMsgMap[r.id] || null,
         unread_count: 0,
         members: chatroomMembersMap[r.id] || [],
+        is_invitation_based: invitationPostIds.has(r.post_id),
       }));
 
       setChatrooms(items);
@@ -182,8 +192,11 @@ const ChatroomsPage: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {chatrooms.map(chat => {
-            // Show all members with first names
-            const displayMembers = chat.members || [];
+            // Invitation-based: show both names; Application-based: show other person only
+            const displayMembers = chat.is_invitation_based
+              ? (chat.members || [])
+              : (chat.members || []).filter(m => m.user_id !== user?.id);
+            const finalDisplay = displayMembers.length > 0 ? displayMembers : (chat.members || []);
 
             return (
               <Card key={chat.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => navigate(`/chatroom/${chat.id}`)}>
@@ -191,7 +204,7 @@ const ChatroomsPage: React.FC = () => {
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     {/* Member avatars */}
                     <div className="flex -space-x-2 shrink-0">
-                      {displayMembers.slice(0, 3).map((m, i) => (
+                      {finalDisplay.slice(0, 3).map((m, i) => (
                         <Avatar key={m.user_id} className="h-10 w-10 border-2 border-background" style={{ zIndex: 3 - i }}>
                           {m.profile_picture_url ? (
                             <AvatarImage src={m.profile_picture_url} alt={getFullName(m)} />
@@ -201,16 +214,16 @@ const ChatroomsPage: React.FC = () => {
                           </AvatarFallback>
                         </Avatar>
                       ))}
-                      {displayMembers.length > 3 && (
+                      {finalDisplay.length > 3 && (
                         <Avatar className="h-10 w-10 border-2 border-background">
-                          <AvatarFallback className="text-xs bg-muted text-muted-foreground">+{displayMembers.length - 3}</AvatarFallback>
+                          <AvatarFallback className="text-xs bg-muted text-muted-foreground">+{finalDisplay.length - 3}</AvatarFallback>
                         </Avatar>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
                         <p className="font-semibold text-sm truncate">
-                          {displayMembers.map(m => getFullName(m)).join(' & ')}
+                          {finalDisplay.map(m => getFullName(m)).join(' & ')}
                         </p>
                         <Badge variant={chat.status === 'active' ? 'default' : 'secondary'} className="text-[10px] shrink-0">{chat.status}</Badge>
                       </div>
