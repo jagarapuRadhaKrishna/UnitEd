@@ -298,16 +298,39 @@ const InvitationsPage: React.FC = () => {
             )}
             {inv.status === 'accepted' && (
               <Button size="sm" onClick={async () => {
-                const { data: chatroom } = await supabase
-                  .from('chatrooms')
-                  .select('id')
-                  .eq('post_id', inv.post_id)
-                  .eq('status', 'active')
-                  .maybeSingle();
-                if (chatroom) {
+                try {
+                  // Find existing chatroom
+                  let { data: chatroom } = await supabase
+                    .from('chatrooms')
+                    .select('id')
+                    .eq('post_id', inv.post_id)
+                    .eq('status', 'active')
+                    .maybeSingle();
+
+                  // If no chatroom, create one on the fly
+                  if (!chatroom) {
+                    const { data: newCr, error: crErr } = await supabase
+                      .from('chatrooms')
+                      .insert({ post_id: inv.post_id, status: 'active' })
+                      .select('id')
+                      .single();
+                    if (crErr || !newCr) throw crErr || new Error('Failed to create chatroom');
+                    chatroom = newCr;
+
+                    // Add both users
+                    const bothIds = [inv.inviter_id, inv.invitee_id];
+                    for (const uid of bothIds) {
+                      await supabase.from('chatroom_members').insert({
+                        chatroom_id: chatroom.id,
+                        user_id: uid,
+                        role: uid === inv.inviter_id ? 'admin' : 'member',
+                      });
+                    }
+                  }
+
                   navigate(`/chatroom/${chatroom.id}`);
-                } else {
-                  toast({ title: 'Chat room not found', variant: 'destructive' });
+                } catch (err: any) {
+                  toast({ title: 'Error', description: err?.message || 'Could not open chat', variant: 'destructive' });
                 }
               }} className="bg-primary">
                 <MessageCircle className="w-4 h-4 mr-1" /> Go to Chat
