@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Send, Users, Info, Loader2, Paperclip, Image as ImageIcon, FileText, Download, X } from 'lucide-react';
+import { ArrowLeft, Send, Users, Info, Loader2, Paperclip, FileText, Download, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Msg {
@@ -40,6 +40,8 @@ const ChatroomPage: React.FC = () => {
   const [showMembers, setShowMembers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -105,12 +107,16 @@ const ChatroomPage: React.FC = () => {
 
     if (!profileMap) {
       const senderIds = [...new Set((msgs || []).map(m => m.sender_id))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .in('id', senderIds);
-      profileMap = {};
-      (profiles || []).forEach(p => { profileMap![p.id] = `${p.first_name || ''} ${p.last_name || ''}`.trim(); });
+      if (senderIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .in('id', senderIds);
+        profileMap = {};
+        (profiles || []).forEach(p => { profileMap![p.id] = `${p.first_name || ''} ${p.last_name || ''}`.trim(); });
+      } else {
+        profileMap = {};
+      }
     }
 
     setMessages((msgs || []).map(m => ({
@@ -135,8 +141,101 @@ const ChatroomPage: React.FC = () => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
+  // Handle file selection (just preview, don't upload yet)
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be under 10MB');
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Create preview URL for images
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setFilePreviewUrl(url);
+    } else {
+      setFilePreviewUrl(null);
+    }
+  };
+
+  const clearSelectedFile = () => {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Unified send: handles text, file, or both
   const handleSend = async () => {
-    if (!messageText.trim() || !user?.id || !id) return;
+    if (!user?.id || !id) return;
+    if (!messageText.trim() && !selectedFile) return;
+
+    // If there's a file, upload and send it
+    if (selectedFile) {
+      setUploading(true);
+      try {
+        const ext = selectedFile.name.split('.').pop() || 'file';
+        const filePath = `${user.id}/${id}/${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('chat-files')
+          .upload(filePath, selectedFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('chat-files')
+          .getPublicUrl(filePath);
+
+        const isImage = selectedFile.type.startsWith('image/');
+        const msgType = isImage ? 'image' : 'file';
+
+        const { error } = await supabase.from('messages').insert({
+          chatroom_id: id,
+          sender_id: user.id,
+          content: isImage ? '📷 Image' : `📎 ${selectedFile.name}`,
+          type: msgType,
+          file_url: publicUrl,
+          file_name: selectedFile.name,
+        });
+        if (error) throw error;
+
+        clearSelectedFile();
+
+        await Promise.all([
+          fetchMessages(),
+          supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id),
+        ]);
+        toast.success(`${isImage ? 'Image' : 'File'} sent!`);
+      } catch (err: any) {
+        console.error(err);
+        toast.error('Failed to upload file');
+      } finally {
+        setUploading(false);
+      }
+
+      // If there's also text, send as separate message
+      if (messageText.trim()) {
+        const text = messageText.trim();
+        setMessageText('');
+        try {
+          await supabase.from('messages').insert({
+            chatroom_id: id, sender_id: user.id,
+            content: text, type: 'text',
+          });
+          await fetchMessages();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      return;
+    }
+
+    // Text-only message
     const text = messageText.trim();
     setMessageText('');
     try {
@@ -145,70 +244,15 @@ const ChatroomPage: React.FC = () => {
         content: text, type: 'text',
       });
       if (error) throw error;
-      // Immediately refetch messages for instant UI update
       await Promise.all([
         fetchMessages(),
         supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id),
       ]);
     } catch (e) {
       console.error(e);
-      setMessageText(text); // Restore on error
+      setMessageText(text);
     }
   };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user?.id || !id) return;
-
-    // 10MB limit
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be under 10MB');
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const ext = file.name.split('.').pop() || 'file';
-      const filePath = `${user.id}/${id}/${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('chat-files')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-files')
-        .getPublicUrl(filePath);
-
-      const isImage = file.type.startsWith('image/');
-      const msgType = isImage ? 'image' : 'file';
-
-      const { error } = await supabase.from('messages').insert({
-        chatroom_id: id, sender_id: user.id,
-        content: isImage ? '📷 Image' : `📎 ${file.name}`,
-        type: msgType,
-        file_url: publicUrl,
-        file_name: file.name,
-      });
-      if (error) throw error;
-
-      // Immediately refetch for instant UI update
-      await Promise.all([
-        fetchMessages(),
-        supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id),
-      ]);
-      toast.success(`${isImage ? 'Image' : 'File'} sent!`);
-    } catch (err: any) {
-      console.error(err);
-      toast.error('Failed to upload file');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const isImageUrl = (url: string) => /\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?|$)/i.test(url);
 
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -286,6 +330,10 @@ const ChatroomPage: React.FC = () => {
                         alt={msg.file_name || 'Image'}
                         className="rounded-md max-w-full max-h-60 cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={() => window.open(msg.file_url!, '_blank')}
+                        onError={(e) => {
+                          // Fallback if image fails to load
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                       />
                     </div>
                   )}
@@ -304,7 +352,7 @@ const ChatroomPage: React.FC = () => {
                     </a>
                   )}
 
-                  {/* Text content (skip for image-only) */}
+                  {/* Text content (skip for image/file types) */}
                   {msg.type === 'text' && <p className="text-sm">{msg.content}</p>}
 
                   <p className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
@@ -323,33 +371,60 @@ const ChatroomPage: React.FC = () => {
           <Info className="w-4 h-4 inline mr-1" /> This chat room is read-only
         </div>
       ) : (
-        <div className="flex gap-2 items-center">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
-            className="hidden"
-            onChange={handleFileUpload}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="shrink-0"
-          >
-            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
-          </Button>
-          <Input
-            value={messageText}
-            onChange={e => setMessageText(e.target.value)}
-            placeholder="Type a message..."
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-            className="flex-1"
-          />
-          <Button onClick={handleSend} disabled={!messageText.trim()} className="bg-primary shrink-0">
-            <Send className="w-4 h-4" />
-          </Button>
+        <div>
+          {/* File preview area */}
+          {selectedFile && (
+            <div className="flex items-center gap-3 p-2 mb-2 bg-muted rounded-lg border">
+              {filePreviewUrl ? (
+                <img src={filePreviewUrl} alt="Preview" className="h-16 w-16 object-cover rounded-md" />
+              ) : (
+                <div className="h-16 w-16 bg-background rounded-md flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-muted-foreground" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={clearSelectedFile} className="shrink-0">
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          {/* Input area */}
+          <div className="flex gap-2 items-center">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="shrink-0"
+            >
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+            </Button>
+            <Input
+              value={messageText}
+              onChange={e => setMessageText(e.target.value)}
+              placeholder={selectedFile ? "Add a caption (optional)..." : "Type a message..."}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSend}
+              disabled={(!messageText.trim() && !selectedFile) || uploading}
+              className="bg-primary shrink-0"
+            >
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
       )}
     </div>
