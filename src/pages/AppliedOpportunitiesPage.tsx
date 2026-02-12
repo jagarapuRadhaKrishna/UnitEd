@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Users, CheckCircle, Clock, XCircle, MessageCircle, Loader2, Send, Inbox } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AppItem {
   id: string;
@@ -135,8 +136,49 @@ const AppliedOpportunitiesPage: React.FC = () => {
   const filteredSent = statusTab === 'all' ? applications : applications.filter(a => a.status === statusTab);
   const filteredReceived = statusTab === 'all' ? receivedApps : receivedApps.filter(a => a.status === statusTab);
 
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
   const handleUpdateStatus = async (appId: string, newStatus: 'accepted' | 'rejected' | 'shortlisted') => {
-    await supabase.from('applications').update({ status: newStatus, reviewed_at: new Date().toISOString() }).eq('id', appId);
+    setActionLoading(appId);
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ status: newStatus, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', appId);
+
+      if (error) throw error;
+
+      // Find the application to get details for notification
+      const app = receivedApps.find(a => a.id === appId);
+      if (app) {
+        // Send notification to the applicant
+        const notifTitle = newStatus === 'accepted' ? 'Application Accepted! 🎉' : newStatus === 'rejected' ? 'Application Update' : 'Application Shortlisted';
+        const notifMessage = newStatus === 'accepted'
+          ? `Your application for "${app.post_title}" has been accepted!`
+          : newStatus === 'rejected'
+          ? `Your application for "${app.post_title}" was not selected.`
+          : `Your application for "${app.post_title}" has been shortlisted!`;
+
+        await supabase.from('notifications').insert({
+          user_id: app.applicant_id,
+          type: `application_${newStatus}`,
+          title: notifTitle,
+          message: notifMessage,
+          link: `/applications`,
+          related_post_id: app.post_id,
+          related_user_id: user?.id,
+        });
+      }
+
+      toast.success(`Application ${newStatus} successfully`);
+      // Refetch to update UI
+      await fetchAll();
+    } catch (err: any) {
+      console.error('Error updating application:', err);
+      toast.error('Failed to update application status');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   if (loading) {
@@ -243,13 +285,19 @@ const AppliedOpportunitiesPage: React.FC = () => {
                     </Badge>
                     {app.status === 'applied' && (
                       <div className="flex gap-1">
-                        <Button size="sm" variant="outline" className="text-united-green border-united-green/30 hover:bg-united-green/10" onClick={() => handleUpdateStatus(app.id, 'accepted')}>
-                          <CheckCircle className="w-3.5 h-3.5 mr-1" /> Accept
+                        <Button size="sm" variant="outline" disabled={actionLoading === app.id} className="text-united-green border-united-green/30 hover:bg-united-green/10" onClick={() => handleUpdateStatus(app.id, 'accepted')}>
+                          {actionLoading === app.id ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5 mr-1" />} Accept
                         </Button>
-                        <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleUpdateStatus(app.id, 'rejected')}>
-                          <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                        <Button size="sm" variant="outline" disabled={actionLoading === app.id} className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleUpdateStatus(app.id, 'rejected')}>
+                          {actionLoading === app.id ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <XCircle className="w-3.5 h-3.5 mr-1" />} Reject
                         </Button>
                       </div>
+                    )}
+                    {app.status === 'accepted' && (
+                      <span className="text-xs text-united-green font-medium">✓ Accepted</span>
+                    )}
+                    {app.status === 'rejected' && (
+                      <span className="text-xs text-destructive font-medium">✗ Rejected</span>
                     )}
                   </div>
                 </div>
