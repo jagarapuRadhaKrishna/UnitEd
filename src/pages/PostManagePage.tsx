@@ -91,7 +91,7 @@ const PostManagePage: React.FC = () => {
     fetchData();
   }, [id]);
 
-  const handleStatusUpdate = async (appId: string, status: 'shortlisted' | 'accepted' | 'rejected') => {
+  const handleStatusUpdate = async (appId: string, applicantId: string, status: 'shortlisted' | 'accepted' | 'rejected') => {
     const { error } = await supabase
       .from('applications')
       .update({ status, reviewed_at: new Date().toISOString() })
@@ -103,6 +103,88 @@ const PostManagePage: React.FC = () => {
     }
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
     toast({ title: `Application ${status}` });
+
+    // If accepted, add applicant to the chatroom
+    if (status === 'accepted' && id) {
+      try {
+        // Check if chatroom already exists for this post
+        const { data: existingChatroom } = await supabase
+          .from('chatrooms')
+          .select('id')
+          .eq('post_id', id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        let chatroomId: string;
+
+        if (existingChatroom) {
+          chatroomId = existingChatroom.id;
+        } else {
+          // Create new chatroom
+          const { data: newChatroom, error: crError } = await supabase
+            .from('chatrooms')
+            .insert({ post_id: id, status: 'active' })
+            .select('id')
+            .single();
+          if (crError || !newChatroom) throw crError;
+          chatroomId = newChatroom.id;
+
+          // Add post author as admin
+          await supabase.from('chatroom_members').insert({
+            chatroom_id: chatroomId,
+            user_id: user!.id,
+            role: 'admin',
+          });
+
+          // Update post with chatroom reference
+          await supabase.from('posts').update({
+            chatroom_id: chatroomId,
+            chatroom_enabled: true,
+          }).eq('id', id);
+        }
+
+        // Check if applicant is already a member
+        const { data: existingMember } = await supabase
+          .from('chatroom_members')
+          .select('id')
+          .eq('chatroom_id', chatroomId)
+          .eq('user_id', applicantId)
+          .maybeSingle();
+
+        if (!existingMember) {
+          await supabase.from('chatroom_members').insert({
+            chatroom_id: chatroomId,
+            user_id: applicantId,
+            role: 'member',
+          });
+        }
+
+        // Get applicant name for system message
+        const app = applications.find(a => a.id === appId);
+        const applicantName = app?.applicant.name || 'A new member';
+
+        // Send system message
+        await supabase.from('messages').insert({
+          chatroom_id: chatroomId,
+          sender_id: user!.id,
+          content: `${applicantName} has been accepted and joined the team! 🎉`,
+          type: 'system',
+        });
+
+        // Notify the applicant
+        await supabase.from('notifications').insert({
+          user_id: applicantId,
+          type: 'application_accepted',
+          title: 'Application Accepted! 🎉',
+          message: `Your application for "${postTitle}" has been accepted. A chat room is ready!`,
+          link: `/chatroom/${chatroomId}`,
+          related_post_id: id,
+          related_chatroom_id: chatroomId,
+        });
+      } catch (chatError) {
+        console.error('Error adding to chatroom:', chatError);
+      }
+    }
   };
 
   const pending = applications.filter(a => a.status === 'applied' || a.status === 'shortlisted');
@@ -193,10 +275,10 @@ const PostManagePage: React.FC = () => {
                         </div>
                       )}
                       <div className="flex gap-2">
-                        <Button size="sm" className="bg-united-green hover:bg-united-green/90" onClick={() => handleStatusUpdate(app.id, 'accepted')}>
+                        <Button size="sm" className="bg-united-green hover:bg-united-green/90" onClick={() => handleStatusUpdate(app.id, app.applicant_id, 'accepted')}>
                           <CheckCircle className="w-3.5 h-3.5 mr-1" /> Accept
                         </Button>
-                        <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => handleStatusUpdate(app.id, 'rejected')}>
+                        <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => handleStatusUpdate(app.id, app.applicant_id, 'rejected')}>
                           <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
                         </Button>
                         <Button size="sm" variant="ghost" className="text-united-purple" onClick={() => navigate(`/candidate/${app.applicant_id}`)}>

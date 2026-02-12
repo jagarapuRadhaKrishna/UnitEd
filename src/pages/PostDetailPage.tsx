@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase,
+  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase, UserPlus,
 } from 'lucide-react';
 
 interface SkillRequirement {
@@ -254,6 +254,9 @@ const PostDetailPage: React.FC = () => {
               <>
                 <Button onClick={() => navigate(`/post/manage/${post.id}`)} className="bg-united-purple hover:bg-united-purple/90">
                   <Users className="w-4 h-4 mr-2" /> Manage Applicants
+                </Button>
+                <Button onClick={() => navigate(`/post/${post.id}/candidates`)} className="bg-primary">
+                  <UserPlus className="w-4 h-4 mr-2" /> Invite
                 </Button>
                 <Button variant="outline" onClick={() => navigate(`/post/${post.id}/candidates`)}>
                   <UserCheck className="w-4 h-4 mr-2" /> View Candidates
