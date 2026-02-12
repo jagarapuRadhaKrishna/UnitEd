@@ -43,7 +43,11 @@ const NotificationsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.id) fetchNotifications();
+    if (user?.id) {
+      fetchNotifications();
+      // Mark all as read when opening the page
+      supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false).then();
+    }
   }, [user?.id]);
 
   const fetchNotifications = async () => {
