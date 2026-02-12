@@ -33,6 +33,8 @@ interface RecentApplication {
   applied_at: string;
   post_title: string;
   post_id: string;
+  type: 'sent' | 'received';
+  applicant_name?: string;
 }
 
 const DashboardPage: React.FC = () => {
@@ -107,13 +109,46 @@ const DashboardPage: React.FC = () => {
         applicationCount: appCountMap.get(p.id) || 0,
       })));
 
-      setRecentApplications(apps.slice(0, 5).map(a => ({
-        id: a.id,
-        status: a.status,
-        applied_at: a.applied_at,
+      // Build recent applications: combine sent + received
+      const sentApps: RecentApplication[] = apps.slice(0, 5).map(a => ({
+        id: a.id, status: a.status, applied_at: a.applied_at,
         post_title: postTitleMap.get(a.post_id) || 'Unknown Post',
-        post_id: a.post_id,
-      })));
+        post_id: a.post_id, type: 'sent' as const,
+      }));
+
+      // Get received applications with applicant names
+      let receivedAppsList: RecentApplication[] = [];
+      if (receivedApps.length > 0 && postIds.length > 0) {
+        const { data: receivedFull } = await supabase
+          .from('applications')
+          .select('id, status, applied_at, post_id, applicant_id')
+          .in('post_id', postIds)
+          .order('applied_at', { ascending: false })
+          .limit(5);
+        if (receivedFull && receivedFull.length > 0) {
+          const applicantIds = [...new Set(receivedFull.map(a => a.applicant_id))];
+          const { data: applicantProfiles } = await supabase
+            .from('profiles').select('id, first_name, last_name').in('id', applicantIds);
+          const nameMap = new Map<string, string>();
+          (applicantProfiles || []).forEach(p => nameMap.set(p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()));
+
+          const postTitleMapFull = new Map<string, string>();
+          posts.forEach(p => postTitleMapFull.set(p.id, p.title));
+
+          receivedAppsList = receivedFull.map(a => ({
+            id: a.id, status: a.status, applied_at: a.applied_at,
+            post_title: postTitleMapFull.get(a.post_id) || 'Unknown Post',
+            post_id: a.post_id, type: 'received' as const,
+            applicant_name: nameMap.get(a.applicant_id) || 'Unknown',
+          }));
+        }
+      }
+
+      // Merge and sort by date
+      const allApps = [...sentApps, ...receivedAppsList]
+        .sort((a, b) => new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime())
+        .slice(0, 5);
+      setRecentApplications(allApps);
 
       setLoading(false);
     };
@@ -327,20 +362,26 @@ const DashboardPage: React.FC = () => {
               </div>
               {recentApplications.length > 0 ? (
                 <div className="space-y-3">
-                  {recentApplications.map(app => (
+              {recentApplications.map(app => (
                     <div
                       key={app.id}
                       className="p-3 rounded-lg border border-border hover:border-accent/30 cursor-pointer transition-colors"
                       onClick={() => navigate(`/post/${app.post_id}`)}
                     >
                       <div className="flex items-start justify-between mb-1">
-                        <h3 className="font-medium text-sm text-foreground line-clamp-1">{app.post_title}</h3>
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <Badge variant="outline" className={`text-[9px] shrink-0 ${app.type === 'received' ? 'bg-accent/10 text-accent border-accent/20' : 'bg-secondary text-secondary-foreground border-secondary'}`}>
+                            {app.type === 'received' ? '📥 Received' : '📤 Sent'}
+                          </Badge>
+                          <h3 className="font-medium text-sm text-foreground line-clamp-1">{app.post_title}</h3>
+                        </div>
                         <Badge className={`text-[10px] ml-2 shrink-0 border-0 ${statusColor(app.status)}`}>
                           {app.status}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Applied {new Date(app.applied_at).toLocaleDateString()}
+                        {app.type === 'received' ? `From ${app.applicant_name} · ` : ''}
+                        {new Date(app.applied_at).toLocaleDateString()}
                       </p>
                     </div>
                   ))}
