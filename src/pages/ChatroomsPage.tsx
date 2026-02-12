@@ -5,7 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageSquare, Users, Clock, ArrowRight, Loader2 } from 'lucide-react';
+
+interface MemberProfile {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  profile_picture_url: string | null;
+}
 
 interface ChatroomItem {
   id: string;
@@ -15,6 +23,7 @@ interface ChatroomItem {
   member_count: number;
   last_message: string | null;
   unread_count: number;
+  members: MemberProfile[];
 }
 
 const ChatroomsPage: React.FC = () => {
@@ -31,7 +40,6 @@ const ChatroomsPage: React.FC = () => {
     if (!user?.id) return;
     setLoading(true);
     try {
-      // Get chatrooms user is a member of
       const { data: memberships } = await supabase
         .from('chatroom_members')
         .select('chatroom_id')
@@ -45,7 +53,6 @@ const ChatroomsPage: React.FC = () => {
 
       const chatroomIds = memberships.map(m => m.chatroom_id);
 
-      // Get chatroom details with post titles
       const { data: rooms } = await supabase
         .from('chatrooms')
         .select('id, status, last_activity, post_id')
@@ -64,18 +71,39 @@ const ChatroomsPage: React.FC = () => {
         .from('posts')
         .select('id, title')
         .in('id', postIds);
-
       const postMap: Record<string, string> = {};
       (posts || []).forEach(p => { postMap[p.id] = p.title; });
 
-      // Get member counts
+      // Get all members for these chatrooms
       const { data: allMembers } = await supabase
         .from('chatroom_members')
-        .select('chatroom_id')
+        .select('chatroom_id, user_id')
         .in('chatroom_id', chatroomIds);
 
+      // Get unique member IDs and fetch profiles
+      const allMemberIds = [...new Set((allMembers || []).map(m => m.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, profile_picture_url')
+        .in('id', allMemberIds);
+
+      const profileMap: Record<string, { first_name: string | null; last_name: string | null; profile_picture_url: string | null }> = {};
+      (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
+      // Build member lists per chatroom
+      const chatroomMembersMap: Record<string, MemberProfile[]> = {};
       const memberCountMap: Record<string, number> = {};
-      (allMembers || []).forEach(m => { memberCountMap[m.chatroom_id] = (memberCountMap[m.chatroom_id] || 0) + 1; });
+      (allMembers || []).forEach(m => {
+        memberCountMap[m.chatroom_id] = (memberCountMap[m.chatroom_id] || 0) + 1;
+        if (!chatroomMembersMap[m.chatroom_id]) chatroomMembersMap[m.chatroom_id] = [];
+        const prof = profileMap[m.user_id];
+        chatroomMembersMap[m.chatroom_id].push({
+          user_id: m.user_id,
+          first_name: prof?.first_name || null,
+          last_name: prof?.last_name || null,
+          profile_picture_url: prof?.profile_picture_url || null,
+        });
+      });
 
       // Get last messages
       const { data: lastMessages } = await supabase
@@ -98,6 +126,7 @@ const ChatroomsPage: React.FC = () => {
         member_count: memberCountMap[r.id] || 0,
         last_message: lastMsgMap[r.id] || null,
         unread_count: 0,
+        members: chatroomMembersMap[r.id] || [],
       }));
 
       setChatrooms(items);
@@ -118,6 +147,14 @@ const ChatroomsPage: React.FC = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
+
+  const getInitials = (first: string | null, last: string | null) => {
+    return `${(first || '')[0] || ''}${(last || '')[0] || ''}`.toUpperCase() || '?';
+  };
+
+  const getFullName = (m: MemberProfile) => {
+    return `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown';
+  };
 
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -144,35 +181,58 @@ const ChatroomsPage: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-3">
-          {chatrooms.map(chat => (
-            <Card key={chat.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => navigate(`/chatroom/${chat.id}`)}>
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <MessageSquare className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-semibold text-sm truncate">{chat.post_title}</p>
-                      <Badge variant={chat.status === 'active' ? 'default' : 'secondary'} className="text-[10px]">{chat.status}</Badge>
+          {chatrooms.map(chat => {
+            // Show other members (not self)
+            const otherMembers = chat.members.filter(m => m.user_id !== user?.id);
+            const displayMembers = otherMembers.length > 0 ? otherMembers : chat.members;
+
+            return (
+              <Card key={chat.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => navigate(`/chatroom/${chat.id}`)}>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {/* Member avatars */}
+                    <div className="flex -space-x-2 shrink-0">
+                      {displayMembers.slice(0, 3).map((m, i) => (
+                        <Avatar key={m.user_id} className="h-10 w-10 border-2 border-background" style={{ zIndex: 3 - i }}>
+                          {m.profile_picture_url ? (
+                            <AvatarImage src={m.profile_picture_url} alt={getFullName(m)} />
+                          ) : null}
+                          <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                            {getInitials(m.first_name, m.last_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {displayMembers.length > 3 && (
+                        <Avatar className="h-10 w-10 border-2 border-background">
+                          <AvatarFallback className="text-xs bg-muted text-muted-foreground">+{displayMembers.length - 3}</AvatarFallback>
+                        </Avatar>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {chat.last_message ? chat.last_message.substring(0, 60) : 'No messages yet'}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="font-semibold text-sm truncate">
+                          {displayMembers.map(m => getFullName(m)).join(', ')}
+                        </p>
+                        <Badge variant={chat.status === 'active' ? 'default' : 'secondary'} className="text-[10px] shrink-0">{chat.status}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {chat.post_title} • {chat.last_message ? chat.last_message.substring(0, 50) : 'No messages yet'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0 ml-3">
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Users className="w-3 h-3" /> {chat.member_count}
+                  <div className="flex items-center gap-3 shrink-0 ml-3">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Users className="w-3 h-3" /> {chat.member_count}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="w-3 h-3" /> {new Date(chat.last_activity).toLocaleDateString()}
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" /> {new Date(chat.last_activity).toLocaleDateString()}
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
