@@ -183,7 +183,7 @@ const ChatroomsPage: React.FC = () => {
         <div className="space-y-3">
           {chatrooms.map(chat => {
             // Show other members (not self)
-            const otherMembers = chat.members.filter(m => m.user_id !== user?.id);
+            const otherMembers = (chat.members || []).filter(m => m.user_id !== user?.id);
             const displayMembers = otherMembers.length > 0 ? otherMembers : chat.members;
 
             return (
