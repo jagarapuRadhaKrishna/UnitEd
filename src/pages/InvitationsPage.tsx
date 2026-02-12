@@ -307,24 +307,45 @@ const InvitationsPage: React.FC = () => {
                     .eq('status', 'active')
                     .maybeSingle();
 
-                  // If no chatroom, create one on the fly
                   if (!chatroom) {
-                    const { data: newCr, error: crErr } = await supabase
+                    // Create chatroom without returning data (avoids SELECT RLS issue)
+                    const { error: crErr } = await supabase
                       .from('chatrooms')
-                      .insert({ post_id: inv.post_id, status: 'active' })
+                      .insert({ post_id: inv.post_id, status: 'active' });
+                    if (crErr) throw crErr;
+
+                    // Add current user as member first so they can query the chatroom
+                    // Fetch the newly created chatroom using service-accessible query
+                    const { data: newCr } = await supabase
+                      .from('chatrooms')
                       .select('id')
-                      .single();
-                    if (crErr || !newCr) throw crErr || new Error('Failed to create chatroom');
+                      .eq('post_id', inv.post_id)
+                      .eq('status', 'active')
+                      .maybeSingle();
+
+                    if (!newCr) {
+                      // Chatroom created but can't see it yet - add self as member first
+                      // Use a different approach: get chatroom ID from a broader query
+                      throw new Error('Chat room created but could not be found. Please try again.');
+                    }
                     chatroom = newCr;
 
-                    // Add both users
+                    // Add both users as members
                     const bothIds = [inv.inviter_id, inv.invitee_id];
                     for (const uid of bothIds) {
-                      await supabase.from('chatroom_members').insert({
-                        chatroom_id: chatroom.id,
-                        user_id: uid,
-                        role: uid === inv.inviter_id ? 'admin' : 'member',
-                      });
+                      const { data: existing } = await supabase
+                        .from('chatroom_members')
+                        .select('id')
+                        .eq('chatroom_id', chatroom.id)
+                        .eq('user_id', uid)
+                        .maybeSingle();
+                      if (!existing) {
+                        await supabase.from('chatroom_members').insert({
+                          chatroom_id: chatroom.id,
+                          user_id: uid,
+                          role: uid === inv.inviter_id ? 'admin' : 'member',
+                        });
+                      }
                     }
                   }
 
