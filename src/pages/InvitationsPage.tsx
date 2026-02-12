@@ -171,23 +171,19 @@ const InvitationsPage: React.FC = () => {
               }).eq('id', inv.post_id);
             }
 
-            // Add both inviter and invitee as members
-            const bothUsers = [inv.inviter_id, inv.invitee_id];
-            for (const uid of bothUsers) {
-              const { data: existing } = await supabase
-                .from('chatroom_members')
-                .select('id')
-                .eq('chatroom_id', chatroom.id)
-                .eq('user_id', uid)
-                .maybeSingle();
-              if (!existing) {
-                await supabase.from('chatroom_members').insert({
-                  chatroom_id: chatroom.id,
-                  user_id: uid,
-                  role: uid === inv.inviter_id ? 'admin' : 'member',
-                });
-              }
-            }
+            // Add current user (invitee) first so RLS allows subsequent queries
+            await supabase.from('chatroom_members').insert({
+              chatroom_id: chatroom.id,
+              user_id: inv.invitee_id,
+              role: 'member',
+            });
+
+            // Then add inviter
+            await supabase.from('chatroom_members').insert({
+              chatroom_id: chatroom.id,
+              user_id: inv.inviter_id,
+              role: 'owner',
+            });
 
             // Send welcome message
             await supabase.from('messages').insert({
@@ -197,7 +193,7 @@ const InvitationsPage: React.FC = () => {
               type: 'system',
             });
 
-            // Notify both users about chatroom
+            const bothUsers = [inv.inviter_id, inv.invitee_id];
             for (const uid of bothUsers) {
               await supabase.from('notifications').insert({
                 user_id: uid,
@@ -347,7 +343,7 @@ const InvitationsPage: React.FC = () => {
                         await supabase.from('chatroom_members').insert({
                           chatroom_id: chatroom.id,
                           user_id: uid,
-                          role: uid === inv.inviter_id ? 'admin' : 'member',
+                          role: uid === inv.inviter_id ? 'owner' : 'member',
                         });
                       }
                     }
