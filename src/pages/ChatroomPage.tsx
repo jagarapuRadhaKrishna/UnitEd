@@ -434,25 +434,42 @@ const ChatroomPage: React.FC = () => {
             }
 
             return (
-              <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'} rounded-lg px-3 py-2`}>
-                  {!isOwn && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{msg.sender_name}</p>}
-                  {msg.type === 'image' && msg.file_url && (
-                    <div className="mb-1">
-                      <img src={msg.file_url} alt={msg.file_name || 'Image'} className="rounded-md max-w-full max-h-60 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.file_url!, '_blank')} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    </div>
+              <div key={msg.id} className={`group flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                <div className="flex items-end gap-1">
+                  {isOwn && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await supabase.from('messages').delete().eq('id', msg.id);
+                          setMessages(prev => prev.filter(m => m.id !== msg.id));
+                          toast.success('Message deleted');
+                        } catch { toast.error('Failed to delete'); }
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-destructive"
+                      title="Delete message"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
-                  {msg.type === 'file' && msg.file_url && (
-                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 p-2 rounded-md mb-1 ${isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/50 hover:bg-background/80'} transition-colors`}>
-                      <FileText className="w-5 h-5 shrink-0" />
-                      <span className="text-xs truncate flex-1">{msg.file_name || 'Document'}</span>
-                      <Download className="w-4 h-4 shrink-0" />
-                    </a>
-                  )}
-                  {msg.type === 'text' && <p className="text-sm">{msg.content}</p>}
-                  <p className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                  <div className={`max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'} rounded-lg px-3 py-2`}>
+                    {!isOwn && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{msg.sender_name}</p>}
+                    {msg.type === 'image' && msg.file_url && (
+                      <div className="mb-1">
+                        <img src={msg.file_url} alt={msg.file_name || 'Image'} className="rounded-md max-w-full max-h-60 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.file_url!, '_blank')} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      </div>
+                    )}
+                    {msg.type === 'file' && msg.file_url && (
+                      <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 p-2 rounded-md mb-1 ${isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/50 hover:bg-background/80'} transition-colors`}>
+                        <FileText className="w-5 h-5 shrink-0" />
+                        <span className="text-xs truncate flex-1">{msg.file_name || 'Document'}</span>
+                        <Download className="w-4 h-4 shrink-0" />
+                      </a>
+                    )}
+                    {msg.type === 'text' && <p className="text-sm">{msg.content}</p>}
+                    <p className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
                 </div>
               </div>
             );
