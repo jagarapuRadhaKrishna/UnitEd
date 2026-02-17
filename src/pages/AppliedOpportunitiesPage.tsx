@@ -43,7 +43,8 @@ const AppliedOpportunitiesPage: React.FC = () => {
   const { user } = useAuth();
   const [applications, setApplications] = useState<AppItem[]>([]);
   const [receivedApps, setReceivedApps] = useState<ReceivedAppItem[]>([]);
-  const [viewMode, setViewMode] = useState<'sent' | 'received'>('sent');
+  const isFaculty = user?.role === 'faculty';
+  const [viewMode, setViewMode] = useState<'sent' | 'received'>(isFaculty ? 'received' : 'sent');
   const [statusTab, setStatusTab] = useState('all');
   const [loading, setLoading] = useState(true);
 
@@ -254,13 +255,15 @@ const AppliedOpportunitiesPage: React.FC = () => {
 
       {/* Sent / Received toggle */}
       <div className="flex gap-2 mb-4">
-        <Button
-          variant={viewMode === 'sent' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => { setViewMode('sent'); setStatusTab('all'); }}
-        >
-          <Send className="w-4 h-4 mr-1" /> Sent ({applications.length})
-        </Button>
+        {!isFaculty && (
+          <Button
+            variant={viewMode === 'sent' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => { setViewMode('sent'); setStatusTab('all'); }}
+          >
+            <Send className="w-4 h-4 mr-1" /> Sent ({applications.length})
+          </Button>
+        )}
         <Button
           variant={viewMode === 'received' ? 'default' : 'outline'}
           size="sm"
