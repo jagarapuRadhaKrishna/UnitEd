@@ -254,13 +254,13 @@ const AppliedOpportunitiesPage: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">My Applications</h1>
-        <p className="text-muted-foreground">Track sent and received applications</p>
+        <h1 className="text-2xl font-bold text-foreground">{isFaculty ? 'Received Applications' : 'My Applications'}</h1>
+        <p className="text-muted-foreground">{isFaculty ? 'Track applications received on your posts' : 'Track sent and received applications'}</p>
       </div>
 
-      {/* Sent / Received toggle */}
-      <div className="flex gap-2 mb-4">
-        {!isFaculty && (
+      {/* Sent / Received toggle - hidden for faculty */}
+      {!isFaculty && (
+        <div className="flex gap-2 mb-4">
           <Button
             variant={viewMode === 'sent' ? 'default' : 'outline'}
             size="sm"
@@ -268,15 +268,15 @@ const AppliedOpportunitiesPage: React.FC = () => {
           >
             <Send className="w-4 h-4 mr-1" /> Sent ({applications.length})
           </Button>
-        )}
-        <Button
-          variant={viewMode === 'received' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => { setViewMode('received'); setStatusTab('all'); }}
-        >
-          <Inbox className="w-4 h-4 mr-1" /> Received ({receivedApps.length})
-        </Button>
-      </div>
+          <Button
+            variant={viewMode === 'received' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => { setViewMode('received'); setStatusTab('all'); }}
+          >
+            <Inbox className="w-4 h-4 mr-1" /> Received ({receivedApps.length})
+          </Button>
+        </div>
+      )}
 
       <Tabs value={statusTab} onValueChange={setStatusTab} className="mb-6">
         <TabsList>
