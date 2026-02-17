@@ -139,6 +139,8 @@ const AppliedOpportunitiesPage: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
+  // Faculty always sees 'received' regardless of viewMode state
+  const effectiveViewMode = isFaculty ? 'received' : viewMode;
   const filteredSent = statusTab === 'all' ? applications : applications.filter(a => a.status === statusTab);
   const filteredReceived = statusTab === 'all' ? receivedApps : receivedApps.filter(a => a.status === statusTab);
 
@@ -280,7 +282,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
 
       <Tabs value={statusTab} onValueChange={setStatusTab} className="mb-6">
         <TabsList>
-          {viewMode === 'sent' ? (
+          {effectiveViewMode === 'sent' ? (
             <>
               <TabsTrigger value="all">All ({applications.length})</TabsTrigger>
               <TabsTrigger value="applied">Pending ({applications.filter(a => a.status === 'applied').length})</TabsTrigger>
@@ -299,7 +301,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
       </Tabs>
 
       <div className="space-y-4">
-        {viewMode === 'sent' && filteredSent.map(app => {
+        {effectiveViewMode === 'sent' && filteredSent.map(app => {
           const cfg = statusConfig[app.status] || statusConfig.applied;
           return (
             <Card key={app.id} className="hover:-translate-y-0.5 transition-all duration-300 hover:shadow-md">
@@ -329,7 +331,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
           );
         })}
 
-        {viewMode === 'received' && filteredReceived.map(app => {
+        {effectiveViewMode === 'received' && filteredReceived.map(app => {
           const cfg = statusConfig[app.status] || statusConfig.applied;
           return (
             <Card key={app.id} className="hover:-translate-y-0.5 transition-all duration-300 hover:shadow-md">
@@ -374,12 +376,12 @@ const AppliedOpportunitiesPage: React.FC = () => {
           );
         })}
 
-        {((viewMode === 'sent' && filteredSent.length === 0) || (viewMode === 'received' && filteredReceived.length === 0)) && (
+        {((effectiveViewMode === 'sent' && filteredSent.length === 0) || (effectiveViewMode === 'received' && filteredReceived.length === 0)) && (
           <Card className="py-12 text-center">
             <CardContent>
               <p className="text-lg text-muted-foreground mb-2">No applications found</p>
               <p className="text-sm text-muted-foreground mb-4">
-                {viewMode === 'sent' ? "You haven't applied to any opportunities yet" : "No applications received on your posts yet"}
+                {effectiveViewMode === 'sent' ? "You haven't applied to any opportunities yet" : "No applications received on your posts yet"}
               </p>
               <Button onClick={() => navigate('/home')}>Browse Opportunities</Button>
             </CardContent>
