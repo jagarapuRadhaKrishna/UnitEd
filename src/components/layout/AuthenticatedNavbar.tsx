@@ -79,7 +79,7 @@ const AuthenticatedNavbar: React.FC = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id]);
+  }, [user?.id, location.pathname]);
 
   // Fetch received application count for faculty
   useEffect(() => {
