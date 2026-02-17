@@ -48,6 +48,11 @@ const AppliedOpportunitiesPage: React.FC = () => {
   const [statusTab, setStatusTab] = useState('all');
   const [loading, setLoading] = useState(true);
 
+  // Ensure faculty always defaults to 'received' once user loads
+  useEffect(() => {
+    if (user?.role === 'faculty') setViewMode('received');
+  }, [user?.role]);
+
   useEffect(() => {
     if (user?.id) fetchAll();
   }, [user?.id]);
