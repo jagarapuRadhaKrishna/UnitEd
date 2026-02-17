@@ -304,7 +304,7 @@ const PostDetailPage: React.FC = () => {
 
           {/* Actions */}
           <div className="flex gap-3 pt-4">
-            {isAuthor ? (
+          {isAuthor ? (
               <>
                 <Button onClick={() => navigate(`/post/manage/${post.id}`)} className="bg-united-purple hover:bg-united-purple/90">
                   <Users className="w-4 h-4 mr-2" /> Manage Applicants
@@ -316,14 +316,14 @@ const PostDetailPage: React.FC = () => {
                   <UserCheck className="w-4 h-4 mr-2" /> View Candidates
                 </Button>
               </>
-            ) : (
+            ) : user?.role !== 'faculty' ? (
               <Button
                 onClick={() => setOpenApplyDialog(true)}
                 disabled={hasApplied || post.status !== 'active'}
               >
                 {hasApplied ? <><CheckCircle className="w-4 h-4 mr-2" /> Applied</> : <><Send className="w-4 h-4 mr-2" /> Apply Now</>}
               </Button>
-            )}
+            ) : null}
           </div>
         </CardContent>
       </Card>
