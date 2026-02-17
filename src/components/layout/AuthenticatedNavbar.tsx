@@ -31,6 +31,7 @@ const AuthenticatedNavbar: React.FC = () => {
   const { theme, setTheme } = useTheme();
   const [invitationCount, setInvitationCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [receivedAppCount, setReceivedAppCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +81,36 @@ const AuthenticatedNavbar: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
+  // Fetch received application count for faculty
+  useEffect(() => {
+    if (!user?.id || user?.role !== 'faculty') { setReceivedAppCount(0); return; }
+
+    const fetchAppCount = async () => {
+      // Get faculty's posts first
+      const { data: myPosts } = await supabase.from('posts').select('id').eq('author_id', user.id);
+      if (!myPosts || myPosts.length === 0) { setReceivedAppCount(0); return; }
+
+      const postIds = myPosts.map(p => p.id);
+      const { count } = await supabase
+        .from('applications')
+        .select('*', { count: 'exact', head: true })
+        .in('post_id', postIds)
+        .eq('status', 'applied');
+      setReceivedAppCount(count || 0);
+    };
+
+    fetchAppCount();
+
+    const channel = supabase
+      .channel('navbar-received-apps')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
+        fetchAppCount();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, user?.role]);
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
@@ -105,7 +136,9 @@ const AuthenticatedNavbar: React.FC = () => {
     <>
       {navItems.map((item) => {
         const isActive = location.pathname === item.path;
-        const showBadge = item.label === 'Invitations' && user?.role === 'student' && invitationCount > 0;
+        const showInvBadge = item.label === 'Invitations' && user?.role === 'student' && invitationCount > 0;
+        const showAppBadge = item.label === 'Applications' && user?.role === 'faculty' && receivedAppCount > 0;
+        const badgeCount = showInvBadge ? invitationCount : showAppBadge ? receivedAppCount : 0;
         return (
           <button
             key={item.path}
@@ -115,9 +148,9 @@ const AuthenticatedNavbar: React.FC = () => {
             }`}
           >
             {item.label}
-            {showBadge && (
+            {badgeCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
-                {invitationCount}
+                {badgeCount}
               </span>
             )}
           </button>
