@@ -76,6 +76,7 @@ export interface AppUser {
   achievements?: any[];
   resumeUrl?: string;
   coverLetter?: string;
+  coverPhoto?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -115,6 +116,7 @@ function profileToAppUser(p: Profile): AppUser {
     achievements: p.achievements || undefined,
     resumeUrl: p.resume_url || undefined,
     coverLetter: p.cover_letter || undefined,
+    coverPhoto: (p as any).cover_photo_url || undefined,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   };
@@ -324,6 +326,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.achievements !== undefined) dbUpdates.achievements = updates.achievements;
       if (updates.resumeUrl !== undefined) dbUpdates.resume_url = updates.resumeUrl;
       if (updates.coverLetter !== undefined) dbUpdates.cover_letter = updates.coverLetter;
+      if (updates.coverPhoto !== undefined) dbUpdates.cover_photo_url = updates.coverPhoto;
 
       const { error: updateError } = await supabase
         .from('profiles')
