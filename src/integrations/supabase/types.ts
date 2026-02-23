@@ -418,6 +418,7 @@ export type Database = {
           cgpa: string | null
           contact_no: string | null
           cover_letter: string | null
+          cover_photo_url: string | null
           created_at: string
           date_of_joining: string | null
           department: string | null
@@ -455,6 +456,7 @@ export type Database = {
           cgpa?: string | null
           contact_no?: string | null
           cover_letter?: string | null
+          cover_photo_url?: string | null
           created_at?: string
           date_of_joining?: string | null
           department?: string | null
@@ -492,6 +494,7 @@ export type Database = {
           cgpa?: string | null
           contact_no?: string | null
           cover_letter?: string | null
+          cover_photo_url?: string | null
           created_at?: string
           date_of_joining?: string | null
           department?: string | null

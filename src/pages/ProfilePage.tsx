@@ -33,6 +33,7 @@ const ProfilePage: React.FC = () => {
   });
   const [newSkill, setNewSkill] = useState('');
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -52,6 +53,26 @@ const ProfilePage: React.FC = () => {
     await updateProfile({ profilePicture: `${publicUrl}?t=${Date.now()}` });
     toast({ title: 'Photo updated', description: 'Your profile picture has been changed.' });
   };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const filePath = `${user.id}/cover.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from('profile-pictures')
+      .upload(filePath, file, { upsert: true });
+    if (uploadError) {
+      toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+      return;
+    }
+    const { data: { publicUrl } } = supabase.storage
+      .from('profile-pictures')
+      .getPublicUrl(filePath);
+    await updateProfile({ coverPhoto: `${publicUrl}?t=${Date.now()}` });
+    toast({ title: 'Cover photo updated', description: 'Your cover photo has been changed.' });
+  };
+
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [achievementDialogOpen, setAchievementDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState({ title: '', description: '', link: '', skills: [] as string[] });
@@ -114,7 +135,20 @@ const ProfilePage: React.FC = () => {
       </div>
 
       {/* Cover */}
-      <div className="h-48 md:h-60 bg-gradient-to-r from-accent to-accent/70" />
+      <div className="h-48 md:h-60 relative group">
+        {user.coverPhoto ? (
+          <img src={user.coverPhoto} alt="Cover" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-r from-accent to-accent/70" />
+        )}
+        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+        <button
+          onClick={() => coverInputRef.current?.click()}
+          className="absolute top-3 right-3 bg-background/80 backdrop-blur-sm text-foreground rounded-lg px-3 py-1.5 text-sm font-medium shadow-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 hover:bg-background"
+        >
+          <Camera size={14} /> {user.coverPhoto ? 'Change cover' : 'Add cover'}
+        </button>
+      </div>
 
       <div className="max-w-5xl mx-auto px-4 -mt-16 relative">
         {/* Header Card */}
