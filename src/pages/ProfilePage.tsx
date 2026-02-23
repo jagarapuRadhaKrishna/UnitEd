@@ -73,6 +73,12 @@ const ProfilePage: React.FC = () => {
     toast({ title: 'Cover photo updated', description: 'Your cover photo has been changed.' });
   };
 
+  const handleRemoveCover = async () => {
+    if (!user?.id) return;
+    await updateProfile({ coverPhoto: '' });
+    toast({ title: 'Cover photo removed' });
+  };
+
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [achievementDialogOpen, setAchievementDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState({ title: '', description: '', link: '', skills: [] as string[] });
@@ -142,12 +148,22 @@ const ProfilePage: React.FC = () => {
           <div className="w-full h-full bg-gradient-to-r from-accent to-accent/70" />
         )}
         <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
-        <button
-          onClick={() => coverInputRef.current?.click()}
-          className="absolute top-3 right-3 bg-background/80 backdrop-blur-sm text-foreground rounded-lg px-3 py-1.5 text-sm font-medium shadow-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 hover:bg-background"
-        >
-          <Camera size={14} /> {user.coverPhoto ? 'Change cover' : 'Add cover'}
-        </button>
+        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          {user.coverPhoto && (
+            <button
+              onClick={handleRemoveCover}
+              className="bg-destructive/80 backdrop-blur-sm text-destructive-foreground rounded-lg px-3 py-1.5 text-sm font-medium shadow-md flex items-center gap-1.5 hover:bg-destructive"
+            >
+              <X size={14} /> Remove
+            </button>
+          )}
+          <button
+            onClick={() => coverInputRef.current?.click()}
+            className="bg-background/80 backdrop-blur-sm text-foreground rounded-lg px-3 py-1.5 text-sm font-medium shadow-md flex items-center gap-1.5 hover:bg-background"
+          >
+            <Camera size={14} /> {user.coverPhoto ? 'Change cover' : 'Add cover'}
+          </button>
+        </div>
       </div>
 
       <div className="max-w-5xl mx-auto px-4 -mt-16 relative">
