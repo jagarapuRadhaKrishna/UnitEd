@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase, UserPlus,
+  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase, UserPlus, Trash2,
 } from 'lucide-react';
 
 interface SkillRequirement {
@@ -52,6 +52,8 @@ const PostDetailPage: React.FC = () => {
   const [experience, setExperience] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -303,7 +305,7 @@ const PostDetailPage: React.FC = () => {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-wrap gap-3 pt-4">
           {isAuthor ? (
               <>
                 <Button onClick={() => navigate(`/post/manage/${post.id}`)} className="bg-united-purple hover:bg-united-purple/90">
@@ -314,6 +316,9 @@ const PostDetailPage: React.FC = () => {
                 </Button>
                 <Button variant="outline" onClick={() => navigate(`/post/${post.id}/candidates`)}>
                   <UserCheck className="w-4 h-4 mr-2" /> View Candidates
+                </Button>
+                <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => setDeleteDialogOpen(true)}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
                 </Button>
               </>
             ) : user?.role !== 'faculty' ? (
@@ -327,6 +332,30 @@ const PostDetailPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete Post?</DialogTitle></DialogHeader>
+          <p className="text-muted-foreground">Are you sure you want to delete this post? This action cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={async () => {
+              setDeleting(true);
+              const { error } = await supabase.from('posts').delete().eq('id', post.id);
+              setDeleting(false);
+              if (error) {
+                toast({ title: 'Error', description: error.message, variant: 'destructive' });
+                return;
+              }
+              toast({ title: 'Post deleted' });
+              navigate('/my-posts');
+            }} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Apply Dialog */}
       <Dialog open={openApplyDialog} onOpenChange={setOpenApplyDialog}>
