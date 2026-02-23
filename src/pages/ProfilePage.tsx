@@ -154,7 +154,7 @@ const ProfilePage: React.FC = () => {
               onClick={handleRemoveCover}
               className="bg-destructive/80 backdrop-blur-sm text-destructive-foreground rounded-lg px-3 py-1.5 text-sm font-medium shadow-md flex items-center gap-1.5 hover:bg-destructive"
             >
-              <X size={14} /> Remove
+              <Trash2 size={14} /> Remove
             </button>
           )}
           <button
