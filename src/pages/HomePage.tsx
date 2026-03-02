@@ -331,7 +331,11 @@ const HomePage: React.FC = () => {
                   </CardContent>
                   <div className="px-4 pb-3 pt-1 space-y-1.5">
                     <div className="flex gap-2">
-                      <Button size="sm" className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground text-xs" onClick={() => navigate(`/post/${post.id}`)}>
+                      <Button 
+                        size="sm" 
+                        className="flex-1 text-xs rounded-full font-medium border-0 cursor-pointer shadow-[0_4px_14px_0px_rgba(37,99,235,0.4)] transition-all duration-300 bg-blue-600 text-white hover:bg-blue-700 active:translate-y-1 active:shadow-none" 
+                        onClick={() => navigate(`/post/${post.id}`)}
+                      >
                         View
                       </Button>
                       {post.acceptedMembers === post.requiredMembers && post.requiredMembers > 0 && (

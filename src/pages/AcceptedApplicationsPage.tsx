@@ -172,9 +172,20 @@ const AcceptedApplicationsPage: React.FC = () => {
                 {app.reviewed_at && <span>Reviewed: {new Date(app.reviewed_at).toLocaleDateString()}</span>}
               </div>
               <div className="flex gap-2 pt-3 border-t">
-                <Button size="sm" variant="outline" onClick={() => navigate(`/post/${app.post_id}`)}>View Post</Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="rounded-full font-medium border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 active:translate-y-1 transition-all duration-300"
+                  onClick={() => navigate(`/post/${app.post_id}`)}
+                >
+                  View Post
+                </Button>
                 {app.status === 'accepted' && (
-                  <Button size="sm" onClick={() => navigate(`/chatroom/${app.post_id}`)}>
+                  <Button 
+                    size="sm" 
+                    className="rounded-full font-medium border-0 cursor-pointer shadow-[0_4px_14px_0px_rgba(37,99,235,0.4)] transition-all duration-300 bg-blue-600 text-white hover:bg-blue-700 active:translate-y-1 active:shadow-none"
+                    onClick={() => navigate(`/chatroom/${app.post_id}`)}
+                  >
                     <MessageCircle className="w-3.5 h-3.5 mr-1" /> Join Chatroom
                   </Button>
                 )}

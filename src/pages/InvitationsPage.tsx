@@ -292,8 +292,21 @@ const InvitationsPage: React.FC = () => {
             )}
             {type === 'received' && inv.status === 'pending' && (
               <div className="flex gap-2">
-                <Button size="sm" onClick={() => handleRespond(inv.id, 'accepted')}>Accept</Button>
-                <Button size="sm" variant="outline" onClick={() => handleRespond(inv.id, 'declined')}>Decline</Button>
+                <Button 
+                  size="sm" 
+                  className="rounded-full font-medium border-0 cursor-pointer shadow-[0_4px_14px_0px_rgba(37,99,235,0.4)] transition-all duration-300 bg-blue-600 text-white hover:bg-blue-700 active:translate-y-1 active:shadow-none"
+                  onClick={() => handleRespond(inv.id, 'accepted')}
+                >
+                  Accept
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="rounded-full font-medium border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 active:translate-y-1 transition-all duration-300"
+                  onClick={() => handleRespond(inv.id, 'declined')}
+                >
+                  Decline
+                </Button>
               </div>
             )}
             {inv.status === 'accepted' && (

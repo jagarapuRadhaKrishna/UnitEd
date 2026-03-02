@@ -37,3 +37,6 @@ dist-ssr
 # GitHub specific files
 .github/
 *.github
+
+# Zip files
+*.zip

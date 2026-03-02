@@ -114,7 +114,10 @@ const ForumsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-foreground">Forums</h1>
           <p className="text-muted-foreground text-sm">Discuss, share knowledge, and connect</p>
         </div>
-        <Button onClick={() => navigate('/forum/create')} className="bg-primary">
+        <Button 
+          onClick={() => navigate('/forum/create')} 
+          className="px-6 py-3 rounded-full text-sm font-medium border-0 cursor-pointer shadow-[0_4px_14px_0px_rgba(37,99,235,0.4)] transition-all duration-300 bg-blue-600 text-white hover:bg-blue-700 active:translate-y-1 active:shadow-none"
+        >
           <Plus className="w-4 h-4 mr-2" /> New Thread
         </Button>
       </div>

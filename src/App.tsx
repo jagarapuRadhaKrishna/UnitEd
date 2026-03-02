@@ -10,6 +10,7 @@ import { initializePostLifecycle } from "./services/postLifecycleService";
 import { storageSecurityMonitor } from "./services/storageSecurityMonitor";
 import PrivateRoute from "./components/layout/PrivateRoute";
 import MainLayout from "./components/layout/MainLayout";
+import BlankPage from "./pages/BlankPage";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -60,7 +61,8 @@ const App = () => {
           <AuthProvider>
             <Routes>
               {/* Public Routes */}
-              <Route path="/" element={<LandingPage />} />
+              <Route path="/" element={<BlankPage />} />
+              <Route path="/landing" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/register" element={<RoleSelection />} />

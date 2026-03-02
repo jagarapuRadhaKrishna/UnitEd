@@ -143,13 +143,18 @@ const AuthenticatedNavbar: React.FC = () => {
           <button
             key={item.path}
             onClick={() => { navigate(item.path); onClick?.(); }}
-            className={`relative px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
-              isActive ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            }`}
+            className={`relative px-4 py-2 text-sm font-medium rounded-full whitespace-nowrap
+                       border-0 cursor-pointer shadow-sm
+                       transition-all duration-300 ease-in-out
+                       ${isActive 
+                         ? 'bg-blue-600 text-white shadow-[0_4px_14px_0px_rgba(37,99,235,0.4)]' 
+                         : 'bg-background text-foreground hover:bg-blue-50 dark:hover:bg-blue-950'
+                       }
+                       active:translate-y-1 active:shadow-none`}
           >
             {item.label}
             {badgeCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
                 {badgeCount}
               </span>
             )}
@@ -173,7 +178,7 @@ const AuthenticatedNavbar: React.FC = () => {
         </button>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-1 overflow-x-auto">
+        <nav className="hidden md:flex items-center gap-1 flex-1">
           <NavLinks />
         </nav>
 
