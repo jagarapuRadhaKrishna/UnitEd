@@ -171,6 +171,25 @@ const ChatroomPage: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const notifyOtherMembers = async (content: string) => {
+    if (!user?.id || !id) return;
+    const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Someone';
+    const otherMembers = members.filter(m => m.user_id !== user.id);
+    if (otherMembers.length === 0) return;
+
+    const notifications = otherMembers.map(m => ({
+      user_id: m.user_id,
+      type: 'new_message',
+      title: `New message from ${senderName}`,
+      message: content.length > 100 ? content.substring(0, 100) + '...' : content,
+      link: `/chatroom/${id}`,
+      related_chatroom_id: id,
+      related_user_id: user.id,
+    }));
+
+    await supabase.from('notifications').insert(notifications);
+  };
+
   const handleSend = async () => {
     if (!user?.id || !id) return;
     if (!messageText.trim() && !selectedFile) return;
@@ -190,8 +209,9 @@ const ChatroomPage: React.FC = () => {
           type: isImage ? 'image' : 'file', file_url: publicUrl, file_name: selectedFile.name,
         });
         if (error) throw error;
+        const fileContent = isImage ? '📷 Image' : `📎 ${selectedFile.name}`;
         clearSelectedFile();
-        await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id)]);
+        await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id), notifyOtherMembers(fileContent)]);
         toast.success(`${isImage ? 'Image' : 'File'} sent!`);
       } catch (err: any) {
         console.error(err);
@@ -215,7 +235,7 @@ const ChatroomPage: React.FC = () => {
     try {
       const { error } = await supabase.from('messages').insert({ chatroom_id: id, sender_id: user.id, content: text, type: 'text' });
       if (error) throw error;
-      await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id)]);
+      await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id), notifyOtherMembers(text)]);
     } catch (e) {
       console.error(e);
       setMessageText(text);

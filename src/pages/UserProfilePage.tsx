@@ -54,8 +54,12 @@ const UserProfilePage: React.FC = () => {
         <ArrowLeft className="w-4 h-4 mr-2" /> Back
       </Button>
 
-      <Card className="mb-6">
-        <div className="h-24 bg-gradient-to-r from-primary to-primary/60 rounded-t-lg" />
+      <Card className="mb-6 overflow-hidden">
+        {profileUser.cover_photo_url ? (
+          <img src={profileUser.cover_photo_url} alt="Cover" className="h-24 w-full object-cover" />
+        ) : (
+          <div className="h-24 bg-gradient-to-r from-primary to-primary/60" />
+        )}
         <CardContent className="p-6 -mt-10">
           <Avatar className="h-20 w-20 border-4 border-background mb-3">
             <AvatarImage src={profileUser.profile_picture_url || undefined} />

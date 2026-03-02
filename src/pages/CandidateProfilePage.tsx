@@ -40,6 +40,7 @@ const CandidateProfilePage: React.FC = () => {
         location: data.location,
         bio: data.bio || 'No bio provided',
         avatar: data.profile_picture_url,
+        coverPhoto: data.cover_photo_url,
         skills: (data.skills || []).map((s: string) => ({ name: s, level: 75 })),
         projects: (data.projects as any[] || []).map((p: any) => ({
           title: p.title, description: p.description, technologies: p.skills || p.technologies || [],
@@ -74,7 +75,11 @@ const CandidateProfilePage: React.FC = () => {
       </Button>
 
       <Card className="mb-6 overflow-hidden">
-        <div className="h-32 bg-gradient-to-r from-primary to-accent" />
+        {candidate.coverPhoto ? (
+          <img src={candidate.coverPhoto} alt="Cover" className="h-32 w-full object-cover" />
+        ) : (
+          <div className="h-32 bg-gradient-to-r from-primary to-accent" />
+        )}
         <CardContent className="p-6 -mt-12">
           <div className="flex items-end gap-4 mb-4">
             <Avatar className="h-24 w-24 border-4 border-background shadow-lg">
