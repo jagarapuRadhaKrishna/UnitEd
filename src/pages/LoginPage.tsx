@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, Mail, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,8 +9,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
 const LoginPage: React.FC = () => {
-  const { login, error: authError } = useAuth();
+  const { login, user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect after successful login
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(user.role === 'student' ? '/home' : '/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,9 +29,10 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/home');
-    } catch {
-      setError(authError || 'Login failed. Please check your credentials.');
+      // Navigation is handled by AuthContext/onAuthStateChange
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
