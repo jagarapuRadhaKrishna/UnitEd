@@ -1,78 +1,166 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Box, Container, Typography, Card, CardContent, Button } from '@mui/material';
+import { motion } from 'framer-motion';
 import { GraduationCap, Briefcase, ArrowRight } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-
-const roles = [
-  {
-    type: 'student', icon: GraduationCap, title: 'I am a Student',
-    description: 'Find research opportunities, join projects, and collaborate with faculty and peers',
-    features: ['Browse opportunities', 'Apply to projects', 'Join teams', 'Build your portfolio'],
-    colorClass: 'text-primary bg-primary', path: '/register/student',
-  },
-  {
-    type: 'faculty', icon: Briefcase, title: 'I am Faculty',
-    description: 'Post opportunities, find talented students, and manage research teams',
-    features: ['Post opportunities', 'Review applications', 'Manage teams', 'Track progress'],
-    colorClass: 'text-united-orange bg-united-orange', path: '/register/faculty',
-  },
-];
+import { ThemeProvider } from '@mui/material/styles';
+import unitedTheme from '@/theme/unitedTheme';
 
 const RoleSelection: React.FC = () => {
   const navigate = useNavigate();
 
+  const roles = [
+    {
+      type: 'student',
+      icon: GraduationCap,
+      title: 'I am a Student',
+      description: 'Find research opportunities, join projects, and collaborate with faculty and peers',
+      features: ['Browse opportunities', 'Apply to projects', 'Join teams', 'Build your portfolio'],
+      color: '#2563EB',
+      path: '/register/student',
+    },
+    {
+      type: 'faculty',
+      icon: Briefcase,
+      title: 'I am Faculty',
+      description: 'Post opportunities, find talented students, and manage research teams',
+      features: ['Post opportunities', 'Review applications', 'Manage teams', 'Track progress'],
+      color: '#F97316',
+      path: '/register/faculty',
+    },
+  ];
+
   return (
-    <div className="min-h-screen flex items-center py-16 bg-gradient-to-br from-blue-50 via-blue-100 to-amber-50">
-      <div className="max-w-3xl mx-auto px-4 w-full">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-foreground mb-3">
-            Join <span className="text-primary">UnitEd</span>
-          </h1>
-          <p className="text-lg text-muted-foreground">Select your role to get started</p>
-        </div>
+    <ThemeProvider theme={unitedTheme}>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #FEF3C7 100%)',
+          py: 8,
+        }}
+      >
+        <Container maxWidth="md">
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
+            <Box sx={{ textAlign: 'center', mb: 6 }}>
+              <Typography variant="h2" sx={{ color: '#111827', fontWeight: 700, mb: 2 }}>
+                Join <Box component="span" sx={{ color: '#2563EB' }}>UnitEd</Box>
+              </Typography>
+              <Typography variant="h6" sx={{ color: '#6B7280', fontWeight: 400 }}>
+                Select your role to get started
+              </Typography>
+            </Box>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {roles.map((role) => {
-            const Icon = role.icon;
-            const isStudent = role.type === 'student';
-            return (
-              <Card
-                key={role.type}
-                className="h-full rounded-2xl border-2 border-transparent cursor-pointer transition-all duration-300 hover:-translate-y-2"
-                onClick={() => navigate(role.path)}
-              >
-                <CardContent className="p-8">
-                  <div className={`w-20 h-20 rounded-xl flex items-center justify-center mx-auto mb-6 ${isStudent ? 'bg-primary/10' : 'bg-united-orange/10'}`}>
-                    <Icon size={40} className={isStudent ? 'text-primary' : 'text-united-orange'} strokeWidth={2} />
-                  </div>
-                  <h2 className="text-xl font-bold text-foreground text-center mb-3">{role.title}</h2>
-                  <p className="text-muted-foreground text-center text-sm leading-relaxed mb-6">{role.description}</p>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
+              {roles.map((role, index) => {
+                const Icon = role.icon;
+                return (
+                  <motion.div
+                    key={role.type}
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + index * 0.2, duration: 0.6 }}
+                  >
+                    <Card
+                      sx={{
+                        height: '100%',
+                        borderRadius: 4,
+                        border: '2px solid transparent',
+                        transition: 'all 0.3s ease',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          transform: 'translateY(-8px)',
+                          borderColor: role.color,
+                          boxShadow: `0 20px 40px ${role.color}30`,
+                        },
+                      }}
+                      onClick={() => navigate(role.path)}
+                    >
+                      <CardContent sx={{ p: 4 }}>
+                        <Box
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: 3,
+                            backgroundColor: `${role.color}15`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            mb: 3,
+                            mx: 'auto',
+                          }}
+                        >
+                          <Icon size={40} color={role.color} strokeWidth={2} />
+                        </Box>
 
-                  <div className="mb-6 space-y-2">
-                    {role.features.map((feature, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${isStudent ? 'bg-primary' : 'bg-united-orange'}`} />
-                        <span className="text-sm text-muted-foreground">{feature}</span>
-                      </div>
-                    ))}
-                  </div>
+                        <Typography variant="h5" sx={{ color: '#111827', fontWeight: 700, mb: 2, textAlign: 'center' }}>
+                          {role.title}
+                        </Typography>
 
-                  <Button className={`w-full py-5 font-semibold ${isStudent ? 'bg-primary hover:bg-primary/80' : 'bg-united-orange hover:bg-united-orange/80'}`} onClick={() => navigate(role.path)}>
-                    Continue as {role.type === 'student' ? 'Student' : 'Faculty'} <ArrowRight className="ml-2" size={20} />
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                        <Typography variant="body2" sx={{ color: '#6B7280', mb: 3, textAlign: 'center', lineHeight: 1.7 }}>
+                          {role.description}
+                        </Typography>
 
-        <p className="text-center text-sm text-muted-foreground mt-8">
-          Already have an account?{' '}
-          <button onClick={() => navigate('/login')} className="text-primary font-semibold hover:underline">Login here</button>
-        </p>
-      </div>
-    </div>
+                        <Box sx={{ mb: 3 }}>
+                          {role.features.map((feature, idx) => (
+                            <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: role.color }} />
+                              <Typography variant="body2" sx={{ color: '#374151' }}>
+                                {feature}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+
+                        <Button
+                          fullWidth
+                          variant="contained"
+                          endIcon={<ArrowRight size={20} />}
+                          sx={{
+                            backgroundColor: role.color,
+                            py: 1.5,
+                            '&:hover': {
+                              backgroundColor: role.color,
+                              filter: 'brightness(0.9)',
+                            },
+                          }}
+                          onClick={() => navigate(role.path)}
+                        >
+                          Continue as {role.type === 'student' ? 'Student' : 'Faculty'}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </Box>
+
+            <Box sx={{ textAlign: 'center', mt: 4 }}>
+              <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                Already have an account?{' '}
+                <Button
+                  onClick={() => navigate('/login')}
+                  sx={{
+                    color: '#2563EB',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    p: 0,
+                    minWidth: 'auto',
+                    '&:hover': {
+                      backgroundColor: 'transparent',
+                      textDecoration: 'underline',
+                    },
+                  }}
+                >
+                  Login here
+                </Button>
+              </Typography>
+            </Box>
+          </motion.div>
+        </Container>
+      </Box>
+    </ThemeProvider>
   );
 };
 

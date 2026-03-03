@@ -1,14 +1,25 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Trash2, Calendar, Plus, Edit2 } from 'lucide-react';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  LinearProgress,
+  Stack,
+  Typography,
+} from '@mui/material';
+import { motion } from 'framer-motion';
+import { Calendar, Edit2, Plus, Trash2, Users } from 'lucide-react';
 
 interface SkillRequirement {
   skill: string;
@@ -31,6 +42,7 @@ const MyPostsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+
   const [posts, setPosts] = useState<MyPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -39,6 +51,7 @@ const MyPostsPage: React.FC = () => {
 
   useEffect(() => {
     if (!user?.id) return;
+
     const fetchMyPosts = async () => {
       setLoading(true);
       const { data, error } = await supabase
@@ -52,153 +65,293 @@ const MyPostsPage: React.FC = () => {
         return;
       }
 
-      // Fetch application counts for all posts
-      const postIds = data.map(p => p.id);
+      const postIds = data.map((p) => p.id);
       const { data: apps } = await supabase
         .from('applications')
         .select('post_id')
         .in('post_id', postIds.length > 0 ? postIds : ['__none__']);
 
       const appCounts = new Map<string, number>();
-      (apps || []).forEach(a => appCounts.set(a.post_id, (appCounts.get(a.post_id) || 0) + 1));
+      (apps || []).forEach((a) => {
+        appCounts.set(a.post_id, (appCounts.get(a.post_id) || 0) + 1);
+      });
 
-      setPosts(data.map(p => ({
-        id: p.id,
-        title: p.title,
-        description: p.description,
-        purpose: p.purpose,
-        status: p.status,
-        skill_requirements: (p.skill_requirements as unknown as SkillRequirement[]) || [],
-        created_at: p.created_at,
-        applicationCount: appCounts.get(p.id) || 0,
-      })));
+      setPosts(
+        data.map((p) => ({
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          purpose: p.purpose,
+          status: p.status,
+          skill_requirements: (p.skill_requirements as unknown as SkillRequirement[]) || [],
+          created_at: p.created_at,
+          applicationCount: appCounts.get(p.id) || 0,
+        }))
+      );
       setLoading(false);
     };
+
     fetchMyPosts();
   }, [user?.id]);
 
   const handleDelete = async () => {
     if (!selectedPostId) return;
+
     setDeleting(true);
     const { error } = await supabase.from('posts').delete().eq('id', selectedPostId);
     setDeleting(false);
+
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
       return;
     }
-    setPosts(prev => prev.filter(p => p.id !== selectedPostId));
+
+    setPosts((prev) => prev.filter((p) => p.id !== selectedPostId));
     setDeleteDialogOpen(false);
     toast({ title: 'Post deleted' });
   };
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 18 }}>
+        <Box
+          sx={{
+            width: 34,
+            height: 34,
+            borderRadius: '50%',
+            border: '3px solid #E5E7EB',
+            borderTopColor: '#6C47FF',
+            animation: 'spin 0.8s linear infinite',
+            '@keyframes spin': { to: { transform: 'rotate(360deg)' } },
+          }}
+        />
+      </Box>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">📝 My Posts</h1>
-          <p className="text-muted-foreground">Manage all the posts you've created</p>
-        </div>
-        <Button onClick={() => navigate('/create-post')} className="bg-united-purple hover:bg-united-purple/90">
-          <Plus className="w-4 h-4 mr-2" /> Create Post
-        </Button>
-      </div>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 3 }}>
+            <Box>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: '#111827', mb: 0.6 }}>
+                My Posts
+              </Typography>
+              <Typography sx={{ color: '#6B7280' }}>Manage all the posts you've created</Typography>
+            </Box>
 
-      {posts.length === 0 ? (
-        <Card className="py-12 text-center">
-          <CardContent>
-            <p className="text-lg text-muted-foreground mb-2">You haven't created any posts yet</p>
-            <Button onClick={() => navigate('/create-post')} className="mt-2">
-              Create Your First Post
+            <Button
+              variant="contained"
+              startIcon={<Plus size={16} />}
+              onClick={() => navigate('/create-post')}
+              sx={{
+                backgroundColor: '#6C47FF',
+                textTransform: 'none',
+                fontWeight: 600,
+                borderRadius: '8px',
+                '&:hover': { backgroundColor: '#5936E8' },
+              }}
+            >
+              Create Post
             </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {posts.map(post => {
-            const totalRequired = post.skill_requirements.reduce((s, r) => s + r.requiredCount, 0);
-            const totalAccepted = post.skill_requirements.reduce((s, r) => s + (r.acceptedCount || 0), 0);
-            const progress = totalRequired > 0 ? (totalAccepted / totalRequired) * 100 : 0;
+          </Stack>
+        </motion.div>
 
-            return (
-              <Card key={post.id} className="hover:-translate-y-1 hover:shadow-md transition-all duration-300 flex flex-col">
-                <CardContent className="p-5 flex-1 flex flex-col">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-foreground line-clamp-2">{post.title}</h3>
-                    <Badge variant={post.status === 'active' ? 'default' : 'secondary'} className="ml-2 shrink-0 text-xs">
-                      {post.status}
-                    </Badge>
-                  </div>
+        {posts.length === 0 ? (
+          <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+            <CardContent sx={{ py: 8, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 20, fontWeight: 600, color: '#6B7280', mb: 1.4 }}>
+                You haven't created any posts yet
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/create-post')}
+                sx={{
+                  backgroundColor: '#6C47FF',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  '&:hover': { backgroundColor: '#5936E8' },
+                }}
+              >
+                Create Your First Post
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)', lg: 'repeat(3,1fr)' }, gap: 2.2 }}>
+            {posts.map((post, index) => {
+              const totalRequired = post.skill_requirements.reduce((sum, req) => sum + req.requiredCount, 0);
+              const totalAccepted = post.skill_requirements.reduce((sum, req) => sum + (req.acceptedCount || 0), 0);
+              const progress = totalRequired > 0 ? (totalAccepted / totalRequired) * 100 : 0;
 
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{post.description}</p>
+              return (
+                <motion.div
+                  key={post.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: index * 0.04 }}
+                >
+                  <Card
+                    sx={{
+                      height: '100%',
+                      borderRadius: '12px',
+                      border: '1px solid #E5E7EB',
+                      boxShadow: 'none',
+                      '&:hover': { boxShadow: '0 8px 24px rgba(17,24,39,0.08)', transform: 'translateY(-2px)' },
+                      transition: 'all 0.25s ease',
+                    }}
+                  >
+                    <CardContent sx={{ p: 2.2, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                      <Stack direction="row" justifyContent="space-between" spacing={1.2} sx={{ mb: 1 }}>
+                        <Typography sx={{ fontWeight: 700, color: '#111827', lineHeight: 1.35 }}>
+                          {post.title}
+                        </Typography>
+                        <Chip
+                          label={post.status}
+                          size="small"
+                          sx={{
+                            textTransform: 'capitalize',
+                            fontWeight: 600,
+                            backgroundColor: post.status === 'active' ? '#D1FAE5' : '#F3F4F6',
+                            color: post.status === 'active' ? '#10B981' : '#6B7280',
+                            flexShrink: 0,
+                          }}
+                        />
+                      </Stack>
 
-                  <div className="text-xs text-muted-foreground mb-2 space-y-1">
-                    <p><strong>Purpose:</strong> {post.purpose}</p>
-                    <p className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(post.created_at).toLocaleDateString()}</p>
-                  </div>
+                      <Typography sx={{ color: '#6B7280', fontSize: 14, mb: 1.3 }}>
+                        {post.description}
+                      </Typography>
 
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {post.skill_requirements.slice(0, 3).map(sr => (
-                      <Badge key={sr.skill} variant="outline" className="text-[10px]">{sr.skill}</Badge>
-                    ))}
-                    {post.skill_requirements.length > 3 && (
-                      <Badge variant="secondary" className="text-[10px]">+{post.skill_requirements.length - 3}</Badge>
-                    )}
-                  </div>
+                      <Stack spacing={0.8} sx={{ color: '#6B7280', mb: 1.4, fontSize: 13 }}>
+                        <Typography sx={{ fontSize: 13 }}>
+                          <strong>Purpose:</strong> {post.purpose}
+                        </Typography>
+                        <Stack direction="row" spacing={0.6} alignItems="center">
+                          <Calendar size={13} />
+                          <Typography sx={{ fontSize: 13 }}>{new Date(post.created_at).toLocaleDateString()}</Typography>
+                        </Stack>
+                      </Stack>
 
-                  <div className="text-xs text-muted-foreground flex gap-3 mb-3">
-                    <span><strong>{post.applicationCount}</strong> Applications</span>
-                    <span><strong>{totalAccepted}</strong>/{totalRequired} Members</span>
-                  </div>
+                      <Stack direction="row" spacing={0.7} flexWrap="wrap" useFlexGap sx={{ mb: 1.3 }}>
+                        {post.skill_requirements.slice(0, 3).map((sr) => (
+                          <Chip
+                            key={sr.skill}
+                            label={sr.skill}
+                            size="small"
+                            sx={{ backgroundColor: '#EEF2FF', color: '#6C47FF', fontWeight: 600, fontSize: 12 }}
+                          />
+                        ))}
+                        {post.skill_requirements.length > 3 && (
+                          <Chip
+                            label={`+${post.skill_requirements.length - 3}`}
+                            size="small"
+                            sx={{ backgroundColor: '#F3F4F6', color: '#6B7280', fontWeight: 600, fontSize: 12 }}
+                          />
+                        )}
+                      </Stack>
 
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-muted-foreground">Team Progress</span>
-                      <span className="font-semibold">{Math.round(progress)}%</span>
-                    </div>
-                    <Progress value={progress} className="h-1.5" />
-                  </div>
+                      <Stack direction="row" spacing={2} sx={{ mb: 1.2, color: '#6B7280', fontSize: 13 }}>
+                        <Typography sx={{ fontSize: 13 }}><strong>{post.applicationCount}</strong> Applications</Typography>
+                        <Typography sx={{ fontSize: 13 }}><strong>{totalAccepted}</strong>/{totalRequired} Members</Typography>
+                      </Stack>
 
-                  <div className="mt-auto space-y-2 pt-2 border-t">
-                    <Button size="sm" className="w-full bg-united-purple hover:bg-united-purple/90" onClick={() => navigate(`/post/manage/${post.id}`)}>
-                      <Users className="w-3.5 h-3.5 mr-1" /> View Applications
-                    </Button>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/edit-post/${post.id}`)}>
-                        <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => { setSelectedPostId(post.id); setDeleteDialogOpen(true); }}>
-                        <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                      <Box sx={{ mb: 1.5 }}>
+                        <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                          <Typography sx={{ fontSize: 12, color: '#6B7280' }}>Team Progress</Typography>
+                          <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{Math.round(progress)}%</Typography>
+                        </Stack>
+                        <LinearProgress
+                          variant="determinate"
+                          value={progress}
+                          sx={{
+                            height: 6,
+                            borderRadius: 3,
+                            backgroundColor: '#E5E7EB',
+                            '& .MuiLinearProgress-bar': {
+                              backgroundColor: progress >= 100 ? '#10B981' : '#6C47FF',
+                            },
+                          }}
+                        />
+                      </Box>
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Delete Post?</DialogTitle></DialogHeader>
-          <p className="text-muted-foreground">Are you sure you want to delete this post? This action cannot be undone.</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                      <Stack spacing={1} sx={{ mt: 'auto', pt: 1.2, borderTop: '1px solid #E5E7EB' }}>
+                        <Button
+                          variant="contained"
+                          startIcon={<Users size={15} />}
+                          onClick={() => navigate(`/post/manage/${post.id}`)}
+                          sx={{
+                            backgroundColor: '#6C47FF',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            '&:hover': { backgroundColor: '#5936E8' },
+                          }}
+                        >
+                          View Applications
+                        </Button>
+
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            variant="outlined"
+                            startIcon={<Edit2 size={14} />}
+                            onClick={() => navigate(`/edit-post/${post.id}`)}
+                            sx={{
+                              flex: 1,
+                              textTransform: 'none',
+                              fontWeight: 600,
+                              borderColor: '#D1D5DB',
+                              color: '#4B5563',
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={<Trash2 size={14} />}
+                            onClick={() => {
+                              setSelectedPostId(post.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                            sx={{
+                              flex: 1,
+                              textTransform: 'none',
+                              fontWeight: 600,
+                              borderColor: '#EF4444',
+                              color: '#EF4444',
+                              '&:hover': { backgroundColor: '#FEF2F2', borderColor: '#DC2626' },
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </Box>
+        )}
+
+        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+          <DialogTitle>Delete Post?</DialogTitle>
+          <DialogContent>
+            <Typography sx={{ color: '#6B7280' }}>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialogOpen(false)} sx={{ textTransform: 'none' }}>
+              Cancel
+            </Button>
+            <Button color="error" variant="contained" onClick={handleDelete} disabled={deleting} sx={{ textTransform: 'none' }}>
               {deleting ? 'Deleting...' : 'Delete'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </Box>
   );
 };
 
