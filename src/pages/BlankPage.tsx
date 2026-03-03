@@ -433,8 +433,8 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 2.5 && currentTime <= 6.0 ? 'block' : 'none'
             }}
           >
-            <h2 className="text-5xl font-bold mb-4">Post. Share. Connect.</h2>
-            <p className="text-2xl font-light">Activities, updates, announcements.</p>
+            <h2 className="text-5xl font-bold mb-4 text-white">Post. Share. Connect.</h2>
+            <p className="text-2xl font-light text-white">Activities, updates, announcements.</p>
           </div>
 
           {/* 6.0-10.0s: One feed for everything */}
@@ -457,8 +457,8 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 10.0 && currentTime <= 14.0 ? 'block' : 'none'
             }}
           >
-            <h2 className="text-5xl font-bold mb-4">Chatrooms that keep you close</h2>
-            <p className="text-2xl font-light">Talk with classmates & faculty.</p>
+            <h2 className="text-5xl font-bold mb-4 text-white">Chatrooms that keep you close</h2>
+            <p className="text-2xl font-light text-white">Talk with classmates & faculty.</p>
           </div>
 
           {/* 14.0-18.0s: CTA */}

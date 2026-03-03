@@ -1,78 +1,197 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
+import { Box, Container, Typography, Button } from '@mui/material';
+import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 const HeroSection: React.FC = () => {
   const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
-    <section
-      className="min-h-screen flex items-center relative overflow-hidden pt-20"
-      style={{
+    <Box
+      id="home"
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        pt: 8,
+        backgroundColor: '#0f172a',
         backgroundImage: 'url(/pexels-ivan-s-7213362.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 0,
+        },
       }}
     >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-foreground/50 z-0" />
-
-      <div className="max-w-6xl mx-auto px-4 relative z-10 w-full">
-        <div className="flex flex-col md:flex-row gap-8 items-center">
-          <div className="w-full md:w-[58%]">
-            {/* Headline */}
-            <h1 className="text-primary-foreground text-5xl md:text-7xl font-extrabold leading-tight tracking-tight mb-2">
-              Unit<span className="text-primary">Ed</span>
-            </h1>
-
-            {/* Tagline */}
-            <h2 className="text-2xl md:text-3xl font-bold mb-4 uppercase tracking-wider text-united-amber">
-              Innovate • Create • Elevate
-            </h2>
-
-            {/* Subtitle */}
-            <p className="text-primary-foreground/90 text-lg md:text-xl leading-relaxed mb-8">
-              Join thousands of students and faculty in research, projects, and hackathons.
-              AI-powered matching, real-time chat, and powerful features for seamless collaboration.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex gap-4 flex-wrap">
-              <Button asChild size="lg" className="bg-card text-primary hover:bg-muted px-8 py-6 text-lg font-bold">
-                <Link to="/register">
-                  Join Now <ArrowRight className="ml-2" size={20} />
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="border-2 border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 px-8 py-6 text-lg font-bold bg-transparent"
-                onClick={() => scrollToSection('about')}
+      <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            gap: 4,
+            alignItems: 'center',
+          }}
+        >
+          <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 58%' }, maxWidth: { md: '58%' } }}>
+            <Box>
+              {/* Headline */}
+              <Typography
+                variant="h1"
+                sx={{
+                  color: '#FFFFFF',
+                  mb: 1,
+                  fontSize: { xs: '3rem', md: '4.5rem' },
+                  fontWeight: 800,
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.03em',
+                }}
               >
-                Learn More
-              </Button>
-            </div>
+                Unit<Box component="span" sx={{ color: '#2563EB' }}>Ed</Box>
+              </Typography>
 
-            {/* Stats */}
-            <div className="flex gap-8 mt-12 flex-wrap">
-              {[
-                { number: '2000+', label: 'Active Students' },
-                { number: '150+', label: 'Faculty Members' },
-                { number: '500+', label: 'Projects Completed' },
-              ].map((stat, index) => (
-                <div key={index}>
-                  <h3 className="text-primary-foreground text-3xl font-bold mb-1">{stat.number}</h3>
-                  <p className="text-primary-foreground/80 text-sm font-medium">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+              {/* Tagline */}
+              <Typography
+                variant="h4"
+                sx={{
+                  color: '#FFFFFF',
+                  mb: 2,
+                  fontSize: { xs: '1.5rem', md: '2rem' },
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  background: 'linear-gradient(135deg, #FDE047 0%, #F97316 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                Innovate • Create • Elevate
+              </Typography>
+
+              {/* Subtitle */}
+              <Typography
+                variant="h5"
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  mb: 4,
+                  fontSize: { xs: '1.1rem', md: '1.3rem' },
+                  fontWeight: 400,
+                  lineHeight: 1.6,
+                }}
+              >
+                Join thousands of students and faculty in research, projects, and hackathons.
+                AI-powered matching, real-time chat, and powerful features for seamless collaboration.
+              </Typography>
+
+              {/* CTA Buttons */}
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Button
+                  component={Link}
+                  to="/register"
+                  variant="contained"
+                  size="large"
+                  endIcon={<ArrowRight size={20} />}
+                  sx={{
+                    backgroundColor: '#FFFFFF',
+                    color: '#2563EB',
+                    px: 4,
+                    py: 1.5,
+                    fontSize: '1.1rem',
+                    fontWeight: 700,
+                    '&:hover': {
+                      backgroundColor: '#F3F4F6',
+                      transform: 'translateY(-2px)',
+                    },
+                  }}
+                >
+                  Join Now
+                </Button>
+
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => scrollToSection('about')}
+                  sx={{
+                    borderColor: '#FFFFFF',
+                    color: '#FFFFFF',
+                    px: 4,
+                    py: 1.5,
+                    fontSize: '1.1rem',
+                    fontWeight: 700,
+                    borderWidth: 2,
+                    '&:hover': {
+                      borderColor: '#FFFFFF',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderWidth: 2,
+                    },
+                  }}
+                >
+                  Learn More
+                </Button>
+              </Box>
+
+              {/* Stats */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 4,
+                  mt: 6,
+                  flexWrap: 'wrap',
+                }}
+              >
+                {[
+                  { number: '2000+', label: 'Active Students' },
+                  { number: '150+', label: 'Faculty Members' },
+                  { number: '500+', label: 'Projects Completed' },
+                ].map((stat, index) => (
+                  <Box key={index}>
+                    <Box>
+                      <Typography
+                        variant="h4"
+                        sx={{
+                          color: '#FFFFFF',
+                          fontWeight: 700,
+                          mb: 0.5,
+                        }}
+                      >
+                        {stat.number}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.8)',
+                          fontWeight: 500,
+                        }}
+                      >
+                        {stat.label}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          </Box>
+
+
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

@@ -14,10 +14,6 @@ const features = [
 ];
 
 const team = [
-  { name: 'Madhuri', role: 'Project Lead', avatar: 'M' },
-  { name: 'Annanya', role: 'Frontend Developer', avatar: 'A' },
-  { name: 'Vedhakshi', role: 'UI/UX Designer', avatar: 'V' },
-  { name: 'Maaroof', role: 'Backend Developer', avatar: 'M' },
   { name: 'Krishna', role: 'Data Engineer', avatar: 'K' },
 ];
 

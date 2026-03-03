@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { useEffect } from "react";
+import CssBaseline from "@mui/material/CssBaseline";
 import { AuthProvider } from "./contexts/AuthContext";
 import { initializePostLifecycle } from "./services/postLifecycleService";
 import { storageSecurityMonitor } from "./services/storageSecurityMonitor";
@@ -54,6 +55,7 @@ const App = () => {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
     <QueryClientProvider client={queryClient}>
+      <CssBaseline />
       <TooltipProvider>
         <Toaster />
         <Sonner />

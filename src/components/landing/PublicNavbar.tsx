@@ -1,33 +1,81 @@
-import React, { useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AppBar, Toolbar, Button, Box, Container } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 
 const PublicNavbar: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // If user is logged in, redirect to appropriate page
+  useEffect(() => {
     if (user) {
-      navigate(user.role === 'student' ? '/home' : '/dashboard');
+      if (user.role === 'student') {
+        navigate('/home');
+      } else {
+        navigate('/dashboard');
+      }
     }
   }, [user, navigate]);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-transparent">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="flex justify-end items-center py-4">
-          <div className="flex gap-3">
-            <Button asChild className="bg-primary hover:bg-primary/80 text-primary-foreground font-semibold">
-              <Link to="/login">Login</Link>
+    <AppBar
+      position="fixed"
+      sx={{
+        backgroundColor: scrolled ? 'rgba(15, 23, 42, 0.8)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(8px)' : 'none',
+        boxShadow: scrolled ? '0 4px 20px rgba(0, 0, 0, 0.2)' : 'none',
+        transition: 'all 0.3s ease-in-out',
+      }}
+    >
+      <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+        <Toolbar sx={{ py: 1, justifyContent: 'flex-end', px: 0 }}>
+          {/* Auth Buttons */}
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              component={Link}
+              to="/login"
+              variant="contained"
+              sx={{
+                backgroundColor: '#2563EB',
+                color: '#FFFFFF',
+                fontWeight: 600,
+                '&:hover': {
+                  backgroundColor: '#1E40AF',
+                },
+              }}
+            >
+              Login
             </Button>
-            <Button asChild className="bg-card text-primary hover:bg-muted font-semibold">
-              <Link to="/register">Register</Link>
+            <Button
+              component={Link}
+              to="/register"
+              variant="contained"
+              sx={{
+                backgroundColor: '#FFFFFF',
+                color: '#2563EB',
+                fontWeight: 600,
+                '&:hover': {
+                  backgroundColor: '#F3F4F6',
+                },
+              }}
+            >
+              Register
             </Button>
-          </div>
-        </div>
-      </div>
-    </nav>
+          </Box>
+        </Toolbar>
+      </Container>
+    </AppBar>
   );
 };
 
