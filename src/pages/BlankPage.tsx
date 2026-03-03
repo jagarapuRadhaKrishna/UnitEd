@@ -421,8 +421,8 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 0 && currentTime <= 2.5 ? 'block' : 'none'
             }}
           >
-            <h1 className="text-7xl font-bold mb-4 tracking-tight">UNITED</h1>
-            <p className="text-2xl font-light">Campus, in one place.</p>
+            <h1 className="text-7xl font-bold mb-4 tracking-tight text-white">UNITED</h1>
+            <p className="text-2xl font-light text-white">Campus, in one place.</p>
           </div>
 
           {/* 2.5-6.0s: Post. Share. Connect. */}
@@ -445,8 +445,8 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 6.0 && currentTime <= 10.0 ? 'block' : 'none'
             }}
           >
-            <h2 className="text-5xl font-bold mb-4">One feed for everything</h2>
-            <p className="text-2xl font-light">See what's happening today.</p>
+            <h2 className="text-5xl font-bold mb-4 text-white">One feed for everything</h2>
+            <p className="text-2xl font-light text-white">See what's happening today.</p>
           </div>
 
           {/* 10.0-14.0s: Chatrooms */}
@@ -469,7 +469,7 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 14.0 && currentTime <= 18.0 ? 'block' : 'none'
             }}
           >
-            <h2 className="text-5xl font-bold mb-8">Join your campus on UNITED</h2>
+            <h2 className="text-5xl font-bold mb-8 text-white">Join your campus on UNITED</h2>
             <button
               onClick={handleGetStarted}
               className="bg-white text-black px-10 py-4 rounded-full text-base font-medium uppercase
