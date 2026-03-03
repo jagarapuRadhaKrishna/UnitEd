@@ -201,7 +201,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Then check existing session
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
+    supabase.auth.getSession().then(({ data: { session: sess }, error: sessionError }) => {
+      if (sessionError) {
+        // Stale/invalid session (e.g. after project rename) – clear it
+        console.warn('Session restore failed, signing out:', sessionError.message);
+        supabase.auth.signOut().finally(() => {
+          setUser(null);
+          setSession(null);
+          setIsLoading(false);
+        });
+        return;
+      }
       setSession(sess);
       if (sess?.user) {
         fetchProfile(sess.user.id).then(profile => {
