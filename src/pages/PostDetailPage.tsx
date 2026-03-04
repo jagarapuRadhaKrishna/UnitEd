@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,6 +40,7 @@ interface PostDetail {
 const PostDetailPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [post, setPost] = useState<PostDetail | null>(null);
@@ -54,6 +55,15 @@ const PostDetailPage: React.FC = () => {
   const [inviting, setInviting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const returnContext = (location.state as { from?: string; activeTab?: string } | null) || null;
+  const handleBack = () => {
+    if (returnContext?.from === 'home') {
+      navigate('/home', { state: { activeTab: returnContext.activeTab || 'all' } });
+      return;
+    }
+    navigate(-1);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -132,7 +142,7 @@ const PostDetailPage: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h2 className="text-2xl font-bold mb-4">Post not found</h2>
-        <Button variant="outline" onClick={() => navigate('/home')}>
+        <Button variant="outline" onClick={() => navigate('/home', { state: { activeTab: 'my' } })}>
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
         </Button>
       </div>
@@ -211,7 +221,7 @@ const PostDetailPage: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-4">
-      <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4 text-muted-foreground">
+      <Button variant="ghost" onClick={handleBack} className="mb-4 text-muted-foreground">
         <ArrowLeft className="w-4 h-4 mr-2" /> Back
       </Button>
 
@@ -349,7 +359,7 @@ const PostDetailPage: React.FC = () => {
                 return;
               }
               toast({ title: 'Post deleted' });
-              navigate('/my-posts');
+              navigate('/home', { state: { activeTab: 'my' } });
             }} disabled={deleting}>
               {deleting ? 'Deleting...' : 'Delete'}
             </Button>

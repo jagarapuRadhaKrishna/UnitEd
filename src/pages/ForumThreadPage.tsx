@@ -145,7 +145,7 @@ const ForumThreadPage: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [threadId]);
+  }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     repliesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

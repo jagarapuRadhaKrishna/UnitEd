@@ -49,6 +49,13 @@ interface ReceivedAppItem {
   applied_for_skill: string | null;
 }
 
+interface PostSummary {
+  id: string;
+  title: string;
+  purpose: string;
+  author_id: string;
+}
+
 const AppliedOpportunitiesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -68,7 +75,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
 
   useEffect(() => {
     if (user?.id) fetchAll();
-  }, [user?.id]);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchAll = async () => {
     if (!user?.id) return;
@@ -99,7 +106,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
     const authorIds = [...new Set((posts || []).map((p) => p.author_id))];
     const { data: profiles } = await supabase.from('profiles').select('id, first_name, last_name').in('id', authorIds);
 
-    const postMap: Record<string, any> = {};
+    const postMap: Record<string, PostSummary> = {};
     (posts || []).forEach((p) => {
       postMap[p.id] = p;
     });
@@ -184,7 +191,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const effectiveViewMode = isFaculty ? 'received' : viewMode;
 
@@ -508,7 +515,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
                             From{' '}
                             <Box
                               component="span"
-                              onClick={() => navigate(`/user/${app.applicant_id}`)}
+                              onClick={() => navigate(`/profile/${app.applicant_id}`)}
                               sx={{ fontWeight: 700, cursor: 'pointer', color: '#6C47FF', '&:hover': { textDecoration: 'underline' } }}
                             >
                               {app.applicant_name}

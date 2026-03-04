@@ -109,6 +109,7 @@ const MyPostsPage: React.FC = () => {
     setPosts((prev) => prev.filter((p) => p.id !== selectedPostId));
     setDeleteDialogOpen(false);
     toast({ title: 'Post deleted' });
+    navigate('/home', { state: { activeTab: 'my' } });
   };
 
   if (loading) {

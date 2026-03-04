@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +27,12 @@ interface AppItem {
   post_purpose: string;
 }
 
+interface PostSummary {
+  id: string;
+  title: string;
+  purpose: string;
+}
+
 const AcceptedApplicationsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -36,11 +42,7 @@ const AcceptedApplicationsPage: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('All');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user?.id) fetchApplications();
-  }, [user?.id]);
-
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
 
@@ -60,7 +62,7 @@ const AcceptedApplicationsPage: React.FC = () => {
       const postIds = [...new Set(apps.map((a) => a.post_id))];
       const { data: posts } = await supabase.from('posts').select('id, title, purpose').in('id', postIds);
 
-      const postMap: Record<string, any> = {};
+      const postMap: Record<string, PostSummary> = {};
       (posts || []).forEach((p) => {
         postMap[p.id] = p;
       });
@@ -84,7 +86,11 @@ const AcceptedApplicationsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) fetchApplications();
+  }, [user?.id, fetchApplications]);
 
   const statusFilters = ['All', 'accepted', 'applied', 'shortlisted', 'rejected'];
 

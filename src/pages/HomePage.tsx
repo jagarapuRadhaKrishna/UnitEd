@@ -1,12 +1,22 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, Filter, Users, Calendar, MessageSquare, Plus } from 'lucide-react';
+import { Search, Filter, Users, Calendar, MessageSquare, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface SkillRequirement {
   skill: string;
@@ -37,6 +47,9 @@ const HomePage: React.FC = () => {
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [posts, setPosts] = useState<HomePost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [confirmDeletePostId, setConfirmDeletePostId] = useState<string | null>(null);
+  const [animatingDeletePostId, setAnimatingDeletePostId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -131,6 +144,46 @@ const HomePage: React.FC = () => {
     const lowerUserSkills = userSkills.map(s => s.toLowerCase());
     const matched = post.skills.filter(s => lowerUserSkills.some(us => us.includes(s.toLowerCase()) || s.toLowerCase().includes(us)));
     return Math.round((matched.length / post.skills.length) * 100);
+  };
+
+  const handleDeleteClick = (postId: string) => {
+    setConfirmDeletePostId(postId);
+  };
+
+  const handleDeletePost = async () => {
+    if (!user?.id) return;
+    if (!confirmDeletePostId) return;
+
+    setDeletingPostId(confirmDeletePostId);
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', confirmDeletePostId)
+        .eq('author_id', user.id);
+
+      if (error) {
+        console.error('Delete post failed:', error);
+        setDeletingPostId(null);
+        return;
+      }
+
+      setAnimatingDeletePostId(confirmDeletePostId);
+      setConfirmDeletePostId(null);
+      window.setTimeout(() => {
+        setPosts((prev) => prev.filter((p) => p.id !== confirmDeletePostId));
+        setAnimatingDeletePostId(null);
+        setDeletingPostId(null);
+      }, 260);
+    } catch (err) {
+      console.error('Delete post failed:', err);
+      setDeletingPostId(null);
+    } finally {
+      if (confirmDeletePostId && animatingDeletePostId !== confirmDeletePostId) {
+        setConfirmDeletePostId(null);
+      }
+      setDeletingPostId(null);
+    }
   };
 
   const filteredPosts = posts.filter(post => {
@@ -282,13 +335,31 @@ const HomePage: React.FC = () => {
             {filteredPosts.map(post => {
               const owned = isMyPost(post);
               return (
-                <Card key={post.id} className="flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                <Card
+                  key={post.id}
+                  className={`flex flex-col hover:-translate-y-0.5 hover:border-orange-400/70 hover:shadow-[0_10px_28px_-12px_rgba(249,115,22,0.55)] transition-all duration-300 ${
+                    animatingDeletePostId === post.id ? 'opacity-0 scale-95 -translate-y-2 pointer-events-none' : 'opacity-100 scale-100'
+                  }`}
+                >
                   <CardContent className="p-4 pb-2 flex-1 space-y-2">
                     <div className="flex items-center justify-between gap-1">
                       {owned && (
                         <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-united-amber/15 text-united-amber border border-united-amber/30">
                           📌 My Post
                         </span>
+                      )}
+                      {owned && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={deletingPostId === post.id}
+                          className="ml-auto h-7 w-7 p-0 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteClick(post.id)}
+                          aria-label="Delete post"
+                          title="Delete post"
+                        >
+                          {deletingPostId === post.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        </Button>
                       )}
                       {!owned && getMatchScore(post) > 0 && (
                         <span className={`ml-auto inline-block px-2 py-0.5 text-[10px] font-bold rounded ${
@@ -334,7 +405,11 @@ const HomePage: React.FC = () => {
                       <Button 
                         size="sm" 
                         className="flex-1 text-xs rounded-full font-medium border-0 cursor-pointer shadow-[0_4px_14px_0px_rgba(37,99,235,0.4)] transition-all duration-300 bg-blue-600 text-white hover:bg-blue-700 active:translate-y-1 active:shadow-none" 
-                        onClick={() => navigate(`/post/${post.id}`)}
+                        onClick={() =>
+                          navigate(`/post/${post.id}`, {
+                            state: { from: 'home', activeTab: owned ? 'my' : filterTab },
+                          })
+                        }
                       >
                         View
                       </Button>
@@ -345,8 +420,8 @@ const HomePage: React.FC = () => {
                       )}
                     </div>
                     {owned && (
-                      <Button size="sm" className="w-full bg-united-green hover:bg-united-green/90 text-white text-xs font-semibold" onClick={() => navigate(`/post/${post.id}/candidates`)}>
-                        <Users size={14} className="mr-1" /> 🎯 View Matched Candidates ({post.requiredMembers - post.acceptedMembers} needed)
+                      <Button size="sm" className="w-full bg-united-green hover:bg-united-green/90 text-white text-[13px] font-semibold h-auto min-h-10 py-2 px-3 leading-tight whitespace-normal text-center flex items-center justify-center gap-1.5 rounded-full border-0" onClick={() => navigate(`/post/${post.id}/candidates`)}>
+                        <Users size={14} className="shrink-0" /> 🎯 View Matched Candidates ({post.requiredMembers - post.acceptedMembers} needed)
                       </Button>
                     )}
                   </div>
@@ -356,8 +431,35 @@ const HomePage: React.FC = () => {
           </div>
         )}
       </div>
+      <AlertDialog open={!!confirmDeletePostId} onOpenChange={(open) => !open && setConfirmDeletePostId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The post and related references will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingPostId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePost}
+              disabled={!!deletingPostId}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingPostId ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" /> Deleting...
+                </span>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
 
 export default HomePage;
+

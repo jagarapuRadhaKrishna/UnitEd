@@ -39,9 +39,10 @@ const LoginPage: React.FC = () => {
 
     try {
       await login(email, password);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
-      setError(err?.message || 'Login failed. Please check your credentials.');
+      const message = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -231,7 +232,7 @@ const LoginPage: React.FC = () => {
             <Box sx={{ textAlign: 'center', mt: 3 }}>
               <Button
                 component={Link}
-                to="/"
+                to="/landing"
                 sx={{
                   color: '#FFFFFF',
                   textTransform: 'none',
