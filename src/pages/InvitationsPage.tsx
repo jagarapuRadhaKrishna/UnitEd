@@ -5,10 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Send, Mail, CheckCircle, XCircle, Clock, Calendar, Info, Loader2, MessageCircle } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface InvitationItem {
   id: string;
@@ -128,7 +129,7 @@ const InvitationsPage: React.FC = () => {
         await supabase.from('notifications').insert({
           user_id: inv.inviter_id,
           type: action === 'accepted' ? 'invitation_accepted' : 'invitation_declined',
-          title: action === 'accepted' ? 'Invitation Accepted! 🎉' : 'Invitation Declined',
+          title: action === 'accepted' ? 'Invitation Accepted! \u{1F389}' : 'Invitation Declined',
           message: `${user?.firstName || ''} ${user?.lastName || ''} ${action} your invitation for "${inv.post_title}"`,
           link: action === 'accepted' ? '/invitations' : '/invitations',
           related_post_id: inv.post_id,
@@ -189,7 +190,7 @@ const InvitationsPage: React.FC = () => {
             await supabase.from('messages').insert({
               chatroom_id: chatroom.id,
               sender_id: user!.id,
-              content: `${user?.firstName || ''} ${user?.lastName || ''} accepted the invitation for "${inv.post_title}" 🎉 You can now chat!`,
+              content: `${user?.firstName || ''} ${user?.lastName || ''} accepted the invitation for "${inv.post_title}" \u{1F389} You can now chat!`,
               type: 'system',
             });
 
@@ -198,7 +199,7 @@ const InvitationsPage: React.FC = () => {
               await supabase.from('notifications').insert({
                 user_id: uid,
                 type: 'chatroom_created',
-                title: 'Chat Room Ready! 💬',
+                title: 'Chat Room Ready! \u{1F4AC}',
                 message: `A chat room has been created for "${inv.post_title}". Start collaborating!`,
                 link: `/chatroom/${chatroom.id}`,
                 related_post_id: inv.post_id,
@@ -211,7 +212,7 @@ const InvitationsPage: React.FC = () => {
         }
       }
 
-      toast({ title: action === 'accepted' ? 'Invitation accepted! Chat room created 🎉' : 'Invitation declined' });
+      toast({ title: action === 'accepted' ? 'Invitation accepted! Chat room created \u{1F389}' : 'Invitation declined' });
       fetchInvitations();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -379,8 +380,8 @@ const InvitationsPage: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">👥 Invitations</h1>
-        <p className="text-muted-foreground">Manage your team invitations — send invites and view received invitations.</p>
+        <h1 className="text-2xl font-bold text-foreground">{'\u{1F465}'} Invitations</h1>
+        <p className="text-muted-foreground">Manage your team invitations - send invites and view received invitations.</p>
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="mb-6">
@@ -388,31 +389,37 @@ const InvitationsPage: React.FC = () => {
           <TabsTrigger value="sent" className="gap-2"><Send className="w-4 h-4" /> I Invited ({sent.length})</TabsTrigger>
           <TabsTrigger value="received" className="gap-2"><Mail className="w-4 h-4" /> They Invited Me ({received.length})</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="sent" className="mt-4">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          className="mt-4 mb-6"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+        >
           <div className="space-y-3">
-            {sent.length === 0 ? (
-              <Card className="py-8 text-center"><CardContent><p className="text-muted-foreground">No sent invitations yet</p></CardContent></Card>
-            ) : sent.map(inv => <InvitationCard key={inv.id} inv={inv} type="sent" />)}
+            {tab === 'sent' ? (
+              sent.length === 0 ? (
+                <Card className="py-8 text-center"><CardContent><p className="text-muted-foreground">No sent invitations yet</p></CardContent></Card>
+              ) : sent.map(inv => <InvitationCard key={inv.id} inv={inv} type="sent" />)
+            ) : (
+              received.length === 0 ? (
+                <Card className="py-8 text-center"><CardContent><p className="text-muted-foreground">No received invitations yet</p></CardContent></Card>
+              ) : received.map(inv => <InvitationCard key={inv.id} inv={inv} type="received" />)
+            )}
           </div>
-        </TabsContent>
-
-        <TabsContent value="received" className="mt-4">
-          <div className="space-y-3">
-            {received.length === 0 ? (
-              <Card className="py-8 text-center"><CardContent><p className="text-muted-foreground">No received invitations yet</p></CardContent></Card>
-            ) : received.map(inv => <InvitationCard key={inv.id} inv={inv} type="received" />)}
-          </div>
-        </TabsContent>
+        </motion.div>
+      </AnimatePresence>
       </Tabs>
 
       <Card className="bg-primary/5 border-l-4 border-l-primary">
         <CardContent className="p-4">
           <h4 className="font-semibold text-primary mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> How It Works</h4>
           <p className="text-sm text-primary/80 leading-relaxed">
-            • <strong>I Invited</strong>: Shows invitations you've sent. You can cancel pending ones.<br/>
-            • <strong>They Invited Me</strong>: Accept to join the team or decline to skip.<br/>
-            • <strong>Auto-Disconnect</strong>: When a project closes, team connections auto-disconnect.
+            - <strong>I Invited</strong>: Shows invitations you've sent. You can cancel pending ones.<br/>
+            - <strong>They Invited Me</strong>: Accept to join the team or decline to skip.<br/>
+            - <strong>Auto-Disconnect</strong>: When a project closes, team connections auto-disconnect.
           </p>
         </CardContent>
       </Card>

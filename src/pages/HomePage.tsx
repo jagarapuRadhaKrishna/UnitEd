@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Filter, Users, Calendar, MessageSquare, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -231,7 +232,8 @@ const HomePage: React.FC = () => {
             </p>
           </div>
           <Button onClick={() => navigate('/create-post')} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            <Plus size={16} className="mr-1" /> Create Post
+            <Plus size={16} className="mr-1" />
+            <span className="tracking-in-expand-normal">Create Post</span>
           </Button>
         </div>
 
@@ -268,168 +270,187 @@ const HomePage: React.FC = () => {
             <Tabs value={filterTab} onValueChange={setFilterTab}>
               <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0">
                 <TabsTrigger value="all" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-semibold px-6 py-3">
-                  All Posts
+                  <span className={filterTab === 'all' ? 'tracking-in-expand-normal' : ''}>All Posts</span>
                 </TabsTrigger>
                 <TabsTrigger value="skill" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-semibold px-6 py-3">
-                  Skill-Based
+                  <span className={filterTab === 'skill' ? 'tracking-in-expand-normal' : ''}>Skill-Based</span>
                 </TabsTrigger>
                 <TabsTrigger value="my" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-semibold px-6 py-3">
-                  My Posts
+                  <span className={filterTab === 'my' ? 'tracking-in-expand-normal' : ''}>My Posts</span>
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
-            {filterTab === 'skill' && (
-              <div className="p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Filter size={18} className="text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Filter by skills:</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {allSkills.map(skill => (
-                    <button
-                      key={skill}
-                      onClick={() => handleSkillToggle(skill)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        selectedSkills.includes(skill)
-                          ? 'bg-accent text-accent-foreground'
-                          : 'bg-secondary text-foreground hover:bg-secondary/80'
-                      }`}
-                    >
-                      {skill}
-                    </button>
-                  ))}
-                </div>
+            <AnimatePresence initial={false}>
+              {filterTab === 'skill' && (
+                <motion.div
+                  key="skill-filter"
+                  className="p-3"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Filter size={18} className="text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Filter by skills:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {allSkills.map(skill => (
+                      <button
+                        key={skill}
+                        onClick={() => handleSkillToggle(skill)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                          selectedSkills.includes(skill)
+                            ? 'bg-accent text-accent-foreground'
+                            : 'bg-secondary text-foreground hover:bg-secondary/80'
+                        }`}
+                      >
+                        {skill}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Card>
+        )}
+
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={user?.role === 'faculty' ? 'faculty-posts' : `tab-${filterTab}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {/* Faculty heading */}
+            {user?.role === 'faculty' && filteredPosts.length > 0 && (
+              <div className="mb-4">
+                <h2 className="text-xl font-bold text-foreground">My Posts</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{filteredPosts.length} {filteredPosts.length === 1 ? 'post' : 'posts'}</p>
               </div>
             )}
-          </Card>
-        )}
 
-        {/* Faculty heading */}
-        {user?.role === 'faculty' && filteredPosts.length > 0 && (
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-foreground">My Posts</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">{filteredPosts.length} {filteredPosts.length === 1 ? 'post' : 'posts'}</p>
-          </div>
-        )}
-
-        {/* Posts Grid */}
-        {filteredPosts.length === 0 ? (
-          <Card className="p-12 text-center">
-            <h3 className="text-lg font-semibold text-muted-foreground mb-1">
-              {posts.length === 0 ? 'No posts yet' : 'No posts found'}
-            </h3>
-            <p className="text-sm text-muted-foreground/70 mb-4">
-              {posts.length === 0
-                ? 'Be the first to create an opportunity!'
-                : 'Try adjusting your filters or search terms'}
-            </p>
-            {posts.length === 0 && (
-              <Button onClick={() => navigate('/create-post')} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Plus size={16} className="mr-1" /> Create First Post
-              </Button>
-            )}
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredPosts.map(post => {
-              const owned = isMyPost(post);
-              return (
-                <Card
-                  key={post.id}
-                  className={`flex flex-col hover:-translate-y-0.5 hover:border-orange-400/70 hover:shadow-[0_10px_28px_-12px_rgba(249,115,22,0.55)] transition-all duration-300 ${
-                    animatingDeletePostId === post.id ? 'opacity-0 scale-95 -translate-y-2 pointer-events-none' : 'opacity-100 scale-100'
-                  }`}
-                >
-                  <CardContent className="p-4 pb-2 flex-1 space-y-2">
-                    <div className="flex items-center justify-between gap-1">
-                      {owned && (
-                        <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-united-amber/15 text-united-amber border border-united-amber/30">
-                          📌 My Post
+            {/* Posts Grid */}
+            {filteredPosts.length === 0 ? (
+              <Card className="p-12 text-center">
+                <h3 className="text-lg font-semibold text-muted-foreground mb-1">
+                  {posts.length === 0 ? 'No posts yet' : 'No posts found'}
+                </h3>
+                <p className="text-sm text-muted-foreground/70 mb-4">
+                  {posts.length === 0
+                    ? 'Be the first to create an opportunity!'
+                    : 'Try adjusting your filters or search terms'}
+                </p>
+                {posts.length === 0 && (
+                  <Button onClick={() => navigate('/create-post')} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                    <Plus size={16} className="mr-1" /> Create First Post
+                  </Button>
+                )}
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredPosts.map(post => {
+                  const owned = isMyPost(post);
+                  return (
+                    <Card
+                      key={post.id}
+                      className={`flex flex-col hover:-translate-y-0.5 hover:border-orange-400/70 hover:shadow-[0_10px_28px_-12px_rgba(249,115,22,0.55)] transition-all duration-300 ${
+                        animatingDeletePostId === post.id ? 'opacity-0 scale-95 -translate-y-2 pointer-events-none' : 'opacity-100 scale-100'
+                      }`}
+                    >
+                      <CardContent className="p-4 pb-2 flex-1 space-y-2">
+                        <div className="flex items-center justify-between gap-1">
+                          {owned && (
+                            <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-united-amber/15 text-united-amber border border-united-amber/30">
+                              📌 My Post
+                            </span>
+                          )}
+                          {owned && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={deletingPostId === post.id}
+                              className="ml-auto h-7 w-7 p-0 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteClick(post.id)}
+                              aria-label="Delete post"
+                              title="Delete post"
+                            >
+                              {deletingPostId === post.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            </Button>
+                          )}
+                          {!owned && getMatchScore(post) > 0 && (
+                            <span className={`ml-auto inline-block px-2 py-0.5 text-[10px] font-bold rounded ${
+                              getMatchScore(post) >= 75 ? 'bg-united-green/15 text-united-green' :
+                              getMatchScore(post) >= 40 ? 'bg-united-amber/15 text-united-amber' :
+                              'bg-primary/10 text-primary'
+                            }`}>
+                              🎯 {getMatchScore(post)}% match
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-sm leading-snug">{post.title}</h3>
+                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                            <span className="text-xs text-muted-foreground">by {post.author.name}</span>
+                            <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary font-medium">
+                              {post.author.type}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded bg-united-green/10 text-united-green">
+                          {post.purpose}
                         </span>
-                      )}
-                      {owned && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={deletingPostId === post.id}
-                          className="ml-auto h-7 w-7 p-0 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteClick(post.id)}
-                          aria-label="Delete post"
-                          title="Delete post"
-                        >
-                          {deletingPostId === post.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                        </Button>
-                      )}
-                      {!owned && getMatchScore(post) > 0 && (
-                        <span className={`ml-auto inline-block px-2 py-0.5 text-[10px] font-bold rounded ${
-                          getMatchScore(post) >= 75 ? 'bg-united-green/15 text-united-green' :
-                          getMatchScore(post) >= 40 ? 'bg-united-amber/15 text-united-amber' :
-                          'bg-primary/10 text-primary'
-                        }`}>
-                          🎯 {getMatchScore(post)}% match
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm leading-snug">{post.title}</h3>
-                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                        <span className="text-xs text-muted-foreground">by {post.author.name}</span>
-                        <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary font-medium">
-                          {post.author.type}
-                        </span>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{post.description}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {post.skills.slice(0, 3).map(skill => {
+                            const isMatched = userSkills.some(us => us.toLowerCase().includes(skill.toLowerCase()) || skill.toLowerCase().includes(us.toLowerCase()));
+                            return (
+                              <span key={skill} className={`px-1.5 py-0.5 text-[10px] rounded ${isMatched ? 'bg-accent/20 text-accent-foreground font-semibold' : 'bg-secondary text-foreground'}`}>{skill}</span>
+                            );
+                          })}
+                          {post.skills.length > 3 && (
+                            <span className="px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground">+{post.skills.length - 3}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><Users size={14} /> {post.acceptedMembers}/{post.requiredMembers}</span>
+                          <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                      </CardContent>
+                      <div className="px-4 pb-3 pt-1 space-y-1.5">
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            className="flex-1 text-xs rounded-full font-medium border-0 cursor-pointer shadow-[0_4px_14px_0px_rgba(37,99,235,0.4)] transition-all duration-300 bg-blue-600 text-white hover:bg-blue-700 active:translate-y-1 active:shadow-none" 
+                            onClick={() =>
+                              navigate(`/post/${post.id}`, {
+                                state: { from: 'home', activeTab: owned ? 'my' : filterTab },
+                              })
+                            }
+                          >
+                            View
+                          </Button>
+                          {post.acceptedMembers === post.requiredMembers && post.requiredMembers > 0 && (
+                            <Button size="sm" variant="outline" className="flex-1 border-accent text-accent text-xs" onClick={() => navigate(`/chatroom/${post.id}`)}>
+                              <MessageSquare size={14} className="mr-1" /> Chat
+                            </Button>
+                          )}
+                        </div>
+                        {owned && (
+                          <Button size="sm" className="w-full bg-united-green hover:bg-united-green/90 text-white text-[13px] font-semibold h-auto min-h-10 py-2 px-3 leading-tight whitespace-normal text-center flex items-center justify-center gap-1.5 rounded-full border-0" onClick={() => navigate(`/post/${post.id}/candidates`)}>
+                            <Users size={14} className="shrink-0" /> 🎯 View Matched Candidates ({post.requiredMembers - post.acceptedMembers} needed)
+                          </Button>
+                        )}
                       </div>
-                    </div>
-                    <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded bg-united-green/10 text-united-green">
-                      {post.purpose}
-                    </span>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{post.description}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {post.skills.slice(0, 3).map(skill => {
-                        const isMatched = userSkills.some(us => us.toLowerCase().includes(skill.toLowerCase()) || skill.toLowerCase().includes(us.toLowerCase()));
-                        return (
-                          <span key={skill} className={`px-1.5 py-0.5 text-[10px] rounded ${isMatched ? 'bg-accent/20 text-accent-foreground font-semibold' : 'bg-secondary text-foreground'}`}>{skill}</span>
-                        );
-                      })}
-                      {post.skills.length > 3 && (
-                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground">+{post.skills.length - 3}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Users size={14} /> {post.acceptedMembers}/{post.requiredMembers}</span>
-                      <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                    </div>
-                  </CardContent>
-                  <div className="px-4 pb-3 pt-1 space-y-1.5">
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        className="flex-1 text-xs rounded-full font-medium border-0 cursor-pointer shadow-[0_4px_14px_0px_rgba(37,99,235,0.4)] transition-all duration-300 bg-blue-600 text-white hover:bg-blue-700 active:translate-y-1 active:shadow-none" 
-                        onClick={() =>
-                          navigate(`/post/${post.id}`, {
-                            state: { from: 'home', activeTab: owned ? 'my' : filterTab },
-                          })
-                        }
-                      >
-                        View
-                      </Button>
-                      {post.acceptedMembers === post.requiredMembers && post.requiredMembers > 0 && (
-                        <Button size="sm" variant="outline" className="flex-1 border-accent text-accent text-xs" onClick={() => navigate(`/chatroom/${post.id}`)}>
-                          <MessageSquare size={14} className="mr-1" /> Chat
-                        </Button>
-                      )}
-                    </div>
-                    {owned && (
-                      <Button size="sm" className="w-full bg-united-green hover:bg-united-green/90 text-white text-[13px] font-semibold h-auto min-h-10 py-2 px-3 leading-tight whitespace-normal text-center flex items-center justify-center gap-1.5 rounded-full border-0" onClick={() => navigate(`/post/${post.id}/candidates`)}>
-                        <Users size={14} className="shrink-0" /> 🎯 View Matched Candidates ({post.requiredMembers - post.acceptedMembers} needed)
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
       <AlertDialog open={!!confirmDeletePostId} onOpenChange={(open) => !open && setConfirmDeletePostId(null)}>
         <AlertDialogContent>

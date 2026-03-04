@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { useEffect } from "react";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -42,6 +42,8 @@ import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import AboutPage from "./pages/AboutPage";
+import AboutApplicationPage from "./pages/AboutApplicationPage";
+import AboutDevelopersPage from "./pages/AboutDevelopersPage";
 
 const queryClient = new QueryClient();
 
@@ -95,7 +97,12 @@ const App = () => {
                 <Route path="/forums" element={<ForumsPage />} />
                 <Route path="/forum/:threadId" element={<ForumThreadPage />} />
                 <Route path="/forum/create" element={<CreateThreadPage />} />
-                <Route path="/about" element={<AboutPage />} />
+                <Route path="/about" element={<AboutPage />}>
+                  <Route index element={<Navigate to="application" replace />} />
+                  <Route path="application" element={<AboutApplicationPage />} />
+                  <Route path="developers" element={<AboutDevelopersPage />} />
+                  <Route path="developer" element={<Navigate to="/about/developers" replace />} />
+                </Route>
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/settings/profile" element={<ProfilePage />} />
                 <Route path="/profile/:id" element={<UserProfilePage />} />

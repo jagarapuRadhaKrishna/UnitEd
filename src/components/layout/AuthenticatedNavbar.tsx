@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Bell, User, LogOut, Settings, Camera, Menu, X, Sun, Moon } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Bell, Camera, LogOut, Menu, Moon, Settings, Sun, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
@@ -29,15 +32,18 @@ const AuthenticatedNavbar: React.FC = () => {
   const location = useLocation();
   const { user, logout, updateProfile } = useAuth();
   const { theme, setTheme } = useTheme();
+
   const [invitationCount, setInvitationCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
   const [receivedAppCount, setReceivedAppCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch pending invitation count from Supabase
   useEffect(() => {
-    if (!user?.id) { setInvitationCount(0); return; }
+    if (!user?.id) {
+      setInvitationCount(0);
+      return;
+    }
 
     const fetchInvCount = async () => {
       const { count } = await supabase
@@ -52,17 +58,24 @@ const AuthenticatedNavbar: React.FC = () => {
 
     const channel = supabase
       .channel('navbar-invitations')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'invitations', filter: `invitee_id=eq.${user.id}` }, () => {
-        fetchInvCount();
-      })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'invitations', filter: `invitee_id=eq.${user.id}` },
+        fetchInvCount
+      )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id]);
 
-  // Fetch unread notification count from Supabase
   useEffect(() => {
-    if (!user?.id) { setNotificationCount(0); return; }
+    if (!user?.id) {
+      setNotificationCount(0);
+      return;
+    }
+
     const fetchCount = async () => {
       const { count } = await supabase
         .from('notifications')
@@ -71,26 +84,37 @@ const AuthenticatedNavbar: React.FC = () => {
         .eq('read', false);
       setNotificationCount(count || 0);
     };
+
     fetchCount();
+
     const channel = supabase
       .channel('navbar-notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
-        fetchCount();
-      })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        fetchCount
+      )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, location.pathname]);
 
-  // Fetch received application count for faculty
   useEffect(() => {
-    if (!user?.id || user?.role !== 'faculty') { setReceivedAppCount(0); return; }
+    if (!user?.id || user.role !== 'faculty') {
+      setReceivedAppCount(0);
+      return;
+    }
 
     const fetchAppCount = async () => {
-      // Get faculty's posts first
       const { data: myPosts } = await supabase.from('posts').select('id').eq('author_id', user.id);
-      if (!myPosts || myPosts.length === 0) { setReceivedAppCount(0); return; }
+      if (!myPosts || myPosts.length === 0) {
+        setReceivedAppCount(0);
+        return;
+      }
 
-      const postIds = myPosts.map(p => p.id);
+      const postIds = myPosts.map((post) => post.id);
       const { count } = await supabase
         .from('applications')
         .select('*', { count: 'exact', head: true })
@@ -103,17 +127,18 @@ const AuthenticatedNavbar: React.FC = () => {
 
     const channel = supabase
       .channel('navbar-received-apps')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
-        fetchAppCount();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, fetchAppCount)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, user?.role]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
+
     const ext = file.name.split('.').pop() || 'jpg';
     const filePath = `${user.id}/avatar.${ext}`;
 
@@ -121,36 +146,42 @@ const AuthenticatedNavbar: React.FC = () => {
       .from('profile-pictures')
       .upload(filePath, file, { upsert: true });
 
-    if (uploadError) { console.error('Upload failed:', uploadError); return; }
+    if (uploadError) {
+      console.error('Upload failed:', uploadError);
+      return;
+    }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('profile-pictures')
-      .getPublicUrl(filePath);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('profile-pictures').getPublicUrl(filePath);
 
     await updateProfile({ profilePicture: `${publicUrl}?t=${Date.now()}` });
   };
 
   const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`;
 
-  const NavLinks = ({ onClick }: { onClick?: () => void }) => (
+  const NavLinks = ({ onClick, compact = false }: { onClick?: () => void; compact?: boolean }) => (
     <>
       {navItems.map((item) => {
-        const isActive = location.pathname === item.path;
+        const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
         const showInvBadge = item.label === 'Invitations' && user?.role === 'student' && invitationCount > 0;
         const showAppBadge = item.label === 'Applications' && user?.role === 'faculty' && receivedAppCount > 0;
         const badgeCount = showInvBadge ? invitationCount : showAppBadge ? receivedAppCount : 0;
+
         return (
           <button
             key={item.path}
-            onClick={() => { navigate(item.path); onClick?.(); }}
-            className={`relative px-4 py-2 text-sm font-medium rounded-full whitespace-nowrap
-                       border-0 cursor-pointer shadow-sm
-                       transition-all duration-300 ease-in-out
-                       ${isActive 
-                         ? 'bg-blue-600 text-white shadow-[0_4px_14px_0px_rgba(37,99,235,0.4)]' 
-                         : 'bg-background text-foreground hover:bg-blue-50 dark:hover:bg-blue-950'
-                       }
-                       active:translate-y-1 active:shadow-none`}
+            onClick={() => {
+              navigate(item.path);
+              onClick?.();
+            }}
+            className={`relative inline-flex items-center justify-center rounded-full whitespace-nowrap border-0 cursor-pointer font-medium transition-all duration-300 ease-in-out ${
+              compact ? 'w-full justify-start px-3.5 py-2.5 text-sm' : 'px-3 lg:px-3.5 py-2 text-[13px]'
+            } ${
+              isActive
+                ? 'bg-blue-600 text-white shadow-[0_4px_14px_0px_rgba(37,99,235,0.35)]'
+                : 'bg-muted/60 text-foreground hover:bg-blue-50 dark:hover:bg-blue-950'
+            } active:translate-y-1 active:shadow-none`}
           >
             {item.label}
             {badgeCount > 0 && (
@@ -166,25 +197,23 @@ const AuthenticatedNavbar: React.FC = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-background border-b border-border shadow-sm">
-      <div className="h-full max-w-[1400px] mx-auto px-4 flex items-center justify-between gap-4">
-        {/* Logo */}
-        <button onClick={() => navigate('/home')} className="flex flex-col shrink-0">
+      <div className="h-full max-w-[1440px] mx-auto px-4 flex items-center gap-3">
+        <button onClick={() => navigate('/home')} className="flex flex-col shrink-0 items-start leading-none pr-1">
           <span className="text-xl font-bold text-foreground">
-            Unit<span className="text-primary">Ed</span> 🫱🏻‍🫲🏾
+            Unit<span className="text-primary">Ed</span> {'\u{1F91D}'}
           </span>
-          <span className="text-[0.6rem] font-semibold tracking-widest uppercase text-muted-foreground leading-none">
-            Innovate • Collaborate • Elevate
+          <span className="text-[0.6rem] font-semibold tracking-widest uppercase text-muted-foreground">
+            Innovate . Collaborate . Elevate
           </span>
         </button>
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-1 flex-1">
-          <NavLinks />
+        <nav className="hidden lg:flex flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 pr-1">
+            <NavLinks />
+          </div>
         </nav>
 
-        {/* Right Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Theme Toggle */}
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -195,7 +224,6 @@ const AuthenticatedNavbar: React.FC = () => {
             <Moon size={20} className="absolute rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </Button>
 
-          {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/notifications')}>
             <Bell size={20} />
             {notificationCount > 0 && (
@@ -205,7 +233,6 @@ const AuthenticatedNavbar: React.FC = () => {
             )}
           </Button>
 
-          {/* Profile Dropdown */}
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -218,7 +245,9 @@ const AuthenticatedNavbar: React.FC = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
-                <p className="font-semibold">{user?.firstName} {user?.lastName}</p>
+                <p className="font-semibold">
+                  {user?.firstName} {user?.lastName}
+                </p>
                 <p className="text-xs text-muted-foreground font-normal">{user?.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -238,16 +267,15 @@ const AuthenticatedNavbar: React.FC = () => {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Mobile Menu */}
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
+              <Button variant="ghost" size="icon" className="lg:hidden">
                 <Menu size={22} />
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-64 pt-12">
               <nav className="flex flex-col gap-1">
-                <NavLinks onClick={() => setMobileOpen(false)} />
+                <NavLinks compact onClick={() => setMobileOpen(false)} />
               </nav>
             </SheetContent>
           </Sheet>

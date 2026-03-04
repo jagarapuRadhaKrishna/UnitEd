@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Settings, Bell, Shield, Eye, Palette, User, Lock, LogOut, Sun, Moon, Monitor } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { motion } from 'framer-motion';
 
 const SettingsPage: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -43,6 +44,7 @@ const SettingsPage: React.FC = () => {
         </TabsList>
 
         <TabsContent value="notifications">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}>
           <Card>
             <CardContent className="p-6 space-y-4">
               <h3 className="font-semibold">Notification Preferences</h3>
@@ -65,9 +67,11 @@ const SettingsPage: React.FC = () => {
               <Button onClick={handleSave} className="mt-2">Save Preferences</Button>
             </CardContent>
           </Card>
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="privacy">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}>
           <Card>
             <CardContent className="p-6 space-y-4">
               <h3 className="font-semibold">Privacy Settings</h3>
@@ -88,9 +92,11 @@ const SettingsPage: React.FC = () => {
               <Button onClick={handleSave} className="mt-2">Save Privacy Settings</Button>
             </CardContent>
           </Card>
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="appearance">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}>
           <Card>
             <CardContent className="p-6 space-y-4">
               <h3 className="font-semibold">Appearance</h3>
@@ -132,9 +138,11 @@ const SettingsPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="account">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}>
           <Card>
             <CardContent className="p-6 space-y-4">
               <h3 className="font-semibold">Account</h3>
@@ -155,6 +163,7 @@ const SettingsPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+          </motion.div>
         </TabsContent>
       </Tabs>
     </div>

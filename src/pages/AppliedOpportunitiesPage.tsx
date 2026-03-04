@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +14,7 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Calendar,
   CheckCircle,
@@ -423,200 +423,210 @@ const AppliedOpportunitiesPage: React.FC = () => {
           </Tabs>
         </Card>
 
-        <Stack spacing={2.2}>
-          {effectiveViewMode === 'sent' &&
-            filteredSent.map((app, index) => {
-              const status = getStatusVisual(app.status);
-              return (
-                <motion.div
-                  key={app.id}
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: index * 0.04 }}
-                >
-                  <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none', '&:hover': { boxShadow: '0 8px 24px rgba(17,24,39,0.08)' } }}>
-                    <CardContent sx={{ p: 2.5 }}>
-                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827', mb: 0.4 }}>
-                            {app.post_title}
-                          </Typography>
-                          <Typography sx={{ color: '#6B7280', mb: 1.5 }}>
-                            Posted by <strong>{app.author_name}</strong>
-                          </Typography>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${effectiveViewMode}-${statusTab}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Stack spacing={2.2}>
+              {effectiveViewMode === 'sent' &&
+                filteredSent.map((app, index) => {
+                  const status = getStatusVisual(app.status);
+                  return (
+                    <motion.div
+                      key={app.id}
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.42, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none', '&:hover': { boxShadow: '0 8px 24px rgba(17,24,39,0.08)' } }}>
+                        <CardContent sx={{ p: 2.5 }}>
+                          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }}>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827', mb: 0.4 }}>
+                                {app.post_title}
+                              </Typography>
+                              <Typography sx={{ color: '#6B7280', mb: 1.5 }}>
+                                Posted by <strong>{app.author_name}</strong>
+                              </Typography>
 
-                          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ color: '#6B7280', pt: 1.2, borderTop: '1px solid #E5E7EB' }}>
-                            <Stack direction="row" spacing={0.6} alignItems="center">
-                              <Users size={15} />
-                              <Typography sx={{ fontSize: 14 }}>{app.post_purpose}</Typography>
-                            </Stack>
-                            <Stack direction="row" spacing={0.6} alignItems="center">
-                              <Calendar size={15} />
-                              <Typography sx={{ fontSize: 14 }}>Applied: {new Date(app.applied_at).toLocaleDateString()}</Typography>
-                            </Stack>
-                          </Stack>
-                        </Box>
-
-                        <Stack spacing={1.2} alignItems={{ xs: 'flex-start', md: 'flex-end' }}>
-                          <Chip
-                            icon={status.icon}
-                            label={app.status}
-                            sx={{
-                              textTransform: 'capitalize',
-                              fontWeight: 600,
-                              backgroundColor: status.bg,
-                              color: status.color,
-                              '& .MuiChip-icon': { color: status.color },
-                            }}
-                          />
-
-                          {app.status === 'accepted' && (
-                            <Button
-                              variant="contained"
-                              startIcon={<MessageCircle size={16} />}
-                              onClick={() => navigate(`/chatroom/${app.post_id}`)}
-                              sx={{
-                                backgroundColor: '#10B981',
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                '&:hover': { backgroundColor: '#059669' },
-                              }}
-                            >
-                              Join Chatroom
-                            </Button>
-                          )}
-                        </Stack>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
-
-          {effectiveViewMode === 'received' &&
-            filteredReceived.map((app, index) => {
-              const status = getStatusVisual(app.status);
-              return (
-                <motion.div
-                  key={app.id}
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: index * 0.04 }}
-                >
-                  <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none', '&:hover': { boxShadow: '0 8px 24px rgba(17,24,39,0.08)' } }}>
-                    <CardContent sx={{ p: 2.5 }}>
-                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827', mb: 0.4 }}>
-                            {app.post_title}
-                          </Typography>
-
-                          <Typography sx={{ color: '#6B7280', mb: 0.8 }}>
-                            From{' '}
-                            <Box
-                              component="span"
-                              onClick={() => navigate(`/profile/${app.applicant_id}`)}
-                              sx={{ fontWeight: 700, cursor: 'pointer', color: '#6C47FF', '&:hover': { textDecoration: 'underline' } }}
-                            >
-                              {app.applicant_name}
+                              <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ color: '#6B7280', pt: 1.2, borderTop: '1px solid #E5E7EB' }}>
+                                <Stack direction="row" spacing={0.6} alignItems="center">
+                                  <Users size={15} />
+                                  <Typography sx={{ fontSize: 14 }}>{app.post_purpose}</Typography>
+                                </Stack>
+                                <Stack direction="row" spacing={0.6} alignItems="center">
+                                  <Calendar size={15} />
+                                  <Typography sx={{ fontSize: 14 }}>Applied: {new Date(app.applied_at).toLocaleDateString()}</Typography>
+                                </Stack>
+                              </Stack>
                             </Box>
-                          </Typography>
 
-                          {app.applied_for_skill && (
-                            <Typography sx={{ fontSize: 13, color: '#6B7280', mb: 1.3 }}>
-                              Skill: {app.applied_for_skill}
-                            </Typography>
-                          )}
-
-                          <Stack direction="row" spacing={0.6} alignItems="center" sx={{ color: '#6B7280', pt: 1.2, borderTop: '1px solid #E5E7EB' }}>
-                            <Calendar size={15} />
-                            <Typography sx={{ fontSize: 14 }}>{new Date(app.applied_at).toLocaleDateString()}</Typography>
-                          </Stack>
-                        </Box>
-
-                        <Stack spacing={1.1} alignItems={{ xs: 'flex-start', md: 'flex-end' }}>
-                          <Chip
-                            icon={status.icon}
-                            label={app.status}
-                            sx={{
-                              textTransform: 'capitalize',
-                              fontWeight: 600,
-                              backgroundColor: status.bg,
-                              color: status.color,
-                              '& .MuiChip-icon': { color: status.color },
-                            }}
-                          />
-
-                          {app.status === 'applied' && (
-                            <Stack direction="row" spacing={1}>
-                              <Button
-                                variant="outlined"
-                                disabled={actionLoading === app.id}
-                                onClick={() => handleUpdateStatus(app.id, 'accepted')}
-                                startIcon={actionLoading === app.id ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
+                            <Stack spacing={1.2} alignItems={{ xs: 'flex-start', md: 'flex-end' }}>
+                              <Chip
+                                icon={status.icon}
+                                label={app.status}
                                 sx={{
-                                  color: '#10B981',
-                                  borderColor: '#10B981',
-                                  textTransform: 'none',
+                                  textTransform: 'capitalize',
                                   fontWeight: 600,
-                                  '&:hover': { borderColor: '#059669', backgroundColor: '#ECFDF5' },
+                                  backgroundColor: status.bg,
+                                  color: status.color,
+                                  '& .MuiChip-icon': { color: status.color },
                                 }}
-                              >
-                                Accept
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                disabled={actionLoading === app.id}
-                                onClick={() => handleUpdateStatus(app.id, 'rejected')}
-                                startIcon={actionLoading === app.id ? <Loader2 size={15} className="animate-spin" /> : <XCircle size={15} />}
-                                sx={{
-                                  color: '#EF4444',
-                                  borderColor: '#EF4444',
-                                  textTransform: 'none',
-                                  fontWeight: 600,
-                                  '&:hover': { borderColor: '#DC2626', backgroundColor: '#FEF2F2' },
-                                }}
-                              >
-                                Reject
-                              </Button>
+                              />
+
+                              {app.status === 'accepted' && (
+                                <Button
+                                  variant="contained"
+                                  startIcon={<MessageCircle size={16} />}
+                                  onClick={() => navigate(`/chatroom/${app.post_id}`)}
+                                  sx={{
+                                    backgroundColor: '#10B981',
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    '&:hover': { backgroundColor: '#059669' },
+                                  }}
+                                >
+                                  Join Chatroom
+                                </Button>
+                              )}
                             </Stack>
-                          )}
-                        </Stack>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
 
-          {((effectiveViewMode === 'sent' && filteredSent.length === 0) ||
-            (effectiveViewMode === 'received' && filteredReceived.length === 0)) && (
-            <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
-              <CardContent sx={{ py: 8, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: 20, fontWeight: 600, color: '#6B7280', mb: 0.8 }}>
-                  No applications found
-                </Typography>
-                <Typography sx={{ color: '#9CA3AF', mb: 2.6 }}>
-                  {effectiveViewMode === 'sent'
-                    ? "You haven't applied to any opportunities yet"
-                    : 'No applications received on your posts yet'}
-                </Typography>
-                <Button
-                  variant="contained"
-                  onClick={() => navigate('/home')}
-                  sx={{
-                    backgroundColor: '#2563EB',
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    '&:hover': { backgroundColor: '#1D4ED8' },
-                  }}
-                >
-                  Browse Opportunities
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </Stack>
+              {effectiveViewMode === 'received' &&
+                filteredReceived.map((app, index) => {
+                  const status = getStatusVisual(app.status);
+                  return (
+                    <motion.div
+                      key={app.id}
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.42, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none', '&:hover': { boxShadow: '0 8px 24px rgba(17,24,39,0.08)' } }}>
+                        <CardContent sx={{ p: 2.5 }}>
+                          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }}>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827', mb: 0.4 }}>
+                                {app.post_title}
+                              </Typography>
+
+                              <Typography sx={{ color: '#6B7280', mb: 0.8 }}>
+                                From{' '}
+                                <Box
+                                  component="span"
+                                  onClick={() => navigate(`/profile/${app.applicant_id}`)}
+                                  sx={{ fontWeight: 700, cursor: 'pointer', color: '#6C47FF', '&:hover': { textDecoration: 'underline' } }}
+                                >
+                                  {app.applicant_name}
+                                </Box>
+                              </Typography>
+
+                              {app.applied_for_skill && (
+                                <Typography sx={{ fontSize: 13, color: '#6B7280', mb: 1.3 }}>
+                                  Skill: {app.applied_for_skill}
+                                </Typography>
+                              )}
+
+                              <Stack direction="row" spacing={0.6} alignItems="center" sx={{ color: '#6B7280', pt: 1.2, borderTop: '1px solid #E5E7EB' }}>
+                                <Calendar size={15} />
+                                <Typography sx={{ fontSize: 14 }}>{new Date(app.applied_at).toLocaleDateString()}</Typography>
+                              </Stack>
+                            </Box>
+
+                            <Stack spacing={1.1} alignItems={{ xs: 'flex-start', md: 'flex-end' }}>
+                              <Chip
+                                icon={status.icon}
+                                label={app.status}
+                                sx={{
+                                  textTransform: 'capitalize',
+                                  fontWeight: 600,
+                                  backgroundColor: status.bg,
+                                  color: status.color,
+                                  '& .MuiChip-icon': { color: status.color },
+                                }}
+                              />
+
+                              {app.status === 'applied' && (
+                                <Stack direction="row" spacing={1}>
+                                  <Button
+                                    variant="outlined"
+                                    disabled={actionLoading === app.id}
+                                    onClick={() => handleUpdateStatus(app.id, 'accepted')}
+                                    startIcon={actionLoading === app.id ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
+                                    sx={{
+                                      color: '#10B981',
+                                      borderColor: '#10B981',
+                                      textTransform: 'none',
+                                      fontWeight: 600,
+                                      '&:hover': { borderColor: '#059669', backgroundColor: '#ECFDF5' },
+                                    }}
+                                  >
+                                    Accept
+                                  </Button>
+                                  <Button
+                                    variant="outlined"
+                                    disabled={actionLoading === app.id}
+                                    onClick={() => handleUpdateStatus(app.id, 'rejected')}
+                                    startIcon={actionLoading === app.id ? <Loader2 size={15} className="animate-spin" /> : <XCircle size={15} />}
+                                    sx={{
+                                      color: '#EF4444',
+                                      borderColor: '#EF4444',
+                                      textTransform: 'none',
+                                      fontWeight: 600,
+                                      '&:hover': { borderColor: '#DC2626', backgroundColor: '#FEF2F2' },
+                                    }}
+                                  >
+                                    Reject
+                                  </Button>
+                                </Stack>
+                              )}
+                            </Stack>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+
+              {((effectiveViewMode === 'sent' && filteredSent.length === 0) ||
+                (effectiveViewMode === 'received' && filteredReceived.length === 0)) && (
+                <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+                  <CardContent sx={{ py: 8, textAlign: 'center' }}>
+                    <Typography sx={{ fontSize: 20, fontWeight: 600, color: '#6B7280', mb: 0.8 }}>
+                      No applications found
+                    </Typography>
+                    <Typography sx={{ color: '#9CA3AF', mb: 2.6 }}>
+                      {effectiveViewMode === 'sent'
+                        ? "You haven't applied to any opportunities yet"
+                        : 'No applications received on your posts yet'}
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={() => navigate('/home')}
+                      sx={{
+                        backgroundColor: '#2563EB',
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        '&:hover': { backgroundColor: '#1D4ED8' },
+                      }}
+                    >
+                      Browse Opportunities
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </Stack>
+          </motion.div>
+        </AnimatePresence>
       </Container>
     </Box>
   );
