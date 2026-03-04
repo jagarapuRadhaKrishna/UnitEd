@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Plus, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { AnimatePresence, motion, type Variants } from 'framer-motion';
 
 const steps = ['Select Purpose', 'Add Skills', 'Opportunity Details'];
 
@@ -28,6 +29,7 @@ const CreatePostPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [skillSearch, setSkillSearch] = useState('');
   const [showSkillDropdown, setShowSkillDropdown] = useState(false);
+  const skillPickerRef = useRef<HTMLDivElement>(null);
 
   const filteredSkills = AVAILABLE_SKILLS.filter(
     s => s.toLowerCase().includes(skillSearch.toLowerCase()) && !skillRequirements.some(r => r.skill === s)
@@ -45,41 +47,92 @@ const CreatePostPage: React.FC = () => {
     return Object.keys(e).length === 0;
   };
 
-  const handleNext = () => { if (validateStep(activeStep)) setActiveStep(s => s + 1); };
-  const handleBack = () => setActiveStep(s => s - 1);
+  const handleNext = () => {
+    if (validateStep(activeStep)) {
+      setActiveStep((s) => Math.min(s + 1, steps.length - 1));
+    }
+  };
+  const handleBack = () => setActiveStep((s) => Math.max(s - 1, 0));
 
   const handleAddSkill = () => {
-    if (!currentSkill) { setErrors({ ...errors, skill: 'Select a skill' }); return; }
-    if (skillRequirements.some(r => r.skill === currentSkill)) { setErrors({ ...errors, skill: 'Already added' }); return; }
-    setSkillRequirements([...skillRequirements, { skill: currentSkill, requiredCount: currentCount, acceptedCount: 0 }]);
+    const normalizedInput = skillSearch.trim().toLowerCase();
+    const selectedSkill =
+      currentSkill ||
+      AVAILABLE_SKILLS.find((s) => s.toLowerCase() === normalizedInput) ||
+      '';
+
+    if (!selectedSkill) {
+      setErrors((prev) => ({ ...prev, skill: 'Select a valid skill from the list' }));
+      return;
+    }
+    if (skillRequirements.some((r) => r.skill === selectedSkill)) {
+      setErrors((prev) => ({ ...prev, skill: 'Already added' }));
+      return;
+    }
+
+    setSkillRequirements([
+      ...skillRequirements,
+      { skill: selectedSkill, requiredCount: Math.max(1, currentCount), acceptedCount: 0 },
+    ]);
     setCurrentSkill('');
     setSkillSearch('');
     setCurrentCount(1);
-    setErrors({});
+    setShowSkillDropdown(false);
+    setErrors((prev) => {
+      const { skill, skills, ...rest } = prev;
+      return rest;
+    });
   };
 
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (skillPickerRef.current && !skillPickerRef.current.contains(event.target as Node)) {
+        setShowSkillDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const handleSubmit = async () => {
-    if (!validateStep(2) || !user?.id) return;
-    setSubmitting(true);
-    const totalMembers = skillRequirements.reduce((s, r) => s + r.requiredCount, 0);
-    const { error } = await supabase.from('posts').insert({
-      title,
-      description,
-      purpose: purpose as string,
-      skill_requirements: skillRequirements as unknown as import('@/integrations/supabase/types').Json,
-      author_id: user.id,
-      max_members: totalMembers,
-      status: 'active',
-    });
-    setSubmitting(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (submitting) return;
+    if (!validateStep(2)) return;
+    if (!user?.id) {
+      toast({ title: 'Error', description: 'Please login again and retry.', variant: 'destructive' });
       return;
     }
-    toast({ title: 'Success!', description: 'Opportunity posted successfully.' });
-    navigate('/home');
+
+    setSubmitting(true);
+    try {
+      const totalMembers = skillRequirements.reduce((s, r) => s + r.requiredCount, 0);
+      const { error } = await supabase.from('posts').insert({
+        title: title.trim(),
+        description: description.trim(),
+        purpose: purpose as string,
+        skill_requirements: skillRequirements as unknown as import('@/integrations/supabase/types').Json,
+        author_id: user.id,
+        max_members: totalMembers,
+        status: 'active',
+      });
+
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Success!', description: 'Opportunity posted successfully.' });
+      navigate('/home');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to post opportunity';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const purposeOptions = [
@@ -88,19 +141,37 @@ const CreatePostPage: React.FC = () => {
     { value: 'Hackathons' as const, desc: 'Form teams for competitive coding and innovation events' },
   ];
 
+  const createPostEase: [number, number, number, number] = [0.215, 0.61, 0.355, 1];
+
+  const createPostSectionVariants: Variants = {
+    hidden: { opacity: 0, y: 30 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.75,
+        ease: createPostEase,
+      },
+    },
+  };
+
   return (
-    <div className="max-w-3xl mx-auto py-6 px-4">
+    <motion.div
+      className="max-w-3xl mx-auto py-6 px-4"
+      initial="hidden"
+      animate="show"
+    >
       {/* Header */}
-      <div className="mb-6">
+      <motion.div className="mb-6" variants={createPostSectionVariants}>
         <Button variant="ghost" onClick={() => navigate('/home')} className="mb-2 text-accent">
           <ArrowLeft size={18} className="mr-1" /> Back to Home
         </Button>
         <h1 className="text-2xl font-bold text-foreground">Post an Opportunity</h1>
         <p className="text-muted-foreground text-sm">Create a new opportunity to connect with talented students</p>
-      </div>
+      </motion.div>
 
       {/* Stepper */}
-      <div className="flex items-center mb-6">
+      <motion.div className="flex items-center mb-6" variants={createPostSectionVariants}>
         {steps.map((label, i) => (
           <React.Fragment key={label}>
             <div className="flex items-center gap-2">
@@ -116,19 +187,32 @@ const CreatePostPage: React.FC = () => {
             {i < steps.length - 1 && <div className={`flex-1 h-0.5 mx-3 ${i < activeStep ? 'bg-united-green' : 'bg-border'}`} />}
           </React.Fragment>
         ))}
-      </div>
+      </motion.div>
 
       {/* Step Content */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
+      <motion.div variants={createPostSectionVariants}>
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={activeStep}
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.55, ease: createPostEase }}
+              >
           {activeStep === 0 && (
             <div>
               <h2 className="text-lg font-semibold text-foreground mb-4">What type of opportunity are you posting?</h2>
               <div className="space-y-3">
                 {purposeOptions.map(opt => (
                   <button
+                    type="button"
                     key={opt.value}
-                    onClick={() => setPurpose(opt.value)}
+                    onClick={() => {
+                      setPurpose(opt.value);
+                      setErrors((prev) => ({ ...prev, purpose: '' }));
+                    }}
                     className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
                       purpose === opt.value ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/50'
                     }`}
@@ -156,20 +240,29 @@ const CreatePostPage: React.FC = () => {
               <h2 className="text-lg font-semibold text-foreground mb-4">What skills are you looking for?</h2>
               <div className="p-4 rounded-lg bg-secondary/50 border border-border mb-4">
                 <div className="flex gap-2 items-start">
-                  <div className="flex-1 relative">
+                  <div className="flex-1 relative" ref={skillPickerRef}>
                     <Input
                       placeholder="Search skills..."
                       value={skillSearch || currentSkill}
-                      onChange={e => { setSkillSearch(e.target.value); setCurrentSkill(''); setShowSkillDropdown(true); }}
+                      onChange={(e) => {
+                        setSkillSearch(e.target.value);
+                        setCurrentSkill('');
+                        setShowSkillDropdown(true);
+                      }}
                       onFocus={() => setShowSkillDropdown(true)}
                     />
                     {showSkillDropdown && skillSearch && filteredSkills.length > 0 && (
                       <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {filteredSkills.slice(0, 10).map(skill => (
                           <button
+                            type="button"
                             key={skill}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
-                            onClick={() => { setCurrentSkill(skill); setSkillSearch(skill); setShowSkillDropdown(false); }}
+                            onClick={() => {
+                              setCurrentSkill(skill);
+                              setSkillSearch(skill);
+                              setShowSkillDropdown(false);
+                            }}
                           >
                             {skill}
                           </button>
@@ -202,7 +295,11 @@ const CreatePostPage: React.FC = () => {
                           <Badge className="bg-accent text-accent-foreground">{req.skill}</Badge>
                           <span className="text-sm text-muted-foreground">Required: <strong>{req.requiredCount}</strong> candidate(s)</span>
                         </div>
-                        <button onClick={() => setSkillRequirements(skillRequirements.filter(r => r.skill !== req.skill))} className="text-destructive hover:bg-destructive/10 p-1 rounded">
+                        <button
+                          type="button"
+                          onClick={() => setSkillRequirements(skillRequirements.filter(r => r.skill !== req.skill))}
+                          className="text-destructive hover:bg-destructive/10 p-1 rounded"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -255,11 +352,14 @@ const CreatePostPage: React.FC = () => {
               </div>
             </div>
           )}
+              </motion.div>
+            </AnimatePresence>
         </CardContent>
       </Card>
+      </motion.div>
 
       {/* Navigation */}
-      <div className="flex justify-between">
+      <motion.div className="flex justify-between" variants={createPostSectionVariants}>
         <Button variant="ghost" disabled={activeStep === 0} onClick={handleBack} className="text-accent disabled:text-muted-foreground">
           <ArrowLeft size={16} className="mr-1" /> Back
         </Button>
@@ -275,8 +375,8 @@ const CreatePostPage: React.FC = () => {
             </Button>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

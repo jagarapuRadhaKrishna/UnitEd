@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { motion } from 'framer-motion';
 
 interface DashboardStats {
   totalApplicationsSent: number;
@@ -190,11 +191,66 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const dashboardSectionVariants = {
+    hidden: { opacity: 0, y: 30 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.75,
+        ease: [0.215, 0.61, 0.355, 1],
+      },
+    },
+  };
+
+  const dashboardContainerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        duration: 0.5,
+        staggerChildren: 0.12,
+      },
+    },
+  };
+
+  const statCardVariants = {
+    hidden: { opacity: 0, y: 24, scale: 0.96 },
+    show: (index: number) => ({
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.55,
+        delay: index * 0.07,
+        ease: [0.215, 0.61, 0.355, 1],
+      },
+    }),
+  };
+
+  const listItemVariants = {
+    hidden: { opacity: 0, x: -16 },
+    show: (index: number) => ({
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.45,
+        delay: index * 0.06,
+        ease: [0.215, 0.61, 0.355, 1],
+      },
+    }),
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 pt-6 pb-8">
+      <motion.div
+        className="max-w-6xl mx-auto px-4 pt-6 pb-8"
+        initial="hidden"
+        animate="show"
+        variants={dashboardContainerVariants}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <motion.div className="flex items-center justify-between mb-6" variants={dashboardSectionVariants}>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
             <p className="text-muted-foreground">Welcome back, {user?.firstName || 'User'}! Here's your overview</p>
@@ -202,33 +258,34 @@ const DashboardPage: React.FC = () => {
           <Button onClick={() => navigate('/create-post')} className="bg-accent hover:bg-accent/90 text-accent-foreground">
             <Plus size={16} className="mr-1" /> Create Post
           </Button>
-        </div>
+        </motion.div>
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          {statCards.map(({ icon: Icon, title, value, color, bg, onClick }) => (
-            <Card
-              key={title}
-              className="cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all duration-300"
-              onClick={onClick}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-0.5">{title}</p>
-                    <p className="text-3xl font-bold text-foreground">{value}</p>
+        <motion.div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6" variants={dashboardSectionVariants}>
+          {statCards.map(({ icon: Icon, title, value, color, bg, onClick }, index) => (
+            <motion.div key={title} variants={statCardVariants} custom={index}>
+              <Card
+                className="cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all duration-300"
+                onClick={onClick}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-0.5">{title}</p>
+                      <p className="text-3xl font-bold text-foreground">{value}</p>
+                    </div>
+                    <div className={`p-3 rounded-lg ${bg}`}>
+                      <Icon size={24} className={color} />
+                    </div>
                   </div>
-                  <div className={`p-3 rounded-lg ${bg}`}>
-                    <Icon size={24} className={color} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Skills & Activity */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" variants={dashboardSectionVariants}>
           {/* Skills */}
           <Card>
             <CardContent className="p-4">
@@ -263,14 +320,21 @@ const DashboardPage: React.FC = () => {
                 <h2 className="font-semibold text-foreground">Activity Overview</h2>
               </div>
               <div className="h-44 flex items-end justify-around gap-3 px-2">
-                {activityData.map(activity => {
+                {activityData.map((activity, index) => {
                   const heightPct = (activity.count / maxCount) * 100;
                   return (
                     <div key={activity.action} className="flex-1 flex flex-col items-center justify-end h-full">
                       <span className="text-lg font-bold mb-1 text-foreground">{activity.count}</span>
-                      <div
-                        className={`w-full rounded-t-lg ${activity.color} hover:opacity-80 hover:-translate-y-1 transition-all duration-300`}
+                      <motion.div
+                        className={`w-full rounded-t-lg origin-bottom ${activity.color} hover:opacity-80 hover:-translate-y-1 transition-all duration-300`}
                         style={{ height: `${heightPct}%`, minHeight: '20px' }}
+                        initial={{ scaleY: 0, opacity: 0.5 }}
+                        animate={{ scaleY: 1, opacity: 1 }}
+                        transition={{
+                          duration: 0.7,
+                          delay: 0.2 + index * 0.08,
+                          ease: [0.215, 0.61, 0.355, 1],
+                        }}
                       />
                       <span className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">{activity.action}</span>
                     </div>
@@ -279,11 +343,12 @@ const DashboardPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
 
         {/* Performance Summary */}
-        <Card className="mb-6">
-          <CardContent className="p-5">
+        <motion.div variants={dashboardSectionVariants}>
+          <Card className="mb-6">
+            <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-5">
               <TrendingUp size={24} className="text-accent" />
               <h2 className="text-lg font-semibold text-foreground">Performance Summary</h2>
@@ -302,11 +367,12 @@ const DashboardPage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">Applications Received</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Recent Posts & Applications */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4" variants={dashboardSectionVariants}>
           {/* Recent Posts */}
           <Card>
             <CardContent className="p-4">
@@ -320,24 +386,25 @@ const DashboardPage: React.FC = () => {
               </div>
               {recentPosts.length > 0 ? (
                 <div className="space-y-3">
-                  {recentPosts.map(post => (
-                    <div
-                      key={post.id}
-                      className="p-3 rounded-lg border border-border hover:border-accent/30 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/post/${post.id}`)}
-                    >
-                      <div className="flex items-start justify-between mb-1">
-                        <h3 className="font-medium text-sm text-foreground line-clamp-1">{post.title}</h3>
-                        <Badge variant={post.status === 'active' ? 'default' : 'secondary'} className="text-[10px] ml-2 shrink-0">
-                          {post.status}
-                        </Badge>
+                  {recentPosts.map((post, index) => (
+                    <motion.div key={post.id} variants={listItemVariants} custom={index}>
+                      <div
+                        className="p-3 rounded-lg border border-border hover:border-accent/30 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/post/${post.id}`)}
+                      >
+                        <div className="flex items-start justify-between mb-1">
+                          <h3 className="font-medium text-sm text-foreground line-clamp-1">{post.title}</h3>
+                          <Badge variant={post.status === 'active' ? 'default' : 'secondary'} className="text-[10px] ml-2 shrink-0">
+                            {post.status}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{post.purpose}</span>
+                          <span className="flex items-center gap-1"><Users size={12} /> {post.applicationCount} apps</span>
+                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{post.purpose}</span>
-                        <span className="flex items-center gap-1"><Users size={12} /> {post.applicationCount} apps</span>
-                        <span>{new Date(post.created_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               ) : (
@@ -362,28 +429,29 @@ const DashboardPage: React.FC = () => {
               </div>
               {recentApplications.length > 0 ? (
                 <div className="space-y-3">
-              {recentApplications.map(app => (
-                    <div
-                      key={app.id}
-                      className="p-3 rounded-lg border border-border hover:border-accent/30 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/post/${app.post_id}`)}
-                    >
-                      <div className="flex items-start justify-between mb-1">
-                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                          <Badge variant="outline" className={`text-[9px] shrink-0 ${app.type === 'received' ? 'bg-accent/10 text-accent border-accent/20' : 'bg-secondary text-secondary-foreground border-secondary'}`}>
-                            {app.type === 'received' ? '📥 Received' : '📤 Sent'}
+                  {recentApplications.map((app, index) => (
+                    <motion.div key={app.id} variants={listItemVariants} custom={index}>
+                      <div
+                        className="p-3 rounded-lg border border-border hover:border-accent/30 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/post/${app.post_id}`)}
+                      >
+                        <div className="flex items-start justify-between mb-1">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                            <Badge variant="outline" className={`text-[9px] shrink-0 ${app.type === 'received' ? 'bg-accent/10 text-accent border-accent/20' : 'bg-secondary text-secondary-foreground border-secondary'}`}>
+                              {app.type === 'received' ? '📥 Received' : '📤 Sent'}
+                            </Badge>
+                            <h3 className="font-medium text-sm text-foreground line-clamp-1">{app.post_title}</h3>
+                          </div>
+                          <Badge className={`text-[10px] ml-2 shrink-0 border-0 ${statusColor(app.status)}`}>
+                            {app.status}
                           </Badge>
-                          <h3 className="font-medium text-sm text-foreground line-clamp-1">{app.post_title}</h3>
                         </div>
-                        <Badge className={`text-[10px] ml-2 shrink-0 border-0 ${statusColor(app.status)}`}>
-                          {app.status}
-                        </Badge>
+                        <p className="text-xs text-muted-foreground">
+                          {app.type === 'received' ? `From ${app.applicant_name} · ` : ''}
+                          {new Date(app.applied_at).toLocaleDateString()}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {app.type === 'received' ? `From ${app.applicant_name} · ` : ''}
-                        {new Date(app.applied_at).toLocaleDateString()}
-                      </p>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               ) : (
@@ -394,10 +462,11 @@ const DashboardPage: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 };
 
 export default DashboardPage;
+
