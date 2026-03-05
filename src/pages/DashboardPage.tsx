@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 
 interface DashboardStats {
   totalApplicationsSent: number;
@@ -191,19 +191,21 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  const dashboardSectionVariants = {
+  const dashboardEase: [number, number, number, number] = [0.215, 0.61, 0.355, 1];
+
+  const dashboardSectionVariants: Variants = {
     hidden: { opacity: 0, y: 30 },
     show: {
       opacity: 1,
       y: 0,
       transition: {
         duration: 0.75,
-        ease: [0.215, 0.61, 0.355, 1],
+        ease: dashboardEase,
       },
     },
   };
 
-  const dashboardContainerVariants = {
+  const dashboardContainerVariants: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -214,7 +216,7 @@ const DashboardPage: React.FC = () => {
     },
   };
 
-  const statCardVariants = {
+  const statCardVariants: Variants = {
     hidden: { opacity: 0, y: 24, scale: 0.96 },
     show: (index: number) => ({
       opacity: 1,
@@ -223,12 +225,12 @@ const DashboardPage: React.FC = () => {
       transition: {
         duration: 0.55,
         delay: index * 0.07,
-        ease: [0.215, 0.61, 0.355, 1],
+        ease: dashboardEase,
       },
     }),
   };
 
-  const listItemVariants = {
+  const listItemVariants: Variants = {
     hidden: { opacity: 0, x: -16 },
     show: (index: number) => ({
       opacity: 1,
@@ -236,7 +238,7 @@ const DashboardPage: React.FC = () => {
       transition: {
         duration: 0.45,
         delay: index * 0.06,
-        ease: [0.215, 0.61, 0.355, 1],
+        ease: dashboardEase,
       },
     }),
   };
@@ -333,7 +335,7 @@ const DashboardPage: React.FC = () => {
                         transition={{
                           duration: 0.7,
                           delay: 0.2 + index * 0.08,
-                          ease: [0.215, 0.61, 0.355, 1],
+                          ease: dashboardEase,
                         }}
                       />
                       <span className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">{activity.action}</span>
