@@ -38,7 +38,7 @@ const AboutDevelopersPage: React.FC = () => {
   return (
     <motion.div initial="hidden" animate="show" variants={containerVariants}>
       <motion.h2
-        className="text-xl font-bold mb-4"
+        className="text-xl font-bold mb-4 text-foreground"
         variants={cardVariants}
         custom={0}
       >
@@ -47,7 +47,7 @@ const AboutDevelopersPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {DEVELOPERS.map((developer, index) => (
           <motion.div key={developer.id} variants={cardVariants} custom={index + 1}>
-            <Card className="transition-shadow duration-300 hover:shadow-md">
+            <Card className="transition-shadow duration-300 hover:shadow-[0_0_0_1px_rgba(249,115,22,0.5)]">
               <CardContent className="p-5">
                 <div className="flex items-center gap-3 mb-4">
                   <Avatar className="h-14 w-14">
@@ -57,7 +57,7 @@ const AboutDevelopersPage: React.FC = () => {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-bold text-base">{developer.name}</p>
+                    <p className="font-bold text-base text-foreground">{developer.name}</p>
                     <Badge variant="secondary" className="mt-1">
                       {developer.role}
                     </Badge>

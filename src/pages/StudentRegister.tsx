@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, X } from 'lucide-react';
+import { ArrowLeft, Upload, X, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AVAILABLE_SKILLS } from '@/types/united';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ const StudentRegister: React.FC = () => {
   const [achievements, setAchievements] = useState(['']);
   const [profilePicture, setProfilePicture] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (field: string, value: string) => setFormData({ ...formData, [field]: value });
 
@@ -110,7 +111,26 @@ const StudentRegister: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><Label>Email *</Label><Input type="email" placeholder="john.22.cse@anits.edu.in" value={formData.email} onChange={e => handleChange('email', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">firstname.YY.dept@anits.edu.in</p></div>
-                <div><Label>Password *</Label><Input type="password" value={formData.password} onChange={e => handleChange('password', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">Minimum 8 characters</p></div>
+                <div>
+                  <Label>Password *</Label>
+                  <div className="relative">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={e => handleChange('password', e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(p => !p)}
+                      className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Minimum 8 characters</p>
+                </div>
               </div>
               <div><Label>Contact Number</Label><Input type="tel" value={formData.contactNo} onChange={e => handleChange('contactNo', e.target.value)} /></div>
 

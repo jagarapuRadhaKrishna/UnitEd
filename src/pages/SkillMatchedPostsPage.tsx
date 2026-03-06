@@ -71,9 +71,15 @@ const SkillMatchedPostsPage: React.FC = () => {
       // Score and sort
       const scored = (posts || []).map(post => {
         const skills = Array.isArray(post.skill_requirements) ? post.skill_requirements : [];
-        const postSkills = skills.map((sr: any) => (typeof sr === 'string' ? sr : sr.skill || '').toLowerCase());
-        const matchCount = postSkills.filter((ps: string) => userSkills.some(us => us.includes(ps) || ps.includes(us))).length;
-        const matchScore = postSkills.length > 0 ? Math.round((matchCount / postSkills.length) * 100) : 0;
+        const requirements = skills.map((sr: any) => ({
+          skills: sr.skills || (sr.skill ? [sr.skill] : []),
+          requiredCount: sr.requiredCount || 1,
+        }));
+
+        const satisfiedCount = requirements.filter((req) =>
+          req.skills.every((rs: string) => userSkills.some((us) => us.includes(rs.toLowerCase()) || rs.toLowerCase().includes(us)))
+        ).length;
+        const matchScore = requirements.length > 0 ? Math.round((satisfiedCount / requirements.length) * 100) : 0;
         const author = profileMap[post.author_id];
         return {
           id: post.id,
@@ -134,7 +140,10 @@ const SkillMatchedPostsPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {matchedPosts.map(post => {
             const userSkills = (user?.skills || []).map(s => s.toLowerCase());
-            const skills = post.skill_requirements.map((sr: any) => typeof sr === 'string' ? sr : sr.skill || '');
+            const skills = post.skill_requirements.map((sr: any) => {
+              const reqSkills = sr.skills || (sr.skill ? [sr.skill] : []);
+              return reqSkills.join(' + ');
+            });
             return (
               <Card key={post.id} className="hover:-translate-y-1 hover:shadow-md transition-all duration-300 flex flex-col cursor-pointer" onClick={() => navigate(`/post/${post.id}`)}>
                 <CardContent className="p-5 flex-1 flex flex-col">

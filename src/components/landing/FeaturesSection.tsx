@@ -40,12 +40,6 @@ const features = [
     color: '#EC4899',
   },
   {
-    icon: Calendar,
-    title: 'Events & Forums',
-    description: 'Stay updated with academic events, workshops, and hackathons. Engage in discussions through community forums.',
-    color: '#8B5CF6',
-  },
-  {
     icon: Bell,
     title: 'Smart Notifications',
     description: 'Real-time alerts for applications, team invitations, messages, and opportunities. Never miss important updates.',

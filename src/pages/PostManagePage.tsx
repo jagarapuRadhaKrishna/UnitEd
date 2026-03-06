@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { usePalette } from '@/hooks/usePalette';
 import {
   Avatar,
   Box,
@@ -37,66 +38,93 @@ const PostManagePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { colors, isDark } = usePalette();
 
   const [applications, setApplications] = useState<AppWithProfile[]>([]);
   const [postTitle, setPostTitle] = useState('');
   const [totalRequired, setTotalRequired] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
 
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
 
-      const { data: post } = await supabase.from('posts').select('title, skill_requirements').eq('id', id).maybeSingle();
+      try {
+        const { data: post, error: postError } = await supabase
+          .from('posts')
+          .select('title, skill_requirements, author_id, max_members')
+          .eq('id', id)
+          .maybeSingle();
 
-      if (post) {
+        if (postError) throw postError;
+        if (!post) {
+          setError('Post not found');
+          setLoading(false);
+          return;
+        }
+        if (user && post.author_id && post.author_id !== user.id) {
+          setError('You are not authorized to manage this post.');
+          setLoading(false);
+          return;
+        }
+
         setPostTitle(post.title);
         const reqs = (post.skill_requirements as unknown as { requiredCount: number }[]) || [];
-        setTotalRequired(reqs.reduce((sum, req) => sum + req.requiredCount, 0));
+        setTotalRequired((post as any).max_members ?? reqs.reduce((sum, req) => sum + req.requiredCount, 0));
+
+        const { data: apps, error: appsError } = await supabase
+          .from('applications')
+          .select('*')
+          .eq('post_id', id)
+          .order('applied_at', { ascending: false });
+
+        if (appsError) throw appsError;
+
+        if (apps && apps.length > 0) {
+          const applicantIds = [...new Set(apps.map((a) => a.applicant_id))];
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, email, skills')
+            .in('id', applicantIds.length ? applicantIds : ['__none__']);
+          if (profilesError) throw profilesError;
+
+          const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
+          setApplications(
+            apps.map((a) => {
+              const profile = profileMap.get(a.applicant_id);
+              return {
+                id: a.id,
+                applicant_id: a.applicant_id,
+                status: a.status,
+                cover_letter: a.cover_letter,
+                applied_at: a.applied_at,
+                applied_for_skill: a.applied_for_skill,
+                applicant: {
+                  name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Unknown',
+                  email: profile?.email || '',
+                  skills: profile?.skills || [],
+                },
+              };
+            })
+          );
+        } else {
+          setApplications([]);
+        }
+      } catch (err: any) {
+        console.error('Manage post load error:', err);
+        setError(err.message || 'Failed to load post');
+      } finally {
+        setLoading(false);
       }
-
-      const { data: apps } = await supabase
-        .from('applications')
-        .select('*')
-        .eq('post_id', id)
-        .order('applied_at', { ascending: false });
-
-      if (apps && apps.length > 0) {
-        const applicantIds = [...new Set(apps.map((a) => a.applicant_id))];
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, email, skills')
-          .in('id', applicantIds);
-
-        const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
-
-        setApplications(
-          apps.map((a) => {
-            const profile = profileMap.get(a.applicant_id);
-            return {
-              id: a.id,
-              applicant_id: a.applicant_id,
-              status: a.status,
-              cover_letter: a.cover_letter,
-              applied_at: a.applied_at,
-              applied_for_skill: a.applied_for_skill,
-              applicant: {
-                name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Unknown',
-                email: profile?.email || '',
-                skills: profile?.skills || [],
-              },
-            };
-          })
-        );
-      }
-
-      setLoading(false);
     };
 
     fetchData();
-  }, [id]);
+  }, [id, user?.id]);
 
   const handleStatusUpdate = async (appId: string, applicantId: string, status: 'shortlisted' | 'accepted' | 'rejected') => {
     const { error } = await supabase
@@ -111,6 +139,18 @@ const PostManagePage: React.FC = () => {
 
     setApplications((prev) => prev.map((a) => (a.id === appId ? { ...a, status } : a)));
     toast({ title: `Application ${status}` });
+
+    // Mark the corresponding "application received" notification as read/cleared for this post & applicant
+    if (user?.id && id) {
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('related_post_id', id)
+        .eq('related_user_id', applicantId)
+        .eq('type', 'application_received')
+        .eq('read', false);
+    }
 
     if (status === 'accepted' && id && user?.id) {
       try {
@@ -207,37 +247,47 @@ const PostManagePage: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <Box sx={{ maxWidth: 800, mx: 'auto', py: 10, px: 3, color: 'text.primary' }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>Unable to load manage page</Typography>
+        <Typography sx={{ mb: 3, color: 'text.secondary' }}>{error}</Typography>
+        <Button variant="contained" onClick={() => navigate('/home')}>Go back home</Button>
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: colors.bg }}>
       <Container maxWidth="lg" sx={{ py: 3.5 }}>
         <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 2.3 }}>
           <Button
             variant="outlined"
-            onClick={() => navigate('/my-posts')}
+            onClick={() => navigate('/home', { state: { activeTab: 'my' } })}
             startIcon={<ArrowLeft size={16} />}
             sx={{
-              borderColor: '#E5E7EB',
-              color: '#6B7280',
+              borderColor: colors.border,
+              color: colors.heading,
               textTransform: 'none',
-              '&:hover': { borderColor: '#6C47FF', color: '#6C47FF', backgroundColor: '#F9FAFB' },
+              '&:hover': { borderColor: colors.accent, color: colors.accent, backgroundColor: colors.card },
             }}
           >
             Back
           </Button>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: '#111827', mb: 0.2 }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: colors.heading, mb: 0.2 }}>
               Manage Applicants
             </Typography>
-            <Typography sx={{ color: '#6B7280' }}>{postTitle || 'Post'}</Typography>
+            <Typography sx={{ color: colors.subtext }}>{postTitle || 'Post'}</Typography>
           </Box>
         </Stack>
 
-        <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none', mb: 3 }}>
+        <Card sx={{ borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: 'none', mb: 3, backgroundColor: colors.card }}>
           <CardContent sx={{ p: 2.3 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2.6} alignItems={{ xs: 'flex-start', sm: 'center' }}>
               <Box>
                 <Typography sx={{ fontSize: 34, fontWeight: 700, color: '#6C47FF' }}>{applications.length}</Typography>
-                <Typography sx={{ color: '#6B7280', fontSize: 14 }}>Total Applications</Typography>
+                <Typography sx={{ color: colors.subtext, fontSize: 14 }}>Total Applications</Typography>
               </Box>
 
               <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
@@ -268,7 +318,7 @@ const PostManagePage: React.FC = () => {
 
         {pending.length > 0 && (
           <Box sx={{ mb: 3.2 }}>
-            <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#111827', mb: 1.4 }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 700, color: colors.heading, mb: 1.4 }}>
               Pending Applications ({pending.length})
             </Typography>
 
@@ -280,7 +330,7 @@ const PostManagePage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.32, delay: index * 0.04 }}
                 >
-                  <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+                  <Card sx={{ borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: 'none', backgroundColor: colors.card }}>
                     <CardContent sx={{ p: 2.2 }}>
                       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                         <Avatar sx={{ width: 56, height: 56, bgcolor: '#6C47FF', fontWeight: 700 }}>
@@ -289,22 +339,22 @@ const PostManagePage: React.FC = () => {
 
                         <Box sx={{ flex: 1 }}>
                           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.8, flexWrap: 'wrap' }}>
-                            <Typography sx={{ fontWeight: 700, color: '#111827' }}>{app.applicant.name}</Typography>
+                            <Typography sx={{ fontWeight: 700, color: colors.heading }}>{app.applicant.name}</Typography>
                             <Chip
                               icon={<Clock size={14} />}
                               label={app.status}
                               size="small"
                               sx={{
                                 textTransform: 'capitalize',
-                                backgroundColor: '#FEF3C7',
-                                color: '#F59E0B',
+                                backgroundColor: isDark ? '#4b3a07' : '#FEF3C7',
+                                color: isDark ? '#FACC15' : '#F59E0B',
                                 fontWeight: 600,
-                                '& .MuiChip-icon': { color: '#F59E0B' },
+                                '& .MuiChip-icon': { color: isDark ? '#FACC15' : '#F59E0B' },
                               }}
                             />
                           </Stack>
 
-                          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mb: 1.1, color: '#6B7280' }}>
+                          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mb: 1.1, color: colors.subtext }}>
                             <Stack direction="row" spacing={0.5} alignItems="center">
                               <Mail size={14} />
                               <Typography sx={{ fontSize: 14 }}>{app.applicant.email}</Typography>
@@ -318,18 +368,18 @@ const PostManagePage: React.FC = () => {
                                 key={skill}
                                 label={skill}
                                 size="small"
-                                sx={{ backgroundColor: '#EEF2FF', color: '#6C47FF', fontWeight: 600, fontSize: 12 }}
+                                sx={{ backgroundColor: isDark ? '#111827' : '#EEF2FF', color: '#6C47FF', fontWeight: 600, fontSize: 12 }}
                               />
                             ))}
                           </Stack>
 
-                          {app.cover_letter && (
-                            <Box sx={{ backgroundColor: '#F9FAFB', borderRadius: '8px', p: 1.2, mb: 1.2 }}>
-                              <Typography sx={{ color: '#6B7280', fontStyle: 'italic', fontSize: 14 }}>
-                                "{app.cover_letter}"
-                              </Typography>
-                            </Box>
-                          )}
+                            {app.cover_letter && (
+                              <Box sx={{ backgroundColor: isDark ? colors.card : '#F9FAFB', borderRadius: '8px', p: 1.2, mb: 1.2 }}>
+                                <Typography sx={{ color: colors.subtext, fontStyle: 'italic', fontSize: 14 }}>
+                                  "{app.cover_letter}"
+                                </Typography>
+                              </Box>
+                            )}
 
                           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                             <Button
@@ -417,26 +467,27 @@ const PostManagePage: React.FC = () => {
 
         {rejected.length > 0 && (
           <Box>
-            <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#6B7280', mb: 1.2 }}>
-              Rejected ({rejected.length})
-            </Typography>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: colors.heading, mb: 1.2 }}>
+          Rejected ({rejected.length})
+        </Typography>
             <Stack spacing={1.2}>
               {rejected.map((app) => (
                 <Card
                   key={app.id}
                   sx={{
                     borderRadius: '10px',
-                    border: '1px solid #E5E7EB',
+                    border: `1px solid ${colors.border}`,
                     boxShadow: 'none',
-                    opacity: 0.7,
+                    opacity: 0.85,
+                    backgroundColor: colors.card,
                   }}
                 >
                   <CardContent sx={{ p: 1.6 }}>
                     <Stack direction="row" spacing={1.3} alignItems="center">
-                      <Avatar sx={{ width: 40, height: 40, bgcolor: '#F3F4F6', color: '#6B7280', fontWeight: 700 }}>
+                      <Avatar sx={{ width: 40, height: 40, bgcolor: isDark ? '#4c1d1d' : '#FEE2E2', color: isDark ? '#fecaca' : '#EF4444', fontWeight: 700 }}>
                         {app.applicant.name.split(' ').map((n) => n.charAt(0)).join('')}
                       </Avatar>
-                      <Typography sx={{ fontWeight: 600, color: '#4B5563' }}>{app.applicant.name}</Typography>
+                      <Typography sx={{ fontWeight: 600, color: colors.heading }}>{app.applicant.name}</Typography>
                     </Stack>
                   </CardContent>
                 </Card>
@@ -446,12 +497,12 @@ const PostManagePage: React.FC = () => {
         )}
 
         {applications.length === 0 && (
-          <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+          <Card sx={{ borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: 'none', backgroundColor: colors.card }}>
             <CardContent sx={{ py: 8, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: 20, fontWeight: 600, color: '#6B7280', mb: 0.7 }}>
+              <Typography sx={{ fontSize: 20, fontWeight: 600, color: colors.heading, mb: 0.7 }}>
                 No applications yet
               </Typography>
-              <Typography sx={{ color: '#9CA3AF' }}>Share your post to attract applicants</Typography>
+              <Typography sx={{ color: colors.subtext }}>Share your post to attract applicants</Typography>
             </CardContent>
           </Card>
         )}

@@ -16,6 +16,7 @@ import { motion } from 'framer-motion';
 import { GraduationCap, Lock, Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import unitedTheme from '@/theme/unitedTheme';
+import { toast } from 'sonner';
 
 const LoginPage: React.FC = () => {
   const { login, user, isAuthenticated } = useAuth();
@@ -32,6 +33,17 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Keep autofill from painting the inputs gray (Chrome)
+  const autofillReset = {
+    '& input:-webkit-autofill': {
+      WebkitBoxShadow: '0 0 0 1000px #ffffff inset',
+      WebkitTextFillColor: '#111827',
+    },
+    '& input': {
+      backgroundColor: 'transparent',
+    },
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -43,6 +55,7 @@ const LoginPage: React.FC = () => {
       console.error('Login error:', err);
       const message = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
       setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -128,12 +141,14 @@ const LoginPage: React.FC = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="john.doe.csd@anits.edu.in"
                     required
+                    autoComplete="email"
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
                           <Mail size={18} color="#6B7280" />
                         </InputAdornment>
                       ),
+                      sx: autofillReset,
                     }}
                   />
                 </Box>
@@ -147,12 +162,14 @@ const LoginPage: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     required
+                    autoComplete="current-password"
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
                           <Lock size={18} color="#6B7280" />
                         </InputAdornment>
                       ),
+                      sx: autofillReset,
                     }}
                   />
                 </Box>

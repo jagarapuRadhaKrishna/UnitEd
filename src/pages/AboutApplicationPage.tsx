@@ -116,9 +116,9 @@ const AboutApplicationPage: React.FC = () => {
           <CardContent className="p-6">
             <div className="flex items-center gap-2 mb-2">
               <Lightbulb className="w-5 h-5 text-united-orange" />
-              <h2 className="text-lg font-bold">Purpose</h2>
+              <h2 className="text-lg font-bold text-foreground">Purpose</h2>
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm text-foreground/80 leading-relaxed">
               UnitEd helps students and faculty collaborate efficiently on research,
               projects, and hackathons through structured discovery, matching, and
               communication workflows.
@@ -128,7 +128,7 @@ const AboutApplicationPage: React.FC = () => {
       </motion.div>
 
       <motion.div variants={sectionVariants}>
-        <h2 className="text-xl font-bold mb-3">Platform Features</h2>
+        <h2 className="text-xl font-bold mb-3 text-foreground">Platform Features</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {features.map((feature, index) => (
             <motion.div key={feature.title} variants={featureCardVariants} custom={index}>
@@ -137,8 +137,8 @@ const AboutApplicationPage: React.FC = () => {
                   <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-3">
                     {feature.icon}
                   </div>
-                  <h3 className="font-semibold text-sm mb-1">{feature.title}</h3>
-                  <p className="text-xs text-muted-foreground">{feature.desc}</p>
+                  <h3 className="font-semibold text-sm mb-1 text-foreground">{feature.title}</h3>
+                  <p className="text-xs text-foreground/75">{feature.desc}</p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -149,7 +149,7 @@ const AboutApplicationPage: React.FC = () => {
       <motion.div variants={sectionVariants}>
         <Card>
           <CardContent className="p-6">
-            <h2 className="text-lg font-bold mb-3">Tech Stack</h2>
+            <h2 className="text-lg font-bold mb-3 text-foreground">Tech Stack</h2>
             <div className="flex flex-wrap gap-2">
               {techStack.map((tech) => (
                 <Badge key={tech} variant="secondary" className="text-xs">
@@ -161,14 +161,14 @@ const AboutApplicationPage: React.FC = () => {
             <Separator className="my-5" />
 
             <div>
-              <h3 className="font-semibold mb-2 flex items-center gap-2">
+              <h3 className="font-semibold mb-2 flex items-center gap-2 text-foreground">
                 <Workflow className="w-4 h-4" /> Workflow
               </h3>
-              <ul className="space-y-1.5 text-sm text-muted-foreground">
+              <ul className="space-y-1.5 text-sm text-foreground">
                 {workflow.map((step, idx) => (
                   <li key={step} className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary font-semibold">{idx + 1}.</span>
-                    <span>{step}</span>
+                    <span className="text-foreground">{step}</span>
                   </li>
                 ))}
               </ul>
@@ -176,22 +176,22 @@ const AboutApplicationPage: React.FC = () => {
 
             <Separator className="my-5" />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Version</p>
-                <p className="font-semibold">v1.0</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-foreground">
+                <div>
+                  <p className="text-xs text-foreground/70">Version</p>
+                  <p className="font-semibold text-foreground">v1.0</p>
+                </div>
+                <div>
+                  <p className="text-xs text-foreground/70">Status</p>
+                  <p className="font-semibold inline-flex items-center gap-1 text-foreground">
+                    <Zap className="w-4 h-4 text-united-orange" /> Active
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-foreground/70">Support</p>
+                  <p className="font-semibold text-foreground">Through platform notifications</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Status</p>
-                <p className="font-semibold inline-flex items-center gap-1">
-                  <Zap className="w-4 h-4 text-united-orange" /> Active
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Support</p>
-                <p className="font-semibold">Through platform notifications</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </motion.div>

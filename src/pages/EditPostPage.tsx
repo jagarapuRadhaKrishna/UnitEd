@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, CheckCircle, AlertCircle, Save } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +29,14 @@ const EditPostPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [skillSearch, setSkillSearch] = useState('');
   const [showSkillDropdown, setShowSkillDropdown] = useState(false);
+  const descEditorRef = useRef<HTMLDivElement>(null);
+
+  const normalizeRequirements = (reqs: any[]): SkillRequirement[] =>
+    (reqs || []).map((r) => ({
+      skills: r.skills || (r.skill ? [r.skill] : []),
+      requiredCount: r.requiredCount || 1,
+      acceptedCount: r.acceptedCount || 0,
+    }));
 
   useEffect(() => {
     if (!id) return;
@@ -41,33 +49,46 @@ const EditPostPage: React.FC = () => {
 
       if (error || !data) {
         toast({ title: 'Error', description: 'Post not found', variant: 'destructive' });
-        navigate('/my-posts');
+        navigate('/home', { state: { activeTab: 'my' } });
         return;
       }
 
       if (data.author_id !== user?.id) {
         toast({ title: 'Unauthorized', description: 'You can only edit your own posts', variant: 'destructive' });
-        navigate('/my-posts');
+        navigate('/home', { state: { activeTab: 'my' } });
         return;
       }
 
       setTitle(data.title);
       setDescription(data.description);
       setPurpose(data.purpose as any);
-      setSkillRequirements((data.skill_requirements as unknown as SkillRequirement[]) || []);
+      setSkillRequirements(normalizeRequirements(data.skill_requirements as any[]));
       setLoading(false);
     };
     fetchPost();
   }, [id, user?.id]);
 
-  const filteredSkills = AVAILABLE_SKILLS.filter(
-    s => s.toLowerCase().includes(skillSearch.toLowerCase()) && !skillRequirements.some(r => r.skill === s)
-  );
+  const filteredSkills = AVAILABLE_SKILLS.filter((s) => {
+    const alreadyUsed = skillRequirements.some((r) => (r.skills || (r.skill ? [r.skill] : [])).some(rs => rs.toLowerCase() === s.toLowerCase()));
+    return s.toLowerCase().includes(skillSearch.toLowerCase()) && !alreadyUsed;
+  });
 
   const handleAddSkill = () => {
-    if (!currentSkill) { setErrors({ ...errors, skill: 'Select a skill' }); return; }
-    if (skillRequirements.some(r => r.skill === currentSkill)) { setErrors({ ...errors, skill: 'Already added' }); return; }
-    setSkillRequirements([...skillRequirements, { skill: currentSkill, requiredCount: currentCount, acceptedCount: 0 }]);
+    const rawInput = (skillSearch || currentSkill).trim();
+    if (!rawInput) { setErrors({ ...errors, skill: 'Select at least one skill' }); return; }
+
+    const parts = rawInput.split(/[,+]/).map(p => p.trim()).filter(Boolean);
+    const resolved = parts.map(p => AVAILABLE_SKILLS.find(s => s.toLowerCase() === p.toLowerCase()) || '');
+    if (resolved.some(s => !s)) { setErrors({ ...errors, skill: 'Select a valid skill from the list' }); return; }
+
+    const uniqueSkills = Array.from(new Set(resolved));
+    const bundleExists = skillRequirements.some(r => {
+      const reqSkills = r.skills || (r.skill ? [r.skill] : []);
+      return reqSkills.length === uniqueSkills.length && reqSkills.every(s => uniqueSkills.includes(s));
+    });
+    if (bundleExists) { setErrors({ ...errors, skill: 'This skill bundle is already added' }); return; }
+
+    setSkillRequirements([...skillRequirements, { skills: uniqueSkills, requiredCount: Math.max(1, currentCount), acceptedCount: 0 }]);
     setCurrentSkill('');
     setSkillSearch('');
     setCurrentCount(1);
@@ -79,7 +100,7 @@ const EditPostPage: React.FC = () => {
     if (!purpose) e.purpose = 'Purpose is required';
     if (skillRequirements.length === 0) e.skills = 'Add at least one skill';
     if (!title.trim()) e.title = 'Title is required';
-    if (!description.trim()) e.description = 'Description is required';
+    if (!(descEditorRef.current?.innerHTML || description).trim()) e.description = 'Description is required';
     setErrors(e);
     if (Object.keys(e).length > 0) return;
 
@@ -90,7 +111,7 @@ const EditPostPage: React.FC = () => {
       .from('posts')
       .update({
         title,
-        description,
+        description: (descEditorRef.current?.innerHTML || description || '').trim(),
         purpose: purpose as string,
         skill_requirements: skillRequirements as unknown as import('@/integrations/supabase/types').Json,
         max_members: totalMembers,
@@ -123,7 +144,7 @@ const EditPostPage: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto py-6 px-4">
       <div className="mb-6">
-        <Button variant="ghost" onClick={() => navigate('/my-posts')} className="mb-2 text-accent">
+        <Button variant="ghost" onClick={() => navigate('/home', { state: { activeTab: 'my' } })} className="mb-2 text-accent">
           <ArrowLeft size={18} className="mr-1" /> Back to My Posts
         </Button>
         <h1 className="text-2xl font-bold text-foreground">Edit Post</h1>
@@ -192,17 +213,21 @@ const EditPostPage: React.FC = () => {
 
           {skillRequirements.length > 0 && (
             <div className="space-y-2">
-              {skillRequirements.map(req => (
-                <div key={req.skill} className="flex items-center justify-between p-2 rounded-lg border border-border">
+              {skillRequirements.map((req, idx) => {
+                const reqSkills = req.skills || (req.skill ? [req.skill] : []);
+                const label = reqSkills.join(' + ');
+                return (
+                <div key={`${label}-${idx}`} className="flex items-center justify-between p-2 rounded-lg border border-border">
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-accent text-accent-foreground text-xs">{req.skill}</Badge>
-                    <span className="text-xs text-muted-foreground">× {req.requiredCount}</span>
+                    <Badge className="bg-accent text-accent-foreground text-xs">{label}</Badge>
+                    <span className="text-xs text-muted-foreground">� {req.requiredCount}</span>
                   </div>
-                  <button onClick={() => setSkillRequirements(skillRequirements.filter(r => r.skill !== req.skill))} className="text-destructive hover:bg-destructive/10 p-1 rounded">
+                  <button onClick={() => setSkillRequirements(skillRequirements.filter((_, i) => i !== idx))} className="text-destructive hover:bg-destructive/10 p-1 rounded">
                     <Trash2 size={14} />
                   </button>
                 </div>
-              ))}
+                );
+              })}
               <p className="text-xs text-muted-foreground">
                 Total positions: {skillRequirements.reduce((s, r) => s + r.requiredCount, 0)}
               </p>
@@ -223,7 +248,39 @@ const EditPostPage: React.FC = () => {
           </div>
           <div>
             <Label>Description</Label>
-            <Textarea rows={6} value={description} onChange={e => setDescription(e.target.value)} className="mt-1" />
+            <div className="rounded-lg border border-border bg-background">
+              <div className="flex flex-wrap items-center gap-2 px-2 py-1 border-b border-border text-sm text-foreground/80">
+                <button type="button" onClick={() => document.execCommand('bold')} className="font-bold">B</button>
+                <button type="button" onClick={() => document.execCommand('italic')} className="italic">I</button>
+                <button type="button" onClick={() => document.execCommand('underline')} className="underline">U</button>
+                <button type="button" onClick={() => document.execCommand('strikeThrough')} className="line-through">S</button>
+                <span className="mx-1 text-border">|</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = prompt('Enter URL');
+                    if (url) document.execCommand('createLink', false, url);
+                  }}
+                  aria-label="link"
+                >
+                  🔗
+                </button>
+                <span className="mx-1 text-border">|</span>
+                <button type="button" onClick={() => document.execCommand('insertOrderedList')}>1.</button>
+                <button type="button" onClick={() => document.execCommand('insertUnorderedList')}>•</button>
+                <span className="mx-1 text-border">|</span>
+                <button type="button" onClick={() => document.execCommand('justifyLeft')}>L</button>
+                <button type="button" onClick={() => document.execCommand('justifyCenter')}>C</button>
+                <button type="button" onClick={() => document.execCommand('justifyRight')}>R</button>
+              </div>
+              <div
+                ref={descEditorRef}
+                className="min-h-[160px] px-3 py-2 text-foreground focus:outline-none whitespace-pre-wrap"
+                contentEditable
+                onInput={(e) => setDescription((e.target as HTMLDivElement).innerHTML)}
+                dangerouslySetInnerHTML={{ __html: description }}
+              />
+            </div>
             {errors.description && <p className="text-destructive text-xs mt-1">{errors.description}</p>}
           </div>
         </CardContent>
@@ -231,7 +288,7 @@ const EditPostPage: React.FC = () => {
 
       {/* Actions */}
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => navigate('/my-posts')}>Cancel</Button>
+        <Button variant="outline" onClick={() => navigate('/home', { state: { activeTab: 'my' } })}>Cancel</Button>
         <Button onClick={handleSubmit} disabled={submitting} className="bg-accent hover:bg-accent/90 text-accent-foreground px-6">
           <Save size={16} className="mr-1" /> {submitting ? 'Saving...' : 'Save Changes'}
         </Button>
@@ -241,3 +298,5 @@ const EditPostPage: React.FC = () => {
 };
 
 export default EditPostPage;
+
+

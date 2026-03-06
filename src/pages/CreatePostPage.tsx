@@ -30,10 +30,24 @@ const CreatePostPage: React.FC = () => {
   const [skillSearch, setSkillSearch] = useState('');
   const [showSkillDropdown, setShowSkillDropdown] = useState(false);
   const skillPickerRef = useRef<HTMLDivElement>(null);
+  const descEditorRef = useRef<HTMLDivElement>(null);
 
-  const filteredSkills = AVAILABLE_SKILLS.filter(
-    s => s.toLowerCase().includes(skillSearch.toLowerCase()) && !skillRequirements.some(r => r.skill === s)
-  );
+  // Use only the active token (after last comma/plus) for suggestions
+  const activeSkillQuery = (skillSearch || currentSkill)
+    .split(/[,+]/)
+    .pop()
+    ?.trim()
+    .toLowerCase() || '';
+
+  const filteredSkills = AVAILABLE_SKILLS.filter((s) => {
+    const alreadyUsed = skillRequirements.some((r) => {
+      const reqSkills = r.skills || (r.skill ? [r.skill] : []);
+      return reqSkills.some((rs) => rs.toLowerCase() === s.toLowerCase());
+    });
+    if (alreadyUsed) return false;
+    if (!activeSkillQuery) return true;
+    return s.toLowerCase().includes(activeSkillQuery);
+  });
 
   const validateStep = (step: number) => {
     const e: Record<string, string> = {};
@@ -55,24 +69,45 @@ const CreatePostPage: React.FC = () => {
   const handleBack = () => setActiveStep((s) => Math.max(s - 1, 0));
 
   const handleAddSkill = () => {
-    const normalizedInput = skillSearch.trim().toLowerCase();
-    const selectedSkill =
-      currentSkill ||
-      AVAILABLE_SKILLS.find((s) => s.toLowerCase() === normalizedInput) ||
-      '';
+    const rawInput = (skillSearch || currentSkill).trim();
+    if (!rawInput) {
+      setErrors((prev) => ({ ...prev, skill: 'Select at least one skill' }));
+      return;
+    }
 
-    if (!selectedSkill) {
+    // Support multi-skill groups via comma or plus separators
+    const parts = rawInput
+      .split(/[,+]/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    if (parts.length === 0) {
       setErrors((prev) => ({ ...prev, skill: 'Select a valid skill from the list' }));
       return;
     }
-    if (skillRequirements.some((r) => r.skill === selectedSkill)) {
-      setErrors((prev) => ({ ...prev, skill: 'Already added' }));
+
+    const resolved = parts.map((p) => AVAILABLE_SKILLS.find((s) => s.toLowerCase() === p.toLowerCase()) || '');
+    if (resolved.some((s) => !s)) {
+      setErrors((prev) => ({ ...prev, skill: 'Select a valid skill from the list' }));
+      return;
+    }
+
+    const uniqueSkills = Array.from(new Set(resolved));
+
+    // Prevent adding an identical bundle
+    const bundleExists = skillRequirements.some((r) => {
+      const reqSkills = r.skills || (r.skill ? [r.skill] : []);
+      return reqSkills.length === uniqueSkills.length &&
+        reqSkills.every((s) => uniqueSkills.includes(s));
+    });
+    if (bundleExists) {
+      setErrors((prev) => ({ ...prev, skill: 'This skill bundle is already added' }));
       return;
     }
 
     setSkillRequirements([
       ...skillRequirements,
-      { skill: selectedSkill, requiredCount: Math.max(1, currentCount), acceptedCount: 0 },
+      { skills: uniqueSkills, requiredCount: Math.max(1, currentCount), acceptedCount: 0 },
     ]);
     setCurrentSkill('');
     setSkillSearch('');
@@ -112,7 +147,7 @@ const CreatePostPage: React.FC = () => {
       const totalMembers = skillRequirements.reduce((s, r) => s + r.requiredCount, 0);
       const { error } = await supabase.from('posts').insert({
         title: title.trim(),
-        description: description.trim(),
+        description: (descEditorRef.current?.innerHTML || description || '').trim(),
         purpose: purpose as string,
         skill_requirements: skillRequirements as unknown as import('@/integrations/supabase/types').Json,
         author_id: user.id,
@@ -143,6 +178,16 @@ const CreatePostPage: React.FC = () => {
 
   const createPostEase: [number, number, number, number] = [0.215, 0.61, 0.355, 1];
 
+  const applyCmd = (cmd: string, value?: string) => {
+    document.execCommand(cmd, false, value);
+    setDescription(descEditorRef.current?.innerHTML || '');
+  };
+
+  const setLink = () => {
+    const url = prompt('Enter URL');
+    if (url) applyCmd('createLink', url);
+  };
+
   const createPostSectionVariants: Variants = {
     hidden: { opacity: 0, y: 30 },
     show: {
@@ -163,9 +208,6 @@ const CreatePostPage: React.FC = () => {
     >
       {/* Header */}
       <motion.div className="mb-6" variants={createPostSectionVariants}>
-        <Button variant="ghost" onClick={() => navigate('/home')} className="mb-2 text-accent">
-          <ArrowLeft size={18} className="mr-1" /> Back to Home
-        </Button>
         <h1 className="text-2xl font-bold text-foreground">Post an Opportunity</h1>
         <p className="text-muted-foreground text-sm">Create a new opportunity to connect with talented students</p>
       </motion.div>
@@ -251,7 +293,7 @@ const CreatePostPage: React.FC = () => {
                       }}
                       onFocus={() => setShowSkillDropdown(true)}
                     />
-                    {showSkillDropdown && skillSearch && filteredSkills.length > 0 && (
+                    {showSkillDropdown && filteredSkills.length > 0 && (
                       <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {filteredSkills.slice(0, 10).map(skill => (
                           <button
@@ -259,8 +301,14 @@ const CreatePostPage: React.FC = () => {
                             key={skill}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
                             onClick={() => {
+                              const raw = skillSearch || '';
+                              const lastComma = raw.lastIndexOf(',');
+                              const lastPlus = raw.lastIndexOf('+');
+                              const lastSep = Math.max(lastComma, lastPlus);
+                              const prefix = lastSep >= 0 ? raw.slice(0, lastSep + 1) : '';
+                              const spacedPrefix = prefix && !/\s$/.test(prefix) ? `${prefix} ` : prefix;
                               setCurrentSkill(skill);
-                              setSkillSearch(skill);
+                              setSkillSearch(`${spacedPrefix}${skill}`);
                               setShowSkillDropdown(false);
                             }}
                           >
@@ -289,21 +337,27 @@ const CreatePostPage: React.FC = () => {
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Added Skills ({skillRequirements.length})</p>
                   <div className="space-y-2">
-                    {skillRequirements.map(req => (
-                      <div key={req.skill} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    {skillRequirements.map(req => {
+                      const reqSkills = req.skills || (req.skill ? [req.skill] : []);
+                      const label = reqSkills.join(' + ');
+                      return (
+                      <div key={label} className="flex items-center justify-between p-3 rounded-lg border border-border">
                         <div className="flex items-center gap-3">
-                          <Badge className="bg-accent text-accent-foreground">{req.skill}</Badge>
+                          <Badge className="bg-accent text-accent-foreground">{label}</Badge>
                           <span className="text-sm text-muted-foreground">Required: <strong>{req.requiredCount}</strong> candidate(s)</span>
                         </div>
                         <button
                           type="button"
-                          onClick={() => setSkillRequirements(skillRequirements.filter(r => r.skill !== req.skill))}
+                          onClick={() => setSkillRequirements(skillRequirements.filter(r => {
+                            const rSkills = r.skills || (r.skill ? [r.skill] : []);
+                            return rSkills.join(' + ') !== label;
+                          }))}
                           className="text-destructive hover:bg-destructive/10 p-1 rounded"
                         >
                           <Trash2 size={16} />
                         </button>
-                      </div>
-                    ))}
+                      </div>);
+                    })}
                   </div>
                   <div className="mt-3 p-3 rounded-lg bg-united-green/10 border border-united-green/30">
                     <p className="text-sm text-united-green font-semibold">
@@ -329,9 +383,14 @@ const CreatePostPage: React.FC = () => {
               <h2 className="text-lg font-semibold text-foreground mb-4">Tell us about your opportunity</h2>
               <div className="flex flex-wrap gap-1.5 p-3 rounded-lg bg-secondary/50 border border-border mb-4">
                 <Badge className="bg-accent text-accent-foreground">{purpose}</Badge>
-                {skillRequirements.slice(0, 3).map(r => (
-                  <Badge key={r.skill} variant="outline" className="border-accent text-accent">{r.skill} ({r.requiredCount})</Badge>
-                ))}
+                {skillRequirements.slice(0, 3).map((r, idx) => {
+                  const reqSkills = r.skills || (r.skill ? [r.skill] : []);
+                  const label = reqSkills.join(' + ');
+                  return (
+                  <Badge key={`${label}-${idx}`} variant="outline" className="border-accent text-accent">
+                    {label} ({r.requiredCount})
+                  </Badge>);
+                })}
                 {skillRequirements.length > 3 && <Badge variant="outline">+{skillRequirements.length - 3} more</Badge>}
               </div>
               <div className="space-y-4">
@@ -342,7 +401,30 @@ const CreatePostPage: React.FC = () => {
                 </div>
                 <div>
                   <Label>Description</Label>
-                  <Textarea rows={8} value={description} onChange={e => setDescription(e.target.value)} placeholder="Provide a detailed description..." className="mt-1" />
+                  <div className="rounded-lg border border-border bg-background">
+                    <div className="flex flex-wrap items-center gap-2 px-2 py-1 border-b border-border text-sm text-foreground/80">
+                      <button type="button" onClick={() => applyCmd('bold')} className="font-bold">B</button>
+                      <button type="button" onClick={() => applyCmd('italic')} className="italic">I</button>
+                      <button type="button" onClick={() => applyCmd('underline')} className="underline">U</button>
+                      <button type="button" onClick={() => applyCmd('strikeThrough')} className="line-through">S</button>
+                      <span className="mx-1 text-border">|</span>
+                      <button type="button" onClick={setLink} aria-label="link">🔗</button>
+                      <span className="mx-1 text-border">|</span>
+                      <button type="button" onClick={() => applyCmd('insertOrderedList')}>1.</button>
+                      <button type="button" onClick={() => applyCmd('insertUnorderedList')}>•</button>
+                      <span className="mx-1 text-border">|</span>
+                      <button type="button" onClick={() => applyCmd('justifyLeft')}>L</button>
+                      <button type="button" onClick={() => applyCmd('justifyCenter')}>C</button>
+                      <button type="button" onClick={() => applyCmd('justifyRight')}>R</button>
+                    </div>
+                    <div
+                      ref={descEditorRef}
+                      className="min-h-[180px] px-3 py-2 text-foreground focus:outline-none whitespace-pre-wrap"
+                      contentEditable
+                      onInput={(e) => setDescription((e.target as HTMLDivElement).innerHTML)}
+                      dangerouslySetInnerHTML={{ __html: description }}
+                    />
+                  </div>
                   {errors.description && <p className="text-destructive text-xs mt-1">{errors.description}</p>}
                 </div>
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
@@ -360,9 +442,7 @@ const CreatePostPage: React.FC = () => {
 
       {/* Navigation */}
       <motion.div className="flex justify-between" variants={createPostSectionVariants}>
-        <Button variant="ghost" disabled={activeStep === 0} onClick={handleBack} className="text-accent disabled:text-muted-foreground">
-          <ArrowLeft size={16} className="mr-1" /> Back
-        </Button>
+        <div />
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/home')}>Cancel</Button>
           {activeStep === steps.length - 1 ? (

@@ -33,10 +33,14 @@ const InvitationsPage: React.FC = () => {
   const [received, setReceived] = useState<InvitationItem[]>([]);
   const [tab, setTab] = useState('sent');
   const [loading, setLoading] = useState(true);
+  const isFaculty = user?.role === 'faculty';
 
   useEffect(() => {
-    if (user?.id) fetchInvitations();
-  }, [user?.id]);
+    if (user?.id) {
+      fetchInvitations();
+      if (isFaculty) setTab('sent');
+    }
+  }, [user?.id, isFaculty]);
 
   const fetchInvitations = async () => {
     if (!user?.id) return;
@@ -98,6 +102,7 @@ const InvitationsPage: React.FC = () => {
 
       setSent(sentItems);
       setReceived(receivedItems);
+      if (isFaculty) setTab('sent');
     } catch (err) {
       console.error(err);
     } finally {
@@ -205,6 +210,21 @@ const InvitationsPage: React.FC = () => {
                 related_post_id: inv.post_id,
                 related_chatroom_id: chatroom.id,
               });
+            }
+
+            // Sync post current_members so cards show updated counts (exclude author from count)
+            const { data: postRow } = await supabase
+              .from('posts')
+              .select('id, author_id, chatroom_id')
+              .eq('id', inv.post_id)
+              .maybeSingle();
+            if (postRow?.chatroom_id) {
+              const { count: chatCount } = await supabase
+                .from('chatroom_members')
+                .select('user_id', { count: 'exact', head: true })
+                .eq('chatroom_id', postRow.chatroom_id);
+              const membersExcludingAuthor = Math.max(0, (chatCount || 0) - 1); // don't count the author
+              await supabase.from('posts').update({ current_members: membersExcludingAuthor }).eq('id', inv.post_id);
             }
           } catch (chatError) {
             console.error('Error creating chatroom:', chatError);
@@ -384,10 +404,10 @@ const InvitationsPage: React.FC = () => {
         <p className="text-muted-foreground">Manage your team invitations - send invites and view received invitations.</p>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="mb-6">
+      <Tabs value={tab} onValueChange={(v) => setTab(isFaculty ? 'sent' : v)} className="mb-6">
         <TabsList>
           <TabsTrigger value="sent" className="gap-2"><Send className="w-4 h-4" /> I Invited ({sent.length})</TabsTrigger>
-          <TabsTrigger value="received" className="gap-2"><Mail className="w-4 h-4" /> They Invited Me ({received.length})</TabsTrigger>
+          {!isFaculty && <TabsTrigger value="received" className="gap-2"><Mail className="w-4 h-4" /> They Invited Me ({received.length})</TabsTrigger>}
         </TabsList>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
@@ -404,9 +424,11 @@ const InvitationsPage: React.FC = () => {
                 <Card className="py-8 text-center"><CardContent><p className="text-muted-foreground">No sent invitations yet</p></CardContent></Card>
               ) : sent.map(inv => <InvitationCard key={inv.id} inv={inv} type="sent" />)
             ) : (
-              received.length === 0 ? (
-                <Card className="py-8 text-center"><CardContent><p className="text-muted-foreground">No received invitations yet</p></CardContent></Card>
-              ) : received.map(inv => <InvitationCard key={inv.id} inv={inv} type="received" />)
+              !isFaculty && (
+                received.length === 0 ? (
+                  <Card className="py-8 text-center"><CardContent><p className="text-muted-foreground">No received invitations yet</p></CardContent></Card>
+                ) : received.map(inv => <InvitationCard key={inv.id} inv={inv} type="received" />)
+              )
             )}
           </div>
         </motion.div>

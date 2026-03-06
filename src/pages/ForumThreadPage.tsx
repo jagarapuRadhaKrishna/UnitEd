@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Clock, Eye, MessageCircle, Send } from 'lucide-react';
+import { usePalette } from '@/hooks/usePalette';
 
 interface ThreadData {
   id: string;
@@ -48,6 +49,7 @@ const ForumThreadPage: React.FC = () => {
   const [replyText, setReplyText] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const { isDark, colors } = usePalette();
 
   const repliesEndRef = useRef<HTMLDivElement>(null);
 
@@ -178,19 +180,21 @@ const ForumThreadPage: React.FC = () => {
     }
 
     setReplyText('');
+    // Immediately refresh so the new reply appears without waiting for realtime
+    fetchReplies();
     toast({ title: 'Reply posted!' });
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 18 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 18, backgroundColor: colors.bg }}>
         <Box
           sx={{
             width: 34,
             height: 34,
             borderRadius: '50%',
-            border: '3px solid #E5E7EB',
-            borderTopColor: '#6C47FF',
+            border: `3px solid ${colors.border}`,
+            borderTopColor: colors.accent,
             animation: 'spin 0.8s linear infinite',
             '@keyframes spin': { to: { transform: 'rotate(360deg)' } },
           }}
@@ -211,7 +215,7 @@ const ForumThreadPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: colors.bg }}>
       <Container maxWidth="md" sx={{ py: 3.5 }}>
         <Button
           variant="outlined"
@@ -219,47 +223,65 @@ const ForumThreadPage: React.FC = () => {
           startIcon={<ArrowLeft size={16} />}
           sx={{
             mb: 2.5,
-            borderColor: '#E5E7EB',
-            color: '#6B7280',
+            borderColor: colors.border,
+            color: colors.heading,
             textTransform: 'none',
-            '&:hover': { borderColor: '#6C47FF', color: '#6C47FF', backgroundColor: '#F9FAFB' },
+            backgroundColor: colors.card,
+            '&:hover': { borderColor: colors.accent, color: colors.accent, backgroundColor: colors.card },
           }}
         >
           Back to Forums
         </Button>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-          <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none', mb: 2.5 }}>
+          <Card
+            sx={{
+              borderRadius: '12px',
+              border: `1px solid ${colors.border}`,
+              boxShadow: 'none',
+              mb: 2.5,
+              backgroundColor: colors.card,
+            }}
+          >
             <CardContent sx={{ p: 3.2 }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.3 }}>
                 <Chip
                   label={thread.category}
                   size="small"
-                  sx={{ backgroundColor: '#EEF2FF', color: '#6C47FF', fontWeight: 600 }}
+                  sx={{ backgroundColor: colors.chipBg, color: colors.chipText, fontWeight: 600 }}
                 />
               </Stack>
 
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mb: 1.5 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: colors.heading, mb: 1.5 }}>
                 {thread.title}
               </Typography>
 
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2, color: '#6B7280' }}>
-                <Avatar sx={{ width: 32, height: 32, bgcolor: '#EEF2FF', color: '#6C47FF', fontSize: 14, fontWeight: 700 }}>
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2, color: colors.subtext }}>
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: colors.chipBg,
+                    color: colors.chipText,
+                    fontSize: 14,
+                    fontWeight: 700,
+                  }}
+                >
                   {thread.author_name.charAt(0).toUpperCase()}
                 </Avatar>
-                <Typography sx={{ color: '#111827', fontWeight: 600, fontSize: 14 }}>{thread.author_name}</Typography>
-                <Typography sx={{ color: '#D1D5DB' }}>•</Typography>
+                <Typography sx={{ color: colors.heading, fontWeight: 600, fontSize: 14 }}>{thread.author_name}</Typography>
+                <Typography sx={{ color: colors.border }}>•</Typography>
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   <Clock size={13} />
-                  <Typography sx={{ fontSize: 13 }}>{timeAgo(thread.created_at)}</Typography>
+                  <Typography sx={{ fontSize: 13, color: colors.subtext }}>{timeAgo(thread.created_at)}</Typography>
                 </Stack>
               </Stack>
 
-              <Typography sx={{ color: '#374151', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{thread.content}</Typography>
+              <Typography sx={{ color: colors.heading, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{thread.content}</Typography>
 
-              <Divider sx={{ my: 2 }} />
+              <Divider sx={{ my: 2, borderColor: colors.border }} />
 
-              <Stack direction="row" spacing={2.5} sx={{ color: '#6B7280' }}>
+              <Stack direction="row" spacing={2.5} sx={{ color: colors.subtext }}>
                 <Stack direction="row" spacing={0.6} alignItems="center">
                   <MessageCircle size={16} />
                   <Typography sx={{ fontSize: 14 }}>{replies.length} replies</Typography>
@@ -273,7 +295,7 @@ const ForumThreadPage: React.FC = () => {
           </Card>
         </motion.div>
 
-        <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#111827', mb: 1.5 }}>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: colors.heading, mb: 1.5 }}>
           Replies ({replies.length})
         </Typography>
 
@@ -285,26 +307,49 @@ const ForumThreadPage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, delay: index * 0.04 }}
             >
-              <Card sx={{ borderRadius: '10px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+              <Card
+                sx={{
+                  borderRadius: '10px',
+                  border: `1px solid ${colors.border}`,
+                  boxShadow: 'none',
+                  backgroundColor: colors.card,
+                }}
+              >
                 <CardContent sx={{ p: 2.2 }}>
                   <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 1 }}>
-                    <Avatar sx={{ width: 30, height: 30, bgcolor: '#F3F4F6', color: '#4B5563', fontSize: 13, fontWeight: 700 }}>
+                    <Avatar
+                      sx={{
+                        width: 30,
+                        height: 30,
+                        bgcolor: colors.chipBg,
+                        color: colors.chipText,
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
                       {reply.author_initial.toUpperCase()}
                     </Avatar>
-                    <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{reply.author_name}</Typography>
-                    <Typography sx={{ color: '#D1D5DB' }}>•</Typography>
-                    <Typography sx={{ fontSize: 13, color: '#6B7280' }}>{timeAgo(reply.created_at)}</Typography>
+                    <Typography sx={{ fontSize: 14, fontWeight: 600, color: colors.heading }}>{reply.author_name}</Typography>
+                    <Typography sx={{ color: colors.border }}>•</Typography>
+                    <Typography sx={{ fontSize: 13, color: colors.subtext }}>{timeAgo(reply.created_at)}</Typography>
                   </Stack>
-                  <Typography sx={{ color: '#374151', whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>{reply.content}</Typography>
+                  <Typography sx={{ color: colors.heading, whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>{reply.content}</Typography>
                 </CardContent>
               </Card>
             </motion.div>
           ))}
 
           {replies.length === 0 && (
-            <Card sx={{ borderRadius: '10px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+            <Card
+              sx={{
+                borderRadius: '10px',
+                border: `1px solid ${colors.border}`,
+                boxShadow: 'none',
+                backgroundColor: colors.card,
+              }}
+            >
               <CardContent sx={{ py: 4.5, textAlign: 'center' }}>
-                <Typography sx={{ color: '#9CA3AF' }}>No replies yet. Be the first to respond.</Typography>
+                <Typography sx={{ color: colors.subtext }}>No replies yet. Be the first to respond.</Typography>
               </CardContent>
             </Card>
           )}
@@ -312,9 +357,16 @@ const ForumThreadPage: React.FC = () => {
           <div ref={repliesEndRef} />
         </Stack>
 
-        <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+        <Card
+          sx={{
+            borderRadius: '12px',
+            border: `1px solid ${colors.border}`,
+            boxShadow: 'none',
+            backgroundColor: colors.card,
+          }}
+        >
           <CardContent sx={{ p: 2.4 }}>
-            <Typography sx={{ fontWeight: 700, color: '#111827', mb: 1.2 }}>Your Reply</Typography>
+            <Typography sx={{ fontWeight: 700, color: colors.heading, mb: 1.2 }}>Your Reply</Typography>
             <TextField
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
@@ -322,7 +374,23 @@ const ForumThreadPage: React.FC = () => {
               fullWidth
               multiline
               minRows={3}
-              sx={{ mb: 1.6 }}
+              sx={{
+                mb: 1.6,
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: colors.inputBg,
+                  color: colors.heading,
+                  '& fieldset': { borderColor: colors.inputBorder },
+                  '&:hover fieldset': { borderColor: colors.accent },
+                  '&.Mui-focused fieldset': { borderColor: colors.accent },
+                },
+                '& .MuiInputBase-input': {
+                  color: colors.heading,
+                },
+                '& .MuiInputBase-input::placeholder': {
+                  color: colors.subtext,
+                  opacity: 1,
+                },
+              }}
             />
             <Button
               variant="contained"
@@ -330,11 +398,11 @@ const ForumThreadPage: React.FC = () => {
               onClick={handleReply}
               disabled={!replyText.trim() || submitting}
               sx={{
-                backgroundColor: '#6C47FF',
+                backgroundColor: colors.accent,
                 textTransform: 'none',
                 fontWeight: 600,
                 px: 2.2,
-                '&:hover': { backgroundColor: '#5936E8' },
+                '&:hover': { backgroundColor: colors.accent },
               }}
             >
               {submitting ? 'Posting...' : 'Post Reply'}
@@ -347,3 +415,4 @@ const ForumThreadPage: React.FC = () => {
 };
 
 export default ForumThreadPage;
+

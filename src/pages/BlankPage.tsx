@@ -1,21 +1,52 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from 'next-themes';
 
 const BlankPage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const [currentTime, setCurrentTime] = useState(0);
   const navigate = useNavigate();
+  const { theme, resolvedTheme } = useTheme();
+  const [webGLError, setWebGLError] = useState(false);
+
+  const isDark = useMemo(() => {
+    const mode = theme === 'system' ? resolvedTheme : theme;
+    return mode === 'dark';
+  }, [theme, resolvedTheme]);
+
+  const colors = useMemo(
+    () => ({
+      bg: isDark ? '#0b1220' : '#ffffff',
+      card: isDark ? '#0f172a' : '#ffffff',
+      border: isDark ? '#1f2937' : '#E5E7EB',
+      heading: isDark ? '#e5e7eb' : '#111827',
+      subtext: isDark ? '#9ca3af' : '#6B7280',
+      chip: isDark ? '#111827' : '#F3F4F6',
+      accent: '#6C47FF',
+    }),
+    [isDark]
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.error('Canvas ref is null');
+      return;
+    }
+
+    // Set initial canvas size
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
     const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
     if (!gl) {
       console.error('WebGL not supported');
+      setWebGLError(true);
       return;
     }
+
+    console.log('WebGL initialized successfully');
 
     // Vertex shader
     const vertexShaderSource = `
@@ -205,18 +236,23 @@ const BlankPage: React.FC = () => {
 
     if (!vertexShader || !fragmentShader) {
       console.error('Failed to create shaders');
+      setWebGLError(true);
       return;
     }
 
     // Create program
     const program = gl.createProgram();
-    if (!program) return;
+    if (!program) {
+      setWebGLError(true);
+      return;
+    }
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       console.error('Program link error:', gl.getProgramInfoLog(program));
+      setWebGLError(true);
       return;
     }
 
@@ -380,12 +416,71 @@ const BlankPage: React.FC = () => {
     return 1;
   };
 
+  const headingColor = isDark ? colors.heading : '#ffffff';
+  const bodyColor = isDark ? colors.subtext : '#e5e7eb';
+
+  const primaryButtonStyle = isDark
+    ? {
+        backgroundColor: colors.card,
+        color: colors.heading,
+        borderColor: colors.border,
+        boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+      }
+    : undefined;
+  const buttonBaseStyle =
+    primaryButtonStyle || {
+      backgroundColor: '#ffffff',
+      color: '#000000',
+      borderColor: 'transparent',
+      borderWidth: 0,
+    };
+
   const handleGetStarted = () => {
     navigate('/landing');
   };
 
+  // Fallback UI when WebGL is not available
+  if (webGLError) {
+    return (
+      <div className="fixed inset-0 w-full h-full bg-gradient-to-br from-purple-900 via-purple-700 to-indigo-900">
+        {/* Top Right Get Started Button */}
+        <div className="absolute top-6 right-6 z-10">
+          <button
+            onClick={handleGetStarted}
+            className="px-6 py-3 rounded-full text-sm font-medium uppercase
+                       text-white bg-white/10 backdrop-blur-sm border border-white/20
+                       cursor-pointer shadow-md transition-all duration-500 ease-in-out
+                       hover:bg-white hover:text-purple-900 hover:shadow-xl
+                       active:translate-y-1"
+            style={{ letterSpacing: '1.5px' }}
+          >
+            Get Started &rarr;
+          </button>
+        </div>
+        
+        {/* Center Content */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center px-8 text-white">
+            <h1 className="text-7xl font-bold mb-4 tracking-tight">UNITED</h1>
+            <p className="text-2xl font-light mb-8">Campus, in one place.</p>
+            <button
+              onClick={handleGetStarted}
+              className="px-10 py-4 rounded-full text-base font-medium uppercase
+                        bg-white text-purple-900 cursor-pointer shadow-md
+                        transition-all duration-500 ease-in-out
+                        hover:shadow-xl hover:scale-105 active:translate-y-1"
+              style={{ letterSpacing: '1.5px' }}
+            >
+              Get started &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 w-full h-full">
+    <div className="fixed inset-0 w-full h-full" style={{ backgroundColor: colors.bg }}>
       <canvas 
         ref={canvasRef} 
         className="w-full h-full block"
@@ -396,22 +491,25 @@ const BlankPage: React.FC = () => {
       <div className="absolute top-6 right-6 z-10">
         <button
           onClick={handleGetStarted}
-          className="bg-white text-black px-6 py-3 rounded-full text-sm font-medium uppercase
-                     border-0 cursor-pointer shadow-md
+          className="px-6 py-3 rounded-full text-sm font-medium uppercase
+                     border cursor-pointer shadow-md
                      transition-all duration-500 ease-in-out
                      hover:bg-purple-700 hover:text-white hover:shadow-[0_7px_29px_0px_rgba(93,24,220,1)]
                      active:bg-purple-700 active:text-white active:shadow-none active:translate-y-2"
-          style={{ letterSpacing: '1.5px' }}
+          style={{
+            letterSpacing: '1.5px',
+            ...buttonBaseStyle,
+          }}
           onMouseEnter={(e) => e.currentTarget.style.letterSpacing = '3px'}
           onMouseLeave={(e) => e.currentTarget.style.letterSpacing = '1.5px'}
         >
-          Get Started →
+          Get Started &rarr;
         </button>
       </div>
       
       {/* Text Overlays */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="text-center text-white px-8">
+        <div className="text-center px-8" style={{ color: bodyColor }}>
           
           {/* 0.0-2.5s: UNITED */}
           <div 
@@ -421,11 +519,11 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 0 && currentTime <= 2.5 ? 'block' : 'none'
             }}
           >
-            <h1 className="text-7xl font-bold mb-4 tracking-tight text-white">UNITED</h1>
-            <p className="text-2xl font-light text-white">Campus, in one place.</p>
+            <h1 className="text-7xl font-bold mb-4 tracking-tight" style={{ color: headingColor }}>UNITED</h1>
+            <p className="text-2xl font-light" style={{ color: bodyColor }}>Campus, in one place.</p>
           </div>
 
-          {/* 2.5-6.0s: Post. Share. Connect. */}
+          {/* 2.5-6.0s: Unite, Collaborate, Achieve */}
           <div 
             className="transition-opacity duration-300"
             style={{ 
@@ -433,8 +531,8 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 2.5 && currentTime <= 6.0 ? 'block' : 'none'
             }}
           >
-            <h2 className="text-5xl font-bold mb-4 text-white">Post. Share. Connect.</h2>
-            <p className="text-2xl font-light text-white">Activities, updates, announcements.</p>
+            <h2 className="text-5xl font-bold mb-4" style={{ color: headingColor }}>Unite, Collaborate, Achieve</h2>
+            <p className="text-2xl font-light" style={{ color: bodyColor }}>Activities, updates, announcements.</p>
           </div>
 
           {/* 6.0-10.0s: One feed for everything */}
@@ -445,8 +543,8 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 6.0 && currentTime <= 10.0 ? 'block' : 'none'
             }}
           >
-            <h2 className="text-5xl font-bold mb-4 text-white">One feed for everything</h2>
-            <p className="text-2xl font-light text-white">See what's happening today.</p>
+            <h2 className="text-5xl font-bold mb-4" style={{ color: headingColor }}>One feed for everything</h2>
+            <p className="text-2xl font-light" style={{ color: bodyColor }}>See what's happening today.</p>
           </div>
 
           {/* 10.0-14.0s: Chatrooms */}
@@ -457,8 +555,8 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 10.0 && currentTime <= 14.0 ? 'block' : 'none'
             }}
           >
-            <h2 className="text-5xl font-bold mb-4 text-white">Chatrooms that keep you close</h2>
-            <p className="text-2xl font-light text-white">Talk with classmates & faculty.</p>
+            <h2 className="text-5xl font-bold mb-4" style={{ color: headingColor }}>Chatrooms that keep you close</h2>
+            <p className="text-2xl font-light" style={{ color: bodyColor }}>Talk with classmates & faculty.</p>
           </div>
 
           {/* 14.0-18.0s: CTA */}
@@ -469,19 +567,22 @@ const BlankPage: React.FC = () => {
               display: currentTime >= 14.0 && currentTime <= 18.0 ? 'block' : 'none'
             }}
           >
-            <h2 className="text-5xl font-bold mb-8 text-white">Join your campus on UNITED</h2>
+            <h2 className="text-5xl font-bold mb-8" style={{ color: headingColor }}>Join your campus on UNITED</h2>
             <button
               onClick={handleGetStarted}
-              className="bg-white text-black px-10 py-4 rounded-full text-base font-medium uppercase
-                         border-0 cursor-pointer shadow-md
+              className="px-10 py-4 rounded-full text-base font-medium uppercase
+                         border cursor-pointer shadow-md
                          transition-all duration-500 ease-in-out
                          hover:bg-purple-700 hover:text-white hover:shadow-[0_7px_29px_0px_rgba(93,24,220,1)]
                          active:bg-purple-700 active:text-white active:shadow-none active:translate-y-2"
-              style={{ letterSpacing: '1.5px' }}
+              style={{
+                letterSpacing: '1.5px',
+                ...buttonBaseStyle,
+              }}
               onMouseEnter={(e) => e.currentTarget.style.letterSpacing = '3px'}
               onMouseLeave={(e) => e.currentTarget.style.letterSpacing = '1.5px'}
             >
-              Get started →
+              Get started &rarr;
             </button>
           </div>
 

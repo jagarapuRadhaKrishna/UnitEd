@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase, UserPlus, Trash2,
+  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase, UserPlus, Trash2, Edit2,
 } from 'lucide-react';
 
 interface SkillRequirement {
@@ -66,6 +66,12 @@ const PostDetailPage: React.FC = () => {
   };
 
   useEffect(() => {
+    if (id && typeof window !== 'undefined') {
+      sessionStorage.setItem('lastViewedPostId', id);
+    }
+  }, [id]);
+
+  useEffect(() => {
     if (!id) return;
     const fetchPost = async () => {
       setLoading(true);
@@ -87,11 +93,37 @@ const PostDetailPage: React.FC = () => {
         .eq('id', data.author_id)
         .maybeSingle();
 
-      // Count applications
-      const { count } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('post_id', id);
+      const [
+        { count: appCount },
+        { data: acceptedApps },
+        { data: acceptedInvs },
+        chatMembersRes,
+      ] = await Promise.all([
+        supabase
+          .from('applications')
+          .select('*', { count: 'exact', head: true })
+          .eq('post_id', id),
+        supabase
+          .from('applications')
+          .select('applicant_id')
+          .eq('post_id', id)
+          .eq('status', 'accepted'),
+        supabase
+          .from('invitations')
+          .select('invitee_id')
+          .eq('post_id', id)
+          .eq('status', 'accepted'),
+        data.chatroom_id
+          ? supabase.from('chatroom_members').select('user_id').eq('chatroom_id', data.chatroom_id)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const memberSet = new Set<string>();
+      (acceptedApps || []).forEach((a: any) => memberSet.add(a.applicant_id));
+      (acceptedInvs || []).forEach((a: any) => memberSet.add(a.invitee_id));
+      (chatMembersRes.data || []).forEach((m: any) => memberSet.add(m.user_id));
+
+      const dynamicAccepted = memberSet.has(data.author_id) ? memberSet.size - 1 : memberSet.size;
 
       // Check if current user already applied
       if (user?.id) {
@@ -104,7 +136,11 @@ const PostDetailPage: React.FC = () => {
         setInviteStatus(invRes.data?.status || null);
       }
 
-      const reqs = (data.skill_requirements as unknown as SkillRequirement[]) || [];
+      const reqs = ((data.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
+        skills: r.skills || (r.skill ? [r.skill] : []),
+        requiredCount: r.requiredCount,
+        acceptedCount: r.acceptedCount || 0,
+      }));
 
       setPost({
         id: data.id,
@@ -115,7 +151,7 @@ const PostDetailPage: React.FC = () => {
         author_id: data.author_id,
         skill_requirements: reqs,
         created_at: data.created_at,
-        current_members: data.current_members,
+        current_members: Math.max(0, dynamicAccepted > 0 ? dynamicAccepted : (data.current_members ?? 0)),
         max_members: data.max_members,
         author: {
           id: data.author_id,
@@ -123,7 +159,7 @@ const PostDetailPage: React.FC = () => {
           avatar: profile?.profile_picture_url || undefined,
           type: profile?.role === 'faculty' ? 'Faculty' : 'Student',
         },
-        applicationCount: count || 0,
+        applicationCount: appCount || 0,
       });
       setLoading(false);
     };
@@ -150,8 +186,10 @@ const PostDetailPage: React.FC = () => {
   }
 
   const isAuthor = user?.id === post.author_id;
-  const totalRequired = post.skill_requirements.reduce((s, r) => s + r.requiredCount, 0);
-  const totalAccepted = post.skill_requirements.reduce((s, r) => s + (r.acceptedCount || 0), 0);
+  const derivedRequired = post.skill_requirements.reduce((s, r) => s + r.requiredCount, 0);
+  const derivedAccepted = post.skill_requirements.reduce((s, r) => s + (r.acceptedCount || 0), 0);
+  const totalRequired = post.max_members ?? derivedRequired;
+  const totalAccepted = post.current_members ?? derivedAccepted;
   const progress = totalRequired > 0 ? (totalAccepted / totalRequired) * 100 : 0;
 
   const handleInvite = async () => {
@@ -236,7 +274,10 @@ const PostDetailPage: React.FC = () => {
                 </Badge>
               </div>
               <h1 className="text-2xl font-bold text-foreground mb-2">{post.title}</h1>
-              <p className="text-muted-foreground mb-4">{post.description}</p>
+              <div
+                className="text-muted-foreground mb-4 prose prose-invert max-w-none whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{ __html: post.description }}
+              />
             </div>
           </div>
 
@@ -252,11 +293,6 @@ const PostDetailPage: React.FC = () => {
                 <p className="text-xs text-muted-foreground capitalize">{post.author.type}</p>
               </div>
             </div>
-            {isAuthor && post.status === 'active' && (
-              <Button size="sm" onClick={() => navigate(`/post/${post.id}/candidates`)} className="bg-united-purple hover:bg-united-purple/90">
-                <UserPlus className="w-4 h-4 mr-1" /> Invite
-              </Button>
-            )}
             {!isAuthor && post.status === 'active' && (
               <Button
                 size="sm"
@@ -306,11 +342,15 @@ const PostDetailPage: React.FC = () => {
           <div className="mb-4">
             <h3 className="font-semibold mb-2 flex items-center gap-2"><Award className="w-4 h-4" /> Required Skills</h3>
             <div className="flex flex-wrap gap-2">
-              {post.skill_requirements.map(sr => (
-                <Badge key={sr.skill} variant="outline" className="bg-primary/5 border-primary/20 text-primary">
-                  {sr.skill} ({sr.acceptedCount || 0}/{sr.requiredCount})
+              {post.skill_requirements.map((sr, idx) => {
+                const reqSkills = sr.skills || (sr.skill ? [sr.skill] : []);
+                const label = reqSkills.join(' + ');
+                return (
+                <Badge key={`${label}-${idx}`} variant="outline" className="bg-primary/5 border-primary/20 text-primary">
+                  {label} ({sr.acceptedCount || 0}/{sr.requiredCount})
                 </Badge>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -321,8 +361,12 @@ const PostDetailPage: React.FC = () => {
                 <Button onClick={() => navigate(`/post/manage/${post.id}`)} className="bg-united-purple hover:bg-united-purple/90">
                   <Users className="w-4 h-4 mr-2" /> Manage Applicants
                 </Button>
-                <Button onClick={() => navigate(`/post/${post.id}/candidates`)} className="bg-primary">
-                  <UserPlus className="w-4 h-4 mr-2" /> Invite
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/edit-post/${post.id}`)}
+                  className="border-united-purple/40 text-united-purple hover:bg-united-purple/10"
+                >
+                  <Edit2 className="w-4 h-4 mr-2" /> Edit Post
                 </Button>
                 <Button variant="outline" onClick={() => navigate(`/post/${post.id}/candidates`)}>
                   <UserCheck className="w-4 h-4 mr-2" /> View Candidates
@@ -345,7 +389,7 @@ const PostDetailPage: React.FC = () => {
 
       {/* Delete Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="bg-card text-foreground border border-border shadow-2xl">
           <DialogHeader><DialogTitle>Delete Post?</DialogTitle></DialogHeader>
           <p className="text-muted-foreground">Are you sure you want to delete this post? This action cannot be undone.</p>
           <DialogFooter>
@@ -369,9 +413,9 @@ const PostDetailPage: React.FC = () => {
 
       {/* Apply Dialog */}
       <Dialog open={openApplyDialog} onOpenChange={setOpenApplyDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg bg-card text-foreground border border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Apply for {post.title}</DialogTitle>
+            <DialogTitle className="text-white">Apply for {post.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>

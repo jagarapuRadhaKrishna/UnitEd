@@ -81,9 +81,12 @@ export interface Project {
 }
 
 export interface SkillRequirement {
-  skill: string;
+  /** One or more skills required together for a single candidate */
+  skills: string[];
   requiredCount: number;
   acceptedCount?: number;
+  /** legacy single-skill field kept for backward compatibility with older rows */
+  skill?: string;
 }
 
 export interface Post {

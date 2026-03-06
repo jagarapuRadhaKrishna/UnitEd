@@ -234,9 +234,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (authError) throw authError;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Login failed.';
+      console.error('Login error:', err);
       setError(msg);
-      setIsLoading(false);
       throw err;
+    } finally {
+      // Keep UI responsive; auth listener will finalize state after session arrives
+      setIsLoading(false);
     }
   };
 
@@ -296,11 +299,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (authError) throw authError;
       if (!authData.user) throw new Error('Registration failed - no user returned');
+
+      // Persist extended profile fields into profiles table for immediate availability (projects, achievements, etc.)
+      const profilePayload: Record<string, any> = {
+        id: authData.user.id,
+        first_name: userData.firstName,
+        middle_name: userData.middleName || null,
+        last_name: userData.lastName,
+        email: userData.email,
+        role: userData.role,
+        contact_no: userData.contactNo || null,
+        gender: userData.gender || null,
+        skills: userData.skills,
+        profile_picture_url: userData.profilePictureUrl || null,
+        portfolio: userData.portfolio || null,
+        bio: null,
+        location: null,
+        linkedin: null,
+        github: null,
+        leetcode: null,
+        cover_photo_url: null,
+      };
+
+      if (userData.role === 'student') {
+        profilePayload.roll_number = userData.rollNumber || null;
+        profilePayload.department = userData.department || null;
+        profilePayload.year_of_graduation = userData.yearOfGraduation || null;
+        profilePayload.experience = userData.experience?.toString() || null;
+        profilePayload.projects = metadata.projects;
+        profilePayload.achievements = metadata.achievements;
+        profilePayload.resume_url = metadata.resume_url || null;
+      } else {
+        profilePayload.employee_id = userData.employeeId || null;
+        profilePayload.designation = userData.designation || null;
+        profilePayload.date_of_joining = userData.dateOfJoining || null;
+        profilePayload.qualification = userData.qualification || null;
+        profilePayload.specialization = userData.specialization || null;
+        profilePayload.total_experience = userData.totalExperience?.toString() || null;
+        profilePayload.teaching_experience = userData.teachingExperience?.toString() || null;
+        profilePayload.industry_experience = userData.industryExperience?.toString() || null;
+        profilePayload.projects = metadata.projects;
+        profilePayload.achievements = metadata.achievements || [];
+        profilePayload.resume_url = metadata.resume_url || null;
+      }
+
+      const { error: profileError } = await supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' });
+      if (profileError) {
+        // Don't block signup if profile upsert fails (avoids "user already registered" on retry)
+        console.error('Profile upsert error after signup:', profileError);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Registration failed.';
+      console.error('Registration error:', err);
       setError(msg);
-      setIsLoading(false);
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 

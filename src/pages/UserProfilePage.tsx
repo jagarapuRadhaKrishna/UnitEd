@@ -42,11 +42,21 @@ const UserProfilePage: React.FC = () => {
     );
   }
 
+  const parseArr = (val: any): any[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try { const p = JSON.parse(val); return Array.isArray(p) ? p : []; } catch { return []; }
+    }
+    return [];
+  };
+
   const fullName = `${profileUser.first_name || ''} ${profileUser.last_name || ''}`.trim() || 'Unknown';
   const initials = `${(profileUser.first_name || 'U')[0]}${(profileUser.last_name || '')[0] || ''}`;
-  const skills: string[] = profileUser.skills || [];
-  const projects: any[] = profileUser.projects as any[] || [];
-  const achievements: any[] = profileUser.achievements as any[] || [];
+  const skills: string[] = parseArr(profileUser.skills);
+  const projects: any[] = parseArr(profileUser.projects);
+  const achievements: any[] = parseArr(profileUser.achievements);
+  const resumeUrl: string | undefined = profileUser.resume_url || undefined;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
@@ -94,6 +104,17 @@ const UserProfilePage: React.FC = () => {
             {profileUser.portfolio && (
               <Button variant="outline" size="sm" asChild><a href={profileUser.portfolio} target="_blank" rel="noopener"><Globe className="w-4 h-4" /></a></Button>
             )}
+            {resumeUrl && (
+              <Button variant="default" size="sm" asChild><a href={resumeUrl} target="_blank" rel="noopener">Resume</a></Button>
+            )}
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-2 mt-4 text-sm text-muted-foreground">
+            {profileUser.department && <div><strong className="text-foreground">Department:</strong> {profileUser.department}</div>}
+            {profileUser.year_of_graduation && <div><strong className="text-foreground">Graduation:</strong> Class of {profileUser.year_of_graduation}</div>}
+            {profileUser.cgpa && <div><strong className="text-foreground">CGPA:</strong> {profileUser.cgpa}</div>}
+            {profileUser.designation && <div><strong className="text-foreground">Designation:</strong> {profileUser.designation}</div>}
+            {profileUser.location && <div><strong className="text-foreground">Location:</strong> {profileUser.location}</div>}
           </div>
         </CardContent>
       </Card>
@@ -101,7 +122,7 @@ const UserProfilePage: React.FC = () => {
       {skills.length > 0 && (
         <Card className="mb-4">
           <CardContent className="p-6">
-            <h3 className="font-semibold mb-3">Skills</h3>
+            <h3 className="font-semibold mb-3 text-foreground">Skills</h3>
             <div className="flex flex-wrap gap-2">
               {skills.map((skill: string) => (
                 <Badge key={skill} variant="outline" className="bg-primary/5">{skill}</Badge>
@@ -114,7 +135,7 @@ const UserProfilePage: React.FC = () => {
       {projects.length > 0 && (
         <Card className="mb-4">
           <CardContent className="p-6">
-            <h3 className="font-semibold mb-3">Projects</h3>
+            <h3 className="font-semibold mb-3 text-foreground">Projects</h3>
             <div className="space-y-3">
               {projects.map((proj: any, i: number) => (
                 <div key={proj.id || i} className="p-3 border rounded-lg">
@@ -130,7 +151,7 @@ const UserProfilePage: React.FC = () => {
       {achievements.length > 0 && (
         <Card>
           <CardContent className="p-6">
-            <h3 className="font-semibold mb-3">Achievements</h3>
+            <h3 className="font-semibold mb-3 text-foreground">Achievements</h3>
             <div className="space-y-2">
               {achievements.map((ach: any, i: number) => (
                 <div key={ach.id || i} className="flex items-center gap-2">

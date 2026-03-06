@@ -27,6 +27,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePalette } from '@/hooks/usePalette';
 
 interface AppItem {
   id: string;
@@ -59,10 +60,12 @@ interface PostSummary {
 const AppliedOpportunitiesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isDark, colors } = usePalette();
 
   const [applications, setApplications] = useState<AppItem[]>([]);
   const [receivedApps, setReceivedApps] = useState<ReceivedAppItem[]>([]);
   const isFaculty = user?.role === 'faculty';
+  const [firstPostId, setFirstPostId] = useState<string | null>(null);
 
   const [viewMode, setViewMode] = useState<'sent' | 'received'>(isFaculty ? 'received' : 'sent');
   const [statusTab, setStatusTab] = useState('all');
@@ -137,9 +140,12 @@ const AppliedOpportunitiesPage: React.FC = () => {
 
     const { data: myPosts } = await supabase.from('posts').select('id, title').eq('author_id', user.id);
     if (!myPosts || myPosts.length === 0) {
+      setFirstPostId(null);
       setReceivedApps([]);
       return;
     }
+
+    setFirstPostId(myPosts[0]?.id || null);
 
     const postIds = myPosts.map((p) => p.id);
     const postTitleMap = new Map<string, string>();
@@ -349,14 +355,14 @@ const AppliedOpportunitiesPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: colors.bg }}>
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: '#111827', mb: 0.7 }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: colors.heading, mb: 0.7 }}>
               {isFaculty ? 'Received Applications' : 'My Applications'}
             </Typography>
-            <Typography sx={{ color: '#6B7280' }}>
+            <Typography sx={{ color: colors.subtext }}>
               {isFaculty ? 'Track applications received on your posts' : 'Track sent and received applications'}
             </Typography>
           </Box>
@@ -374,10 +380,10 @@ const AppliedOpportunitiesPage: React.FC = () => {
               sx={{
                 textTransform: 'none',
                 fontWeight: 600,
-                backgroundColor: viewMode === 'sent' ? '#6C47FF' : undefined,
-                borderColor: '#D1D5DB',
-                color: viewMode === 'sent' ? 'white' : '#4B5563',
-                '&:hover': { backgroundColor: viewMode === 'sent' ? '#5936E8' : '#F3F4F6' },
+                backgroundColor: viewMode === 'sent' ? colors.accent : (isDark ? colors.card : undefined),
+                borderColor: isDark ? colors.border : '#D1D5DB',
+                color: viewMode === 'sent' ? '#ffffff' : (isDark ? colors.heading : '#4B5563'),
+                '&:hover': { backgroundColor: viewMode === 'sent' ? colors.accentHover : (isDark ? colors.card : '#F3F4F6') },
               }}
             >
               Sent ({applications.length})
@@ -392,10 +398,10 @@ const AppliedOpportunitiesPage: React.FC = () => {
               sx={{
                 textTransform: 'none',
                 fontWeight: 600,
-                backgroundColor: viewMode === 'received' ? '#6C47FF' : undefined,
-                borderColor: '#D1D5DB',
-                color: viewMode === 'received' ? 'white' : '#4B5563',
-                '&:hover': { backgroundColor: viewMode === 'received' ? '#5936E8' : '#F3F4F6' },
+                backgroundColor: viewMode === 'received' ? colors.accent : (isDark ? colors.card : undefined),
+                borderColor: isDark ? colors.border : '#D1D5DB',
+                color: viewMode === 'received' ? '#ffffff' : (isDark ? colors.heading : '#4B5563'),
+                '&:hover': { backgroundColor: viewMode === 'received' ? colors.accentHover : (isDark ? colors.card : '#F3F4F6') },
               }}
             >
               Received ({receivedApps.length})
@@ -403,7 +409,15 @@ const AppliedOpportunitiesPage: React.FC = () => {
           </Stack>
         )}
 
-        <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none', mb: 3 }}>
+        <Card
+          sx={{
+            borderRadius: '12px',
+            border: `1px solid ${colors.border}`,
+            boxShadow: 'none',
+            mb: 3,
+            backgroundColor: colors.card,
+          }}
+        >
           <Tabs value={statusTab} onChange={(_, value) => setStatusTab(value)}>
             {effectiveViewMode === 'sent' ? (
               [
@@ -411,14 +425,28 @@ const AppliedOpportunitiesPage: React.FC = () => {
                 { value: 'applied', label: `Pending (${sentPendingCount})` },
                 { value: 'accepted', label: `Accepted (${sentAcceptedCount})` },
                 { value: 'rejected', label: `Rejected (${sentRejectedCount})` },
-              ].map((tab) => <Tab key={tab.value} value={tab.value} label={tab.label} sx={{ textTransform: 'none', fontWeight: 600 }} />)
+              ].map((tab) => (
+                <Tab
+                  key={tab.value}
+                  value={tab.value}
+                  label={tab.label}
+                  sx={{ textTransform: 'none', fontWeight: 600, color: colors.heading }}
+                />
+              ))
             ) : (
               [
                 { value: 'all', label: `All (${receivedApps.length})` },
                 { value: 'applied', label: `Pending (${receivedPendingCount})` },
                 { value: 'accepted', label: `Accepted (${receivedAcceptedCount})` },
                 { value: 'rejected', label: `Rejected (${receivedRejectedCount})` },
-              ].map((tab) => <Tab key={tab.value} value={tab.value} label={tab.label} sx={{ textTransform: 'none', fontWeight: 600 }} />)
+              ].map((tab) => (
+                <Tab
+                  key={tab.value}
+                  value={tab.value}
+                  label={tab.label}
+                  sx={{ textTransform: 'none', fontWeight: 600, color: colors.heading }}
+                />
+              ))
             )}
           </Tabs>
         </Card>
@@ -442,18 +470,34 @@ const AppliedOpportunitiesPage: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.42, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none', '&:hover': { boxShadow: '0 8px 24px rgba(17,24,39,0.08)' } }}>
+                      <Card
+                        sx={{
+                          borderRadius: '12px',
+                          border: `1px solid ${colors.border}`,
+                          boxShadow: 'none',
+                          backgroundColor: colors.card,
+                          '&:hover': {
+                            boxShadow: isDark ? '0 10px 28px rgba(0,0,0,0.35)' : '0 8px 24px rgba(17,24,39,0.08)',
+                          },
+                        }}
+                      >
                         <CardContent sx={{ p: 2.5 }}>
                           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }}>
                             <Box sx={{ flex: 1 }}>
-                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827', mb: 0.4 }}>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: colors.heading, mb: 0.4 }}>
                                 {app.post_title}
                               </Typography>
-                              <Typography sx={{ color: '#6B7280', mb: 1.5 }}>
+                              <Typography sx={{ color: colors.subtext, mb: 1.5 }}>
                                 Posted by <strong>{app.author_name}</strong>
                               </Typography>
 
-                              <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ color: '#6B7280', pt: 1.2, borderTop: '1px solid #E5E7EB' }}>
+                              <Stack
+                                direction="row"
+                                spacing={2}
+                                flexWrap="wrap"
+                                useFlexGap
+                                sx={{ color: colors.subtext, pt: 1.2, borderTop: `1px solid ${colors.border}` }}
+                              >
                                 <Stack direction="row" spacing={0.6} alignItems="center">
                                   <Users size={15} />
                                   <Typography sx={{ fontSize: 14 }}>{app.post_purpose}</Typography>
@@ -480,18 +524,18 @@ const AppliedOpportunitiesPage: React.FC = () => {
 
                               {app.status === 'accepted' && (
                                 <Button
-                                  variant="contained"
-                                  startIcon={<MessageCircle size={16} />}
-                                  onClick={() => navigate(`/chatroom/${app.post_id}`)}
-                                  sx={{
-                                    backgroundColor: '#10B981',
-                                    textTransform: 'none',
-                                    fontWeight: 600,
-                                    '&:hover': { backgroundColor: '#059669' },
-                                  }}
-                                >
-                                  Join Chatroom
-                                </Button>
+                                    variant="contained"
+                                    startIcon={<MessageCircle size={16} />}
+                                    onClick={() => navigate(`/chatroom/${app.post_id}`)}
+                                    sx={{
+                                      backgroundColor: '#10B981',
+                                      textTransform: 'none',
+                                      fontWeight: 600,
+                                      '&:hover': { backgroundColor: '#059669' },
+                                    }}
+                                  >
+                                    Join Chatroom
+                                  </Button>
                               )}
                             </Stack>
                           </Stack>
@@ -511,32 +555,52 @@ const AppliedOpportunitiesPage: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.42, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none', '&:hover': { boxShadow: '0 8px 24px rgba(17,24,39,0.08)' } }}>
+                      <Card
+                        sx={{
+                          borderRadius: '12px',
+                          border: `1px solid ${colors.border}`,
+                          boxShadow: 'none',
+                          backgroundColor: colors.card,
+                          '&:hover': {
+                            boxShadow: isDark ? '0 10px 28px rgba(0,0,0,0.35)' : '0 8px 24px rgba(17,24,39,0.08)',
+                          },
+                        }}
+                      >
                         <CardContent sx={{ p: 2.5 }}>
                           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }}>
                             <Box sx={{ flex: 1 }}>
-                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827', mb: 0.4 }}>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: colors.heading, mb: 0.4 }}>
                                 {app.post_title}
                               </Typography>
 
-                              <Typography sx={{ color: '#6B7280', mb: 0.8 }}>
+                              <Typography sx={{ color: colors.subtext, mb: 0.8 }}>
                                 From{' '}
                                 <Box
                                   component="span"
                                   onClick={() => navigate(`/profile/${app.applicant_id}`)}
-                                  sx={{ fontWeight: 700, cursor: 'pointer', color: '#6C47FF', '&:hover': { textDecoration: 'underline' } }}
+                                  sx={{
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    color: colors.accent,
+                                    '&:hover': { textDecoration: 'underline' },
+                                  }}
                                 >
                                   {app.applicant_name}
                                 </Box>
                               </Typography>
 
                               {app.applied_for_skill && (
-                                <Typography sx={{ fontSize: 13, color: '#6B7280', mb: 1.3 }}>
+                                <Typography sx={{ fontSize: 13, color: colors.subtext, mb: 1.3 }}>
                                   Skill: {app.applied_for_skill}
                                 </Typography>
                               )}
 
-                              <Stack direction="row" spacing={0.6} alignItems="center" sx={{ color: '#6B7280', pt: 1.2, borderTop: '1px solid #E5E7EB' }}>
+                              <Stack
+                                direction="row"
+                                spacing={0.6}
+                                alignItems="center"
+                                sx={{ color: colors.subtext, pt: 1.2, borderTop: `1px solid ${colors.border}` }}
+                              >
                                 <Calendar size={15} />
                                 <Typography sx={{ fontSize: 14 }}>{new Date(app.applied_at).toLocaleDateString()}</Typography>
                               </Stack>
@@ -567,7 +631,8 @@ const AppliedOpportunitiesPage: React.FC = () => {
                                       borderColor: '#10B981',
                                       textTransform: 'none',
                                       fontWeight: 600,
-                                      '&:hover': { borderColor: '#059669', backgroundColor: '#ECFDF5' },
+                                      backgroundColor: isDark ? colors.card : undefined,
+                                      '&:hover': { borderColor: '#059669', backgroundColor: isDark ? colors.card : '#ECFDF5' },
                                     }}
                                   >
                                     Accept
@@ -582,7 +647,8 @@ const AppliedOpportunitiesPage: React.FC = () => {
                                       borderColor: '#EF4444',
                                       textTransform: 'none',
                                       fontWeight: 600,
-                                      '&:hover': { borderColor: '#DC2626', backgroundColor: '#FEF2F2' },
+                                      backgroundColor: isDark ? colors.card : undefined,
+                                      '&:hover': { borderColor: '#DC2626', backgroundColor: isDark ? colors.card : '#FEF2F2' },
                                     }}
                                   >
                                     Reject
@@ -599,27 +665,41 @@ const AppliedOpportunitiesPage: React.FC = () => {
 
               {((effectiveViewMode === 'sent' && filteredSent.length === 0) ||
                 (effectiveViewMode === 'received' && filteredReceived.length === 0)) && (
-                <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+                <Card
+                  sx={{
+                    borderRadius: '12px',
+                    border: `1px solid ${colors.border}`,
+                    boxShadow: 'none',
+                    backgroundColor: colors.card,
+                  }}
+                >
                   <CardContent sx={{ py: 8, textAlign: 'center' }}>
-                    <Typography sx={{ fontSize: 20, fontWeight: 600, color: '#6B7280', mb: 0.8 }}>
+                    <Typography sx={{ fontSize: 20, fontWeight: 600, color: colors.heading, mb: 0.8 }}>
                       No applications found
                     </Typography>
-                    <Typography sx={{ color: '#9CA3AF', mb: 2.6 }}>
+                    <Typography sx={{ color: colors.subtext, mb: 2.6 }}>
                       {effectiveViewMode === 'sent'
                         ? "You haven't applied to any opportunities yet"
                         : 'No applications received on your posts yet'}
                     </Typography>
                     <Button
                       variant="contained"
-                      onClick={() => navigate('/home')}
+                      onClick={() => {
+                        if (effectiveViewMode === 'received' && user?.role === 'faculty' && firstPostId) {
+                          navigate(`/post/${firstPostId}/candidates`);
+                        } else {
+                          navigate('/home');
+                        }
+                      }}
                       sx={{
-                        backgroundColor: '#2563EB',
+                        backgroundColor: colors.accent,
                         textTransform: 'none',
                         fontWeight: 600,
-                        '&:hover': { backgroundColor: '#1D4ED8' },
+                        color: '#ffffff',
+                        '&:hover': { backgroundColor: colors.accentHover },
                       }}
                     >
-                      Browse Opportunities
+                      {effectiveViewMode === 'received' && user?.role === 'faculty' ? 'Browse Candidates' : 'Browse Opportunities'}
                     </Button>
                   </CardContent>
                 </Card>

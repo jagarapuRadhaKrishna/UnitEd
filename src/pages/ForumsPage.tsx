@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { Clock, Eye, Filter, MessageCircle, Pin, Plus, Search } from 'lucide-react';
+import { usePalette } from '@/hooks/usePalette';
 
 interface ForumThread {
   id: string;
@@ -36,6 +37,7 @@ const ForumsPage: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [threads, setThreads] = useState<ForumThread[]>([]);
   const [loading, setLoading] = useState(true);
+  const { colors } = usePalette();
 
   const fetchThreads = async () => {
     const { data: threadData } = await supabase
@@ -93,8 +95,15 @@ const ForumsPage: React.FC = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_threads' }, fetchThreads)
       .subscribe();
 
+    // Refresh when replies change so reply counts stay live
+    const repliesChannel = supabase
+      .channel('forum-replies-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_replies' }, fetchThreads)
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(repliesChannel);
     };
   }, []);
 
@@ -123,7 +132,7 @@ const ForumsPage: React.FC = () => {
             height: 34,
             borderRadius: '50%',
             border: '3px solid #E5E7EB',
-            borderTopColor: '#6C47FF',
+            borderTopcolor: colors.chipActiveBg,
             animation: 'spin 0.8s linear infinite',
             '@keyframes spin': { to: { transform: 'rotate(360deg)' } },
           }}
@@ -133,7 +142,7 @@ const ForumsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: colors.bg }}>
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
           <Stack
@@ -144,10 +153,10 @@ const ForumsPage: React.FC = () => {
             sx={{ mb: 3 }}
           >
             <Box>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#111827', mb: 0.5 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: colors.heading, mb: 0.5 }}>
                 Forums
               </Typography>
-              <Typography sx={{ color: '#6B7280' }}>
+              <Typography sx={{ color: colors.subtext }}>
                 Join discussions, share knowledge, and connect with the community
               </Typography>
             </Box>
@@ -156,7 +165,7 @@ const ForumsPage: React.FC = () => {
               startIcon={<Plus size={18} />}
               onClick={() => navigate('/forum/create')}
               sx={{
-                backgroundColor: '#6C47FF',
+                backgroundColor: colors.chipActiveBg,
                 px: 2.4,
                 py: 1.2,
                 textTransform: 'none',
@@ -187,8 +196,19 @@ const ForumsPage: React.FC = () => {
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'white',
+                  backgroundColor: colors.card,
                   borderRadius: '8px',
+                  color: colors.heading,
+                  '& fieldset': { borderColor: colors.border },
+                  '&:hover fieldset': { borderColor: colors.chipActiveBg },
+                  '&.Mui-focused fieldset': { borderColor: colors.chipActiveBg },
+                  '& .MuiInputBase-input': {
+                    color: colors.heading,
+                    '&::placeholder': { color: colors.subtext, opacity: 1 },
+                  },
+                  '& .MuiInputAdornment-root': {
+                    color: colors.subtext,
+                  },
                 },
               }}
             />
@@ -196,8 +216,8 @@ const ForumsPage: React.FC = () => {
               variant="outlined"
               startIcon={<Filter size={16} />}
               sx={{
-                borderColor: '#E5E7EB',
-                color: '#374151',
+                borderColor: colors.border,
+                color: colors.heading,
                 textTransform: 'none',
                 borderRadius: '8px',
                 px: 2.2,
@@ -218,18 +238,17 @@ const ForumsPage: React.FC = () => {
                 flexShrink: 0,
                 borderRadius: '999px',
                 px: 0.7,
-                backgroundColor: activeCategory === cat ? '#6C47FF' : 'white',
-                color: activeCategory === cat ? 'white' : '#374151',
-                border: '1px solid',
-                borderColor: activeCategory === cat ? '#6C47FF' : '#E5E7EB',
+                backgroundColor: activeCategory === cat ? colors.chipActiveBg : colors.card,
+                color: activeCategory === cat ? colors.card : colors.heading,
+                border: `1px solid ${activeCategory === cat ? colors.chipActiveBg : colors.border}`,
                 fontWeight: 600,
-                '&:hover': { backgroundColor: activeCategory === cat ? '#5936E8' : '#F3F4F6' },
+                '&:hover': { backgroundColor: activeCategory === cat ? '#5936E8' : colors.chipHover },
               }}
             />
           ))}
         </Stack>
 
-        <Typography sx={{ mb: 2, color: '#6B7280', fontSize: 14 }}>
+        <Typography sx={{ mb: 2, color: colors.subtext, fontSize: 14 }}>
           {filtered.length} discussion{filtered.length !== 1 ? 's' : ''}
         </Typography>
 
@@ -246,10 +265,11 @@ const ForumsPage: React.FC = () => {
                 sx={{
                   cursor: 'pointer',
                   borderRadius: '12px',
-                  border: '1px solid #E5E7EB',
+                  border: `1px solid ${colors.border}`,
                   boxShadow: 'none',
+                  backgroundColor: colors.card,
                   '&:hover': {
-                    borderColor: '#6C47FF',
+                    borderColor: colors.chipActiveBg,
                     boxShadow: '0 6px 20px rgba(108,71,255,0.12)',
                   },
                   transition: 'all 0.22s ease',
@@ -257,14 +277,14 @@ const ForumsPage: React.FC = () => {
               >
                 <CardContent sx={{ p: 2.5 }}>
                   <Stack direction="row" spacing={1.75} alignItems="flex-start">
-                    <Avatar sx={{ width: 40, height: 40, bgcolor: '#EEF2FF', color: '#6C47FF', fontWeight: 700 }}>
+                    <Avatar sx={{ width: 40, height: 40, bgcolor: colors.avatarBg, color: colors.chipActiveBg, fontWeight: 700 }}>
                       {thread.author_name.charAt(0).toUpperCase()}
                     </Avatar>
 
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.8, flexWrap: 'wrap' }}>
                         {thread.is_pinned && <Pin size={14} color="#F59E0B" />}
-                        <Typography sx={{ fontWeight: 700, color: '#111827', lineHeight: 1.3 }}>
+                        <Typography sx={{ fontWeight: 700, color: colors.heading, lineHeight: 1.3 }}>
                           {thread.title}
                         </Typography>
                         <Chip
@@ -272,15 +292,16 @@ const ForumsPage: React.FC = () => {
                           size="small"
                           sx={{
                             height: 22,
-                            backgroundColor: '#EEF2FF',
-                            color: '#6C47FF',
+                            backgroundColor: colors.chip,
+                            color: colors.chipText,
                             fontWeight: 600,
+                            border: `1px solid ${colors.border}`,
                           }}
                         />
                       </Stack>
 
-                      <Stack direction="row" spacing={1.2} alignItems="center" sx={{ color: '#6B7280', fontSize: 13 }}>
-                        <Typography sx={{ fontSize: 13, color: '#6B7280' }}>{thread.author_name}</Typography>
+                      <Stack direction="row" spacing={1.2} alignItems="center" sx={{ color: colors.subtext, fontSize: 13 }}>
+                        <Typography sx={{ fontSize: 13, color: colors.subtext }}>{thread.author_name}</Typography>
                         <Typography sx={{ color: '#D1D5DB' }}>•</Typography>
                         <Stack direction="row" spacing={0.5} alignItems="center">
                           <Clock size={13} />
@@ -289,7 +310,7 @@ const ForumsPage: React.FC = () => {
                       </Stack>
                     </Box>
 
-                    <Stack direction="row" spacing={2.2} alignItems="center" sx={{ color: '#6B7280' }}>
+                    <Stack direction="row" spacing={2.2} alignItems="center" sx={{ color: colors.subtext }}>
                       <Stack direction="row" spacing={0.5} alignItems="center">
                         <MessageCircle size={15} />
                         <Typography sx={{ fontSize: 13 }}>{thread.reply_count}</Typography>
@@ -307,10 +328,10 @@ const ForumsPage: React.FC = () => {
         </Stack>
 
         {filtered.length === 0 && (
-          <Card sx={{ borderRadius: '12px', mt: 1, border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+          <Card sx={{ borderRadius: '12px', mt: 1, border: `1px solid ${colors.border}`, boxShadow: 'none', backgroundColor: colors.card }}>
             <CardContent sx={{ py: 7, textAlign: 'center' }}>
-              <Typography sx={{ fontWeight: 600, color: '#6B7280', mb: 0.8 }}>No discussions found</Typography>
-              <Typography sx={{ color: '#9CA3AF', fontSize: 14 }}>Try adjusting your search or category filters</Typography>
+              <Typography sx={{ fontWeight: 600, color: colors.subtext, mb: 0.8 }}>No discussions found</Typography>
+              <Typography sx={{ color: colors.subtext, fontSize: 14 }}>Try adjusting your search or category filters</Typography>
             </CardContent>
           </Card>
         )}
@@ -320,3 +341,5 @@ const ForumsPage: React.FC = () => {
 };
 
 export default ForumsPage;
+
+

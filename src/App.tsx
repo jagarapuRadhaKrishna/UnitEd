@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import CssBaseline from "@mui/material/CssBaseline";
 import { AuthProvider } from "./contexts/AuthContext";
 import { initializePostLifecycle } from "./services/postLifecycleService";
@@ -15,6 +15,7 @@ import BlankPage from "./pages/BlankPage";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import RoleSelection from "./pages/RoleSelection";
 import StudentRegister from "./pages/StudentRegister";
 import FacultyRegister from "./pages/FacultyRegister";
@@ -28,13 +29,12 @@ import EditPostPage from "./pages/EditPostPage";
 import AppliedOpportunitiesPage from "./pages/AppliedOpportunitiesPage";
 import AcceptedApplicationsPage from "./pages/AcceptedApplicationsPage";
 import InvitationsPage from "./pages/InvitationsPage";
-import MyPostsPage from "./pages/MyPostsPage";
 import SkillMatchedPostsPage from "./pages/SkillMatchedPostsPage";
 import PostManagePage from "./pages/PostManagePage";
 import RecommendedCandidatesPage from "./pages/RecommendedCandidatesPage";
 import CandidateProfilePage from "./pages/CandidateProfilePage";
-import ChatroomsPage from "./pages/ChatroomsPage";
-import ChatroomPage from "./pages/ChatroomPage";
+const ChatroomsPage = lazy(() => import("./pages/ChatroomsPage"));
+const ChatroomPage = lazy(() => import("./pages/ChatroomPage"));
 import ForumsPage from "./pages/ForumsPage";
 import ForumThreadPage from "./pages/ForumThreadPage";
 import CreateThreadPage from "./pages/CreateThreadPage";
@@ -42,8 +42,8 @@ import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import AboutPage from "./pages/AboutPage";
-import AboutApplicationPage from "./pages/AboutApplicationPage";
-import AboutDevelopersPage from "./pages/AboutDevelopersPage";
+const AboutApplicationPage = lazy(() => import("./pages/AboutApplicationPage"));
+const AboutDevelopersPage = lazy(() => import("./pages/AboutDevelopersPage"));
 
 const queryClient = new QueryClient();
 
@@ -63,12 +63,14 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
+            <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>}>
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<BlankPage />} />
               <Route path="/landing" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/register" element={<RoleSelection />} />
               <Route path="/register/student" element={<StudentRegister />} />
               <Route path="/register/faculty" element={<FacultyRegister />} />
@@ -82,7 +84,6 @@ const App = () => {
                 <Route path="/create-opportunity" element={<CreatePostPage />} />
                 <Route path="/post/:id" element={<PostDetailPage />} />
                 <Route path="/edit-post/:id" element={<EditPostPage />} />
-                <Route path="/my-posts" element={<MyPostsPage />} />
                 <Route path="/matched-posts" element={<SkillMatchedPostsPage />} />
                 <Route path="/applications" element={<AppliedOpportunitiesPage />} />
                 <Route path="/applied" element={<AppliedOpportunitiesPage />} />
@@ -97,12 +98,12 @@ const App = () => {
                 <Route path="/forums" element={<ForumsPage />} />
                 <Route path="/forum/:threadId" element={<ForumThreadPage />} />
                 <Route path="/forum/create" element={<CreateThreadPage />} />
-                <Route path="/about" element={<AboutPage />}>
-                  <Route index element={<Navigate to="application" replace />} />
-                  <Route path="application" element={<AboutApplicationPage />} />
-                  <Route path="developers" element={<AboutDevelopersPage />} />
-                  <Route path="developer" element={<Navigate to="/about/developers" replace />} />
-                </Route>
+              <Route path="/about" element={<AboutPage />}>
+                <Route index element={<Navigate to="application" replace />} />
+                <Route path="application" element={<AboutApplicationPage />} />
+                <Route path="developers" element={<AboutDevelopersPage />} />
+                <Route path="developer" element={<Navigate to="/about/developers" replace />} />
+              </Route>
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/settings/profile" element={<ProfilePage />} />
                 <Route path="/profile/:id" element={<UserProfilePage />} />
@@ -110,6 +111,7 @@ const App = () => {
 
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            </Suspense>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

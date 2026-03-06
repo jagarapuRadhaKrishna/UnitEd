@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageSquare, Users, Clock, ArrowRight, Loader2 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 interface MemberProfile {
   user_id: string;
@@ -32,6 +33,12 @@ const ChatroomsPage: React.FC = () => {
   const navigate = useNavigate();
   const [chatrooms, setChatrooms] = useState<ChatroomItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { theme, resolvedTheme } = useTheme();
+
+  const isDark = useMemo(() => {
+    const mode = theme === 'system' ? resolvedTheme : theme;
+    return mode === 'dark';
+  }, [theme, resolvedTheme]);
 
   useEffect(() => {
     if (user?.id) fetchChatrooms();
@@ -159,7 +166,7 @@ const ChatroomsPage: React.FC = () => {
   }, [user?.id]);
 
   const getInitials = (first: string | null, last: string | null) => {
-    return `${(first || '')[0] || ''}${(last || '')[0] || ''}`.toUpperCase() || '?';
+    return `${(first || last || ' ')[0] || ''}`.toUpperCase() || '?';
   };
 
   const getFullName = (m: MemberProfile) => {
@@ -167,7 +174,11 @@ const ChatroomsPage: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -175,28 +186,29 @@ const ChatroomsPage: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Chat Rooms</h1>
-          <p className="text-muted-foreground text-sm">Communicate with your project teams</p>
+          <p className={isDark ? 'text-foreground/80' : 'text-muted-foreground'}>Communicate with your project teams</p>
         </div>
-        <Badge variant="secondary" className="text-sm">{chatrooms.length} rooms</Badge>
+        <Badge variant="secondary" className={`text-sm ${isDark ? 'text-foreground' : ''}`}>{chatrooms.length} rooms</Badge>
       </div>
 
       {chatrooms.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Chat Rooms Yet</h3>
-            <p className="text-muted-foreground text-sm mb-4">Chat rooms are created automatically when you get accepted into a project or accept an applicant.</p>
-            <Button variant="outline" onClick={() => navigate('/home')}>Browse Opportunities</Button>
+            <MessageSquare className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-foreground/50' : 'text-muted-foreground/40'}`} />
+            <h3 className="text-lg font-semibold mb-2 text-foreground">No Chat Rooms Yet</h3>
+            <p className={isDark ? 'text-foreground/80 text-sm mb-4' : 'text-muted-foreground text-sm mb-4'}>
+              Chat rooms are created automatically when you get accepted into a project or accept an applicant.
+            </p>
+            <Button variant={isDark ? 'default' : 'outline'} onClick={() => navigate('/home')}>
+              Browse Opportunities
+            </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
           {chatrooms.map(chat => {
-            // Invitation-based: show both names; Application-based: show other person only
-            const displayMembers = chat.is_invitation_based
-              ? (chat.members || [])
-              : (chat.members || []).filter(m => m.user_id !== user?.id);
-            const finalDisplay = displayMembers.length > 0 ? displayMembers : (chat.members || []);
+            // Always show everyone (including current user) using first names only
+            const finalDisplay = chat.members || [];
 
             return (
               <Card key={chat.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => navigate(`/chatroom/${chat.id}`)}>
@@ -216,30 +228,30 @@ const ChatroomsPage: React.FC = () => {
                       ))}
                       {finalDisplay.length > 3 && (
                         <Avatar className="h-10 w-10 border-2 border-background">
-                          <AvatarFallback className="text-xs bg-muted text-muted-foreground">+{finalDisplay.length - 3}</AvatarFallback>
+                          <AvatarFallback className={`text-xs ${isDark ? 'bg-foreground/20 text-foreground' : 'bg-muted text-muted-foreground'}`}>+{finalDisplay.length - 3}</AvatarFallback>
                         </Avatar>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-semibold text-sm truncate">
-                          {finalDisplay.map(m => getFullName(m)).join(' & ')}
+                        <p className="font-semibold text-sm truncate text-foreground">
+                          {finalDisplay.map(m => (m.first_name || m.last_name || 'Unknown').split(' ')[0]).join(' & ')}
                         </p>
                         <Badge variant={chat.status === 'active' ? 'default' : 'secondary'} className="text-[10px] shrink-0">{chat.status}</Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className={`text-xs truncate ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`}>
                         {chat.post_title} • {chat.last_message ? chat.last_message.substring(0, 50) : 'No messages yet'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-3">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`}>
                       <Users className="w-3 h-3" /> {chat.member_count}
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`}>
                       <Clock className="w-3 h-3" /> {new Date(chat.last_activity).toLocaleDateString()}
                     </div>
-                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    <ArrowRight className={`w-4 h-4 ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`} />
                   </div>
                 </CardContent>
               </Card>
@@ -252,3 +264,9 @@ const ChatroomsPage: React.FC = () => {
 };
 
 export default ChatroomsPage;
+
+
+
+
+
+

@@ -16,6 +16,20 @@ const CandidateProfilePage: React.FC = () => {
   const [candidate, setCandidate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const asArray = (value: any): any[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   useEffect(() => {
     if (candidateId) fetchCandidate();
   }, [candidateId]);
@@ -29,6 +43,15 @@ const CandidateProfilePage: React.FC = () => {
       .maybeSingle();
 
     if (!error && data) {
+      const skillsArr = asArray(data.skills).map((s: any) => (typeof s === 'string' ? { name: s, level: 75 } : s));
+      const projectsArr = asArray(data.projects).map((p: any) => ({
+        title: p.title || '',
+        description: p.description || '',
+        technologies: p.skills || p.technologies || [],
+        link: p.link,
+      }));
+      const achievementsArr = asArray(data.achievements).map((a: any) => (typeof a === 'string' ? { title: a } : a));
+
       setCandidate({
         name: `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'Unknown',
         role: data.role,
@@ -41,15 +64,16 @@ const CandidateProfilePage: React.FC = () => {
         bio: data.bio || 'No bio provided',
         avatar: data.profile_picture_url,
         coverPhoto: data.cover_photo_url,
-        skills: (data.skills || []).map((s: string) => ({ name: s, level: 75 })),
-        projects: (data.projects as any[] || []).map((p: any) => ({
-          title: p.title, description: p.description, technologies: p.skills || p.technologies || [],
-        })),
-        achievements: (data.achievements as any[] || []).map((a: any) => typeof a === 'string' ? a : a.title),
+        skills: skillsArr,
+        projects: projectsArr,
+        achievements: achievementsArr,
         designation: data.designation,
         github: data.github,
         linkedin: data.linkedin,
         portfolio: data.portfolio,
+        resumeUrl: (data as any).resume_url,
+        leetcode: data.leetcode,
+        contactNo: data.contact_no,
       });
     }
     setLoading(false);
@@ -104,14 +128,31 @@ const CandidateProfilePage: React.FC = () => {
 
       <Card className="mb-6">
         <CardContent className="p-6">
-          <h3 className="font-semibold text-lg mb-2">About</h3>
+          <h3 className="font-semibold text-lg mb-2 text-foreground">About</h3>
           <p className="text-muted-foreground leading-relaxed">{candidate.bio}</p>
+          <div className="mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+            {candidate.department && <div><strong className="text-foreground">Department:</strong> {candidate.department}</div>}
+            {candidate.year && <div><strong className="text-foreground">Graduation:</strong> {candidate.year}</div>}
+            {candidate.cgpa && <div><strong className="text-foreground">CGPA:</strong> {candidate.cgpa}</div>}
+            {candidate.designation && <div><strong className="text-foreground">Designation:</strong> {candidate.designation}</div>}
+            {candidate.contactNo && <div><strong className="text-foreground">Contact:</strong> {candidate.contactNo}</div>}
+            {candidate.location && <div><strong className="text-foreground">Location:</strong> {candidate.location}</div>}
+          </div>
+          {(candidate.github || candidate.linkedin || candidate.portfolio || candidate.resumeUrl || candidate.leetcode) && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {candidate.github && <Button variant="outline" size="sm" asChild><a href={candidate.github} target="_blank" rel="noreferrer">GitHub</a></Button>}
+              {candidate.linkedin && <Button variant="outline" size="sm" asChild><a href={candidate.linkedin} target="_blank" rel="noreferrer">LinkedIn</a></Button>}
+              {candidate.portfolio && <Button variant="outline" size="sm" asChild><a href={candidate.portfolio} target="_blank" rel="noreferrer">Portfolio</a></Button>}
+              {candidate.leetcode && <Button variant="outline" size="sm" asChild><a href={candidate.leetcode} target="_blank" rel="noreferrer">LeetCode</a></Button>}
+              {candidate.resumeUrl && <Button variant="default" size="sm" asChild><a href={candidate.resumeUrl} target="_blank" rel="noreferrer">Resume</a></Button>}
+            </div>
+          )}
         </CardContent>
       </Card>
 
       <Card className="mb-6">
         <CardContent className="p-6">
-          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><Star className="w-5 h-5 text-primary" /> Skills</h3>
+          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-foreground"><Star className="w-5 h-5 text-primary" /> Skills</h3>
           <div className="space-y-3">
             {candidate.skills.map((skill: any) => (
               <div key={skill.name}>
@@ -129,7 +170,7 @@ const CandidateProfilePage: React.FC = () => {
       {candidate.projects?.length > 0 && (
         <Card className="mb-6">
           <CardContent className="p-6">
-            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><Briefcase className="w-5 h-5 text-primary" /> Projects</h3>
+            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-foreground"><Briefcase className="w-5 h-5 text-primary" /> Projects</h3>
             <div className="space-y-4">
               {candidate.projects.map((project: any, i: number) => (
                 <div key={i} className="border rounded-lg p-4">
@@ -138,6 +179,11 @@ const CandidateProfilePage: React.FC = () => {
                   <div className="flex flex-wrap gap-1">
                     {(project.technologies || []).map((t: string) => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}
                   </div>
+                  {project.link && (
+                    <div className="mt-2">
+                      <a className="text-primary text-sm" href={project.link} target="_blank" rel="noreferrer">View project</a>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -148,10 +194,13 @@ const CandidateProfilePage: React.FC = () => {
       {candidate.achievements?.length > 0 && (
         <Card>
           <CardContent className="p-6">
-            <h3 className="font-semibold text-lg mb-3 flex items-center gap-2"><Award className="w-5 h-5 text-accent-foreground" /> Achievements</h3>
+            <h3 className="font-semibold text-lg mb-3 flex items-center gap-2 text-foreground"><Award className="w-5 h-5 text-accent-foreground" /> Achievements</h3>
             <ul className="space-y-2">
-              {candidate.achievements.map((a: string, i: number) => (
-                <li key={i} className="text-sm text-muted-foreground">🏆 {a}</li>
+              {candidate.achievements.map((a: any, i: number) => (
+                <li key={i} className="text-sm text-muted-foreground">
+                  🏅 {typeof a === 'string' ? a : a.title || 'Achievement'}
+                  {a?.description && <div className="text-xs text-muted-foreground/80">{a.description}</div>}
+                </li>
               ))}
             </ul>
           </CardContent>

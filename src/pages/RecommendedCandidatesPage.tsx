@@ -55,7 +55,10 @@ const RecommendedCandidatesPage: React.FC = () => {
       setPost(postData);
 
       const skills = Array.isArray(postData.skill_requirements) ? postData.skill_requirements : [];
-      const postSkills = skills.map((sr: any) => (typeof sr === 'string' ? sr : sr.skill || '').toLowerCase());
+      const requirements = skills.map((sr: any) => ({
+        skills: sr.skills || (sr.skill ? [sr.skill] : []),
+        requiredCount: sr.requiredCount || 1,
+      }));
 
       // Fetch all profiles except current user
       const { data: profiles } = await supabase
@@ -76,8 +79,10 @@ const RecommendedCandidatesPage: React.FC = () => {
       // Score candidates
       const scored = (profiles || []).map(p => {
         const pSkills = (p.skills || []).map((s: string) => s.toLowerCase());
-        const matchCount = pSkills.filter((s: string) => postSkills.some((ps: string) => ps.includes(s) || s.includes(ps))).length;
-        const matchPercentage = postSkills.length > 0 ? Math.round((matchCount / postSkills.length) * 100) : 0;
+        const satisfied = requirements.filter((req: any) =>
+          req.skills.every((rs: string) => pSkills.some((ps: string) => ps.includes(rs.toLowerCase()) || rs.toLowerCase().includes(ps)))
+        ).length;
+        const matchPercentage = requirements.length > 0 ? Math.round((satisfied / requirements.length) * 100) : 0;
         return {
           id: p.id,
           name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Unknown',
@@ -147,11 +152,17 @@ const RecommendedCandidatesPage: React.FC = () => {
   }
 
   const postSkills = (Array.isArray(post.skill_requirements) ? post.skill_requirements : [])
-    .map((sr: any) => (typeof sr === 'string' ? sr : sr.skill || '').toLowerCase());
+    .flatMap((sr: any) => (sr.skills ? sr.skills : sr.skill ? [sr.skill] : []))
+    .map((s: string) => s.toLowerCase());
+
+  const handleBack = () => {
+    // Prefer returning to home with the "my" tab so authors land on their posts list
+    navigate('/home', { state: { activeTab: 'my' } });
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <Button variant="ghost" onClick={() => navigate(`/post/${postId}`)} className="mb-4 text-muted-foreground">
+      <Button variant="ghost" onClick={handleBack} className="mb-4 text-muted-foreground">
         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Post
       </Button>
 

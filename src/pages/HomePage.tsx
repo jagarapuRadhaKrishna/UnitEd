@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Filter, Users, Calendar, MessageSquare, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,9 +20,10 @@ import {
 } from '@/components/ui/alert-dialog';
 
 interface SkillRequirement {
-  skill: string;
+  skills: string[];
   requiredCount: number;
   acceptedCount?: number;
+  skill?: string; // legacy
 }
 
 interface HomePost {
@@ -31,6 +32,7 @@ interface HomePost {
   description: string;
   author: { id: string; name: string; avatar?: string; type: 'Student' | 'Faculty' };
   skills: string[];
+  requirements: SkillRequirement[];
   requiredMembers: number;
   acceptedMembers: number;
   purpose: string;
@@ -51,15 +53,60 @@ const HomePage: React.FC = () => {
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [confirmDeletePostId, setConfirmDeletePostId] = useState<string | null>(null);
   const [animatingDeletePostId, setAnimatingDeletePostId] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*, profiles!posts_author_id_fkey(id, first_name, last_name, role, profile_picture_url)')
-        .in('status', ['active', 'filled'])
+  const fetchPosts = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*, profiles!posts_author_id_fkey(id, first_name, last_name, role, profile_picture_url)')
+      .in('status', ['active', 'filled'])
         .order('created_at', { ascending: false });
+
+      const memberSets = new Map<string, Set<string>>();
+      const chatroomMap = new Map<string, string>(); // postId -> chatroomId
+      if (data && data.length > 0) {
+        data.forEach((p: any) => {
+          if (p.chatroom_id) chatroomMap.set(p.id, p.chatroom_id);
+        });
+
+        const postIds = data.map((p: any) => p.id);
+        const [{ data: acceptedApps }, { data: acceptedInvs }, chatMembersRes] = await Promise.all([
+          supabase
+            .from('applications')
+            .select('post_id, applicant_id')
+            .in('post_id', postIds)
+            .eq('status', 'accepted'),
+          supabase
+            .from('invitations')
+            .select('post_id, invitee_id')
+            .in('post_id', postIds)
+            .eq('status', 'accepted'),
+          chatroomMap.size > 0
+            ? supabase
+                .from('chatroom_members')
+                .select('chatroom_id, user_id')
+                .in('chatroom_id', Array.from(chatroomMap.values()))
+            : Promise.resolve({ data: [] as any[] }),
+        ]);
+
+        (acceptedApps || []).forEach((a) => {
+          if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
+          memberSets.get(a.post_id)!.add(a.applicant_id);
+        });
+        (acceptedInvs || []).forEach((a) => {
+          if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
+          memberSets.get(a.post_id)!.add(a.invitee_id);
+        });
+
+        const chatMembers = chatMembersRes.data || [];
+        chatMembers.forEach((m: any) => {
+          const postId = Array.from(chatroomMap.entries()).find(([, cid]) => cid === m.chatroom_id)?.[0];
+          if (!postId) return;
+          if (!memberSets.has(postId)) memberSets.set(postId, new Set());
+          memberSets.get(postId)!.add(m.user_id);
+        });
+      }
 
       if (error) {
         // If foreign key doesn't exist, try without join
@@ -70,6 +117,48 @@ const HomePage: React.FC = () => {
           .order('created_at', { ascending: false });
 
         if (!plainError && plainData) {
+          // recompute accepted counts for fallback set
+          memberSets.clear();
+          chatroomMap.clear();
+          if (plainData.length > 0) {
+            const fallbackIds = plainData.map(p => p.id);
+            const [{ data: acceptedApps }, { data: acceptedInvs }] = await Promise.all([
+              supabase
+                .from('applications')
+                .select('post_id, applicant_id')
+                .in('post_id', fallbackIds)
+                .eq('status', 'accepted'),
+              supabase
+                .from('invitations')
+                .select('post_id, invitee_id')
+                .in('post_id', fallbackIds)
+                .eq('status', 'accepted'),
+            ]);
+            (acceptedApps || []).forEach((a) => {
+              if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
+              memberSets.get(a.post_id)!.add(a.applicant_id);
+            });
+            (acceptedInvs || []).forEach((a) => {
+              if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
+              memberSets.get(a.post_id)!.add(a.invitee_id);
+            });
+
+            plainData.forEach((p: any) => {
+              if (p.chatroom_id) chatroomMap.set(p.id, p.chatroom_id);
+            });
+            if (chatroomMap.size > 0) {
+              const { data: chatMembers } = await supabase
+                .from('chatroom_members')
+                .select('chatroom_id, user_id')
+                .in('chatroom_id', Array.from(chatroomMap.values()));
+              (chatMembers || []).forEach((m: any) => {
+                const postId = Array.from(chatroomMap.entries()).find(([, cid]) => cid === m.chatroom_id)?.[0];
+                if (!postId) return;
+                if (!memberSets.has(postId)) memberSets.set(postId, new Set());
+                memberSets.get(postId)!.add(m.user_id);
+              });
+            }
+          }
           // Fetch author profiles separately
           const authorIds = [...new Set(plainData.map(p => p.author_id))];
           const { data: profiles } = await supabase
@@ -81,7 +170,11 @@ const HomePage: React.FC = () => {
 
           setPosts(plainData.map(p => {
             const author = profileMap.get(p.author_id);
-            const reqs = (p.skill_requirements as unknown as SkillRequirement[]) || [];
+            const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
+              skills: r.skills || (r.skill ? [r.skill] : []),
+              requiredCount: r.requiredCount,
+              acceptedCount: r.acceptedCount || 0,
+            }));
             return {
               id: p.id,
               title: p.title,
@@ -92,9 +185,21 @@ const HomePage: React.FC = () => {
                 avatar: author?.profile_picture_url || undefined,
                 type: author?.role === 'faculty' ? 'Faculty' : 'Student',
               },
-              skills: reqs.map(r => r.skill),
-              requiredMembers: reqs.reduce((s, r) => s + r.requiredCount, 0),
-              acceptedMembers: reqs.reduce((s, r) => s + (r.acceptedCount || 0), 0),
+              skills: reqs.flatMap(r => r.skills),
+              requirements: reqs,
+              requiredMembers: p.max_members ?? reqs.reduce((s, r) => s + r.requiredCount, 0),
+              acceptedMembers: (() => {
+                const set = memberSets.get(p.id);
+                const setSize = set ? set.size : 0;
+                const setMinusAuthor = set ? (set.has(p.author_id) ? setSize - 1 : setSize) : undefined;
+                const fallback = reqs.reduce((s, r) => s + (r.acceptedCount || 0), 0);
+                return Math.max(
+                  0,
+                  p.current_members ?? 0,
+                  setMinusAuthor ?? 0,
+                  fallback
+                );
+              })(),
               purpose: p.purpose,
               createdAt: p.created_at,
               isOwned: p.author_id === user?.id,
@@ -104,7 +209,11 @@ const HomePage: React.FC = () => {
       } else if (data) {
         setPosts(data.map((p: any) => {
           const author = p.profiles;
-          const reqs = (p.skill_requirements as unknown as SkillRequirement[]) || [];
+          const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
+            skills: r.skills || (r.skill ? [r.skill] : []),
+            requiredCount: r.requiredCount,
+            acceptedCount: r.acceptedCount || 0,
+          }));
           return {
             id: p.id,
             title: p.title,
@@ -115,9 +224,21 @@ const HomePage: React.FC = () => {
               avatar: author?.profile_picture_url || undefined,
               type: author?.role === 'faculty' ? 'Faculty' : 'Student',
             },
-            skills: reqs.map(r => r.skill),
-            requiredMembers: reqs.reduce((s, r) => s + r.requiredCount, 0),
-            acceptedMembers: reqs.reduce((s, r) => s + (r.acceptedCount || 0), 0),
+            skills: reqs.flatMap(r => r.skills),
+            requirements: reqs,
+            requiredMembers: p.max_members ?? reqs.reduce((s, r) => s + r.requiredCount, 0),
+            acceptedMembers: (() => {
+              const set = memberSets.get(p.id);
+              const setSize = set ? set.size : 0;
+              const setMinusAuthor = set ? (set.has(p.author_id) ? setSize - 1 : setSize) : undefined;
+              const fallback = reqs.reduce((s, r) => s + (r.acceptedCount || 0), 0);
+              return Math.max(
+                0,
+                p.current_members ?? 0,
+                setMinusAuthor ?? 0,
+                fallback
+              );
+            })(),
             purpose: p.purpose,
             createdAt: p.created_at,
             isOwned: p.author_id === user?.id,
@@ -125,9 +246,22 @@ const HomePage: React.FC = () => {
         }));
       }
       setLoading(false);
-    };
+  }, [user?.id, user]);
 
+  useEffect(() => {
     fetchPosts();
+  }, [fetchPosts, refreshTick]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel('home-member-counts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => setRefreshTick(t => t + 1))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invitations' }, () => setRefreshTick(t => t + 1))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chatroom_members' }, () => setRefreshTick(t => t + 1))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => setRefreshTick(t => t + 1))
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, [user?.id]);
 
   const userSkills = user?.skills || [];
@@ -141,10 +275,14 @@ const HomePage: React.FC = () => {
 
   // Calculate match score for each post based on user skills
   const getMatchScore = (post: HomePost): number => {
-    if (userSkills.length === 0 || post.skills.length === 0) return 0;
+    if (userSkills.length === 0 || post.requirements.length === 0) return 0;
     const lowerUserSkills = userSkills.map(s => s.toLowerCase());
-    const matched = post.skills.filter(s => lowerUserSkills.some(us => us.includes(s.toLowerCase()) || s.toLowerCase().includes(us)));
-    return Math.round((matched.length / post.skills.length) * 100);
+    const satisfied = post.requirements.filter(req =>
+      req.skills.every(skill =>
+        lowerUserSkills.some(us => us.includes(skill.toLowerCase()) || skill.toLowerCase().includes(us))
+      )
+    ).length;
+    return Math.round((satisfied / post.requirements.length) * 100);
   };
 
   const handleDeleteClick = (postId: string) => {
@@ -196,7 +334,11 @@ const HomePage: React.FC = () => {
     let matchesTab = true;
     if (filterTab === 'all') matchesTab = !isMyPost(post);
     else if (filterTab === 'skill') {
-      matchesTab = !isMyPost(post) && (selectedSkills.length === 0 || selectedSkills.some(s => post.skills.includes(s)));
+      const postSkillsLower = post.skills.map(s => s.toLowerCase());
+      matchesTab =
+        !isMyPost(post) &&
+        (selectedSkills.length === 0 ||
+          selectedSkills.every(s => postSkillsLower.includes(s.toLowerCase())));
     } else if (filterTab === 'my') matchesTab = isMyPost(post);
 
     return matchesSearch && matchesTab;
@@ -391,7 +533,7 @@ const HomePage: React.FC = () => {
                           )}
                         </div>
                         <div>
-                          <h3 className="font-semibold text-sm leading-snug">{post.title}</h3>
+                          <h3 className="font-semibold text-sm leading-snug text-foreground">{post.title}</h3>
                           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                             <span className="text-xs text-muted-foreground">by {post.author.name}</span>
                             <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary font-medium">
@@ -402,7 +544,10 @@ const HomePage: React.FC = () => {
                         <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded bg-united-green/10 text-united-green">
                           {post.purpose}
                         </span>
-                        <p className="text-xs text-muted-foreground line-clamp-2">{post.description}</p>
+                        <div
+                          className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap"
+                          dangerouslySetInnerHTML={{ __html: post.description }}
+                        />
                         <div className="flex flex-wrap gap-1">
                           {post.skills.slice(0, 3).map(skill => {
                             const isMatched = userSkills.some(us => us.toLowerCase().includes(skill.toLowerCase()) || skill.toLowerCase().includes(us.toLowerCase()));
@@ -439,10 +584,25 @@ const HomePage: React.FC = () => {
                           )}
                         </div>
                         {owned && (
-                          <Button size="sm" className="w-full bg-united-green hover:bg-united-green/90 text-white text-[13px] font-semibold h-auto min-h-10 py-2 px-3 leading-tight whitespace-normal text-center flex items-center justify-center gap-1.5 rounded-full border-0" onClick={() => navigate(`/post/${post.id}/candidates`)}>
-                            <Users size={14} className="shrink-0" /> 🎯 View Matched Candidates ({post.requiredMembers - post.acceptedMembers} needed)
+                          // Remaining slots (never negative)
+                          // We keep it dynamic so the number reflects latest accepted count.
+                          <Button
+                            size="sm"
+                            className="w-full bg-united-green hover:bg-united-green/90 text-white text-[13px] font-semibold h-auto min-h-10 py-2 px-3 leading-tight whitespace-normal text-center flex items-center justify-center gap-2 rounded-full border-0"
+                            onClick={() => navigate(`/post/${post.id}/candidates`)}
+                          >
+                            <Users size={14} className="shrink-0" />
+                            <div className="flex flex-col leading-tight">
+                              <span>🎯 View Matched Candidates</span>
+                              <span className="text-[11px] opacity-90">
+                                ({Math.max(0, (post.requiredMembers || 0) - (post.acceptedMembers || 0))} needed)
+                              </span>
+                            </div>
                           </Button>
                         )}
+                        {/* The above block replaces the older single-line label */}
+                        {/* Keep spacing consistent */}
+                        {/* End owned button */}
                       </div>
                     </Card>
                   );
@@ -483,4 +643,5 @@ const HomePage: React.FC = () => {
 };
 
 export default HomePage;
+
 

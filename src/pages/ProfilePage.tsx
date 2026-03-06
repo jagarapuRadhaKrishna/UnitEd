@@ -230,7 +230,7 @@ const ProfilePage: React.FC = () => {
             <Card>
               <CardContent className="p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h2 className="font-semibold">Contact Information</h2>
+                  <h2 className="font-semibold text-foreground">Contact Information</h2>
                   {!editingSections.contact && <EditButton section="contact" />}
                 </div>
                 {editingSections.contact ? (
@@ -253,7 +253,7 @@ const ProfilePage: React.FC = () => {
             {/* Social Links */}
             <Card>
               <CardContent className="p-4">
-                <h2 className="font-semibold mb-3">Social Links</h2>
+                <h2 className="font-semibold mb-3 text-foreground">Social Links</h2>
                 <div className="space-y-2">
                   {formData.portfolio && <a href={formData.portfolio} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Globe size={14} /> Portfolio</span><ExternalLink size={12} /></a>}
                   {formData.github && <a href={formData.github} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Github size={14} /> GitHub</span><ExternalLink size={12} /></a>}
@@ -270,7 +270,7 @@ const ProfilePage: React.FC = () => {
             <Card>
               <CardContent className="p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h2 className="font-semibold">Skills</h2>
+                  <h2 className="font-semibold text-foreground">Skills</h2>
                   {!editingSections.skills && <EditButton section="skills" />}
                 </div>
                 {editingSections.skills ? (
@@ -305,7 +305,7 @@ const ProfilePage: React.FC = () => {
             <Card>
               <CardContent className="p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h2 className="font-semibold">About</h2>
+                  <h2 className="font-semibold text-foreground">About</h2>
                   {!editingSections.about && <EditButton section="about" />}
                 </div>
                 {editingSections.about ? (
@@ -323,7 +323,7 @@ const ProfilePage: React.FC = () => {
             <Card>
               <CardContent className="p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h2 className="font-semibold">Projects</h2>
+                  <h2 className="font-semibold text-foreground">Projects</h2>
                   <Button size="sm" variant="outline" onClick={() => setProjectDialogOpen(true)}><Plus size={14} className="mr-1" /> Add Project</Button>
                 </div>
                 {formData.projects.length > 0 ? (
@@ -354,7 +354,7 @@ const ProfilePage: React.FC = () => {
             <Card>
               <CardContent className="p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h2 className="font-semibold">Achievements & Awards</h2>
+                  <h2 className="font-semibold text-foreground">Achievements & Awards</h2>
                   <Button size="sm" variant="outline" onClick={() => setAchievementDialogOpen(true)}><Plus size={14} className="mr-1" /> Add Achievement</Button>
                 </div>
                 {formData.achievements.length > 0 ? (

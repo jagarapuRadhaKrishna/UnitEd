@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, X } from 'lucide-react';
+import { ArrowLeft, Upload, X, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AVAILABLE_SKILLS, FACULTY_DESIGNATIONS } from '@/types/united';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,8 @@ const FacultyRegister: React.FC = () => {
   const [achievements, setAchievements] = useState(['']);
   const [profilePicture, setProfilePicture] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (field: string, value: string) => setFormData({ ...formData, [field]: value });
   const filteredSkills = AVAILABLE_SKILLS.filter(s => s.toLowerCase().includes(skillSearch.toLowerCase()) && !skills.includes(s));
@@ -34,6 +36,7 @@ const FacultyRegister: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (submitting) return;
     if (!formData.firstName || !formData.lastName) { setError('Names are required'); return; }
     if (!formData.employeeId || !/^100\d{3}$/.test(formData.employeeId)) { setError('Employee ID: 100 followed by 3 digits'); return; }
     if (!formData.email || !/^[a-zA-Z]+\.(csd|cse|ece|eee|mech|civil|it|chem|bio)@anits\.edu\.in$/i.test(formData.email)) {
@@ -43,6 +46,7 @@ const FacultyRegister: React.FC = () => {
     if (skills.length === 0) { setError('Select at least one skill'); return; }
 
     try {
+      setSubmitting(true);
       await register({
         ...formData, role: 'faculty', gender: formData.gender as any,
         totalExperience: Number(formData.totalExperience), teachingExperience: Number(formData.teachingExperience),
@@ -53,6 +57,8 @@ const FacultyRegister: React.FC = () => {
       navigate('/home');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -108,7 +114,26 @@ const FacultyRegister: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><Label>Email *</Label><Input type="email" placeholder="janesmith.cse@anits.edu.in" value={formData.email} onChange={e => handleChange('email', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">fullnamesurname.dept@anits.edu.in</p></div>
-                <div><Label>Password *</Label><Input type="password" value={formData.password} onChange={e => handleChange('password', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">Minimum 8 characters</p></div>
+                <div>
+                  <Label>Password *</Label>
+                  <div className="relative">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={e => handleChange('password', e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(p => !p)}
+                      className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Minimum 8 characters</p>
+                </div>
               </div>
               <div><Label>Contact Number</Label><Input type="tel" value={formData.contactNo} onChange={e => handleChange('contactNo', e.target.value)} /></div>
 
@@ -186,7 +211,9 @@ const FacultyRegister: React.FC = () => {
               {/* Submit */}
               <div className="flex gap-4 pt-4">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => navigate('/register')}>Cancel</Button>
-                <Button type="submit" className="flex-1 bg-united-orange hover:bg-united-orange/80">Register as Faculty</Button>
+                <Button type="submit" disabled={submitting} className="flex-1 bg-united-orange hover:bg-united-orange/80">
+                  {submitting ? 'Registering...' : 'Register as Faculty'}
+                </Button>
               </div>
             </form>
           </CardContent>

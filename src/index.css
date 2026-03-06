@@ -175,3 +175,11 @@ All colors MUST be HSL.
   -webkit-animation: tracking-in-expand-normal 0.7s cubic-bezier(0.215, 0.610, 0.355, 1.000) 0s 1 normal both;
   animation: tracking-in-expand-normal 0.7s cubic-bezier(0.215, 0.610, 0.355, 1.000) 0s 1 normal both;
 }
+
+/* Utility for better contrast on inputs in dark mode */
+.input-dark {
+  color: hsl(var(--foreground));
+}
+.input-dark::placeholder {
+  color: hsl(var(--foreground) / 0.7);
+}

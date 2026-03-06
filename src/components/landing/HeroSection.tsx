@@ -81,7 +81,7 @@ const HeroSection: React.FC = () => {
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                Innovate • Create • Elevate
+                Unite • Collaborate • Achieve
               </Typography>
 
               {/* Subtitle */}

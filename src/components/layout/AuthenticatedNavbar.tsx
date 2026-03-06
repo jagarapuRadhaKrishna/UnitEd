@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell, Camera, LogOut, Menu, Moon, Settings, Sun, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -39,22 +39,30 @@ const AuthenticatedNavbar: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const fetchInvCount = useCallback(async () => {
+    if (!user?.id) {
+      setInvitationCount(0);
+      return;
+    }
+    const { count } = await supabase
+      .from('invitations')
+      .select('*', { count: 'exact', head: true })
+      .eq('invitee_id', user.id)
+      .eq('status', 'pending')
+      .is('responded_at', null);
+    setInvitationCount(count || 0);
+  }, [user?.id]);
+
   useEffect(() => {
     if (!user?.id) {
       setInvitationCount(0);
       return;
     }
 
-    const fetchInvCount = async () => {
-      const { count } = await supabase
-        .from('invitations')
-        .select('*', { count: 'exact', head: true })
-        .eq('invitee_id', user.id)
-        .eq('status', 'pending');
-      setInvitationCount(count || 0);
-    };
-
     fetchInvCount();
+
+    // Poll as a safety net in case realtime misses (e.g., tab was asleep)
+    const interval = window.setInterval(fetchInvCount, 15000);
 
     const channel = supabase
       .channel('navbar-invitations')
@@ -66,9 +74,10 @@ const AuthenticatedNavbar: React.FC = () => {
       .subscribe();
 
     return () => {
+      window.clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id, fetchInvCount]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -86,6 +95,7 @@ const AuthenticatedNavbar: React.FC = () => {
     };
 
     fetchCount();
+    const interval = window.setInterval(fetchCount, 15000);
 
     const channel = supabase
       .channel('navbar-notifications')
@@ -97,9 +107,17 @@ const AuthenticatedNavbar: React.FC = () => {
       .subscribe();
 
     return () => {
+      window.clearInterval(interval);
       supabase.removeChannel(channel);
     };
   }, [user?.id, location.pathname]);
+
+  // Clear notification badge when viewing notifications page
+  useEffect(() => {
+    if (location.pathname.startsWith('/notifications')) {
+      setNotificationCount(0);
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!user?.id || user.role !== 'faculty') {
@@ -134,6 +152,14 @@ const AuthenticatedNavbar: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [user?.id, user?.role]);
+
+  // Clear the badge immediately when the invitations page is viewed
+  useEffect(() => {
+    if (location.pathname.startsWith('/invitations')) {
+      setInvitationCount(0);
+      fetchInvCount();
+    }
+  }, [location.pathname, fetchInvCount]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -172,6 +198,9 @@ const AuthenticatedNavbar: React.FC = () => {
           <button
             key={item.path}
             onClick={() => {
+              if (item.label === 'Invitations') {
+                setInvitationCount(0);
+              }
               navigate(item.path);
               onClick?.();
             }}
@@ -203,7 +232,7 @@ const AuthenticatedNavbar: React.FC = () => {
             Unit<span className="text-primary">Ed</span> {'\u{1F91D}'}
           </span>
           <span className="text-[0.6rem] font-semibold tracking-widest uppercase text-muted-foreground">
-            Innovate . Collaborate . Elevate
+            Unite . Collaborate . Achieve
           </span>
         </button>
 
@@ -217,6 +246,7 @@ const AuthenticatedNavbar: React.FC = () => {
           <Button
             variant="ghost"
             size="icon"
+            className="text-foreground hover:text-primary"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             aria-label="Toggle theme"
           >
@@ -224,7 +254,12 @@ const AuthenticatedNavbar: React.FC = () => {
             <Moon size={20} className="absolute rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </Button>
 
-          <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/notifications')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative text-foreground hover:text-primary"
+            onClick={() => navigate('/notifications')}
+          >
             <Bell size={20} />
             {notificationCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[11px] font-bold rounded-full h-5 min-w-[20px] px-1 flex items-center justify-center shadow-sm border-2 border-background">
@@ -269,7 +304,7 @@ const AuthenticatedNavbar: React.FC = () => {
 
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden">
+              <Button variant="ghost" size="icon" className="lg:hidden text-foreground hover:text-primary">
                 <Menu size={22} />
               </Button>
             </SheetTrigger>

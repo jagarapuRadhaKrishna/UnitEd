@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,11 +16,19 @@ const SettingsPage: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [pushNotifs, setPushNotifs] = useState(true);
   const [profilePublic, setProfilePublic] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
+
+  // Force heading text to pure white in dark mode
+  const isDark = useMemo(() => {
+    const mode = theme === 'system' ? resolvedTheme : theme;
+    return mode === 'dark';
+  }, [theme, resolvedTheme]);
+
+  const headingStyle = isDark ? { color: '#ffffff' } : undefined;
 
   const handleSave = () => {
     toast({ title: 'Settings saved', description: 'Your preferences have been updated.' });
@@ -29,7 +37,7 @@ const SettingsPage: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2" style={headingStyle}>
           <Settings className="w-6 h-6" /> Settings
         </h1>
         <p className="text-muted-foreground text-sm">Manage your account preferences</p>
@@ -47,7 +55,7 @@ const SettingsPage: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}>
           <Card>
             <CardContent className="p-6 space-y-4">
-              <h3 className="font-semibold">Notification Preferences</h3>
+              <h3 className="font-semibold" style={headingStyle}>Notification Preferences</h3>
               <div className="flex items-center justify-between">
                 <Label htmlFor="email-notif">Email Notifications</Label>
                 <Switch id="email-notif" checked={emailNotifs} onCheckedChange={setEmailNotifs} />
@@ -57,7 +65,7 @@ const SettingsPage: React.FC = () => {
                 <Switch id="push-notif" checked={pushNotifs} onCheckedChange={setPushNotifs} />
               </div>
               <Separator />
-              <h4 className="font-medium text-sm">Notify me about:</h4>
+              <h4 className="font-medium text-sm" style={headingStyle}>Notify me about:</h4>
               {['New applications', 'Invitation responses', 'Chat messages', 'Forum replies', 'Post updates'].map(item => (
                 <div key={item} className="flex items-center justify-between">
                   <Label className="text-sm text-muted-foreground">{item}</Label>
@@ -74,7 +82,7 @@ const SettingsPage: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}>
           <Card>
             <CardContent className="p-6 space-y-4">
-              <h3 className="font-semibold">Privacy Settings</h3>
+              <h3 className="font-semibold" style={headingStyle}>Privacy Settings</h3>
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="public-profile">Public Profile</Label>
@@ -99,7 +107,7 @@ const SettingsPage: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}>
           <Card>
             <CardContent className="p-6 space-y-4">
-              <h3 className="font-semibold">Appearance</h3>
+              <h3 className="font-semibold" style={headingStyle}>Appearance</h3>
               <p className="text-sm text-muted-foreground">Choose your preferred theme</p>
               <div className="grid grid-cols-3 gap-3">
                 <button
@@ -145,7 +153,7 @@ const SettingsPage: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}>
           <Card>
             <CardContent className="p-6 space-y-4">
-              <h3 className="font-semibold">Account</h3>
+              <h3 className="font-semibold" style={headingStyle}>Account</h3>
               <div>
                 <Label className="text-sm text-muted-foreground">Email</Label>
                 <p className="font-medium text-sm">{user?.email}</p>
@@ -158,7 +166,7 @@ const SettingsPage: React.FC = () => {
               <Button variant="outline" onClick={() => navigate('/profile')}><User className="w-4 h-4 mr-2" /> Edit Profile</Button>
               <Separator />
               <div>
-                <h4 className="font-medium text-sm text-destructive mb-2">Danger Zone</h4>
+                <h4 className="font-medium text-sm text-destructive mb-2" style={headingStyle}>Danger Zone</h4>
                 <Button variant="destructive" onClick={logout}><LogOut className="w-4 h-4 mr-2" /> Log Out</Button>
               </div>
             </CardContent>

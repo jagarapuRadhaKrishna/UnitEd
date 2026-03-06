@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Send, Users, Info, Loader2, Paperclip, FileText, Download, X, Trash2, UserMinus, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTheme } from 'next-themes';
 
 interface Msg {
   id: string;
@@ -28,12 +29,14 @@ interface Member {
   user_id: string;
   name: string;
   role: string;
+  isPostOwner?: boolean;
 }
 
 const ChatroomPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { theme, resolvedTheme } = useTheme();
   const [messageText, setMessageText] = useState('');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -53,6 +56,15 @@ const ChatroomPage: React.FC = () => {
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const memberProfileRef = useRef<Record<string, { name: string; isOwner: boolean }>>({});
+
+  const isDark = useMemo(() => {
+    const mode = theme === 'system' ? resolvedTheme : theme;
+    return mode === 'dark';
+  }, [theme, resolvedTheme]);
+
+  const iconClass = isDark ? 'text-foreground' : '';
+  const subtleIconClass = isDark ? 'text-foreground/80' : '';
 
   useEffect(() => {
     if (id && user?.id) fetchChatroom();
@@ -72,35 +84,42 @@ const ChatroomPage: React.FC = () => {
       setStatus(chatroom.status);
       setPostId(chatroom.post_id);
 
-      const { data: post } = await supabase
-        .from('posts')
-        .select('title, author_id')
-        .eq('id', chatroom.post_id)
-        .maybeSingle();
+      const [{ data: post }, { data: memberData }, { data: msgs }] = await Promise.all([
+        supabase.from('posts').select('title, author_id').eq('id', chatroom.post_id).maybeSingle(),
+        supabase.from('chatroom_members').select('user_id, role').eq('chatroom_id', id),
+        supabase.from('messages').select('id, content, sender_id, type, file_url, file_name, created_at').eq('chatroom_id', id).order('created_at', { ascending: true }),
+      ]);
+
       setPostTitle(post?.title || 'Chat Room');
       setIsOwner(post?.author_id === user.id);
-
-      const { data: memberData } = await supabase
-        .from('chatroom_members')
-        .select('user_id, role')
-        .eq('chatroom_id', id);
 
       const memberIds = (memberData || []).map(m => m.user_id);
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, first_name, last_name')
-        .in('id', memberIds);
+        .in('id', memberIds.length ? memberIds : ['__none__']);
 
-      const profileMap: Record<string, string> = {};
-      (profiles || []).forEach(p => { profileMap[p.id] = `${p.first_name || ''} ${p.last_name || ''}`.trim(); });
+      const profileMap: Record<string, { name: string; isOwner: boolean }> = {};
+      const postOwnerId = post?.author_id;
+      (profiles || []).forEach(p => {
+        profileMap[p.id] = {
+          name: `${p.first_name || ''} ${p.last_name || ''}`.trim(),
+          isOwner: p.id === postOwnerId,
+        };
+      });
+      memberProfileRef.current = profileMap;
 
       setMembers((memberData || []).map(m => ({
         user_id: m.user_id,
-        name: profileMap[m.user_id] || 'Unknown',
+        name: profileMap[m.user_id]?.name || 'Unknown',
         role: m.role,
+        isPostOwner: profileMap[m.user_id]?.isOwner || false,
       })));
 
-      await fetchMessages(profileMap);
+      setMessages((msgs || []).map(m => ({
+        ...m,
+        sender_name: profileMap[m.sender_id]?.name || 'Unknown',
+      })));
     } catch (err) {
       console.error(err);
     } finally {
@@ -108,7 +127,7 @@ const ChatroomPage: React.FC = () => {
     }
   };
 
-  const fetchMessages = async (profileMap?: Record<string, string>) => {
+  const fetchMessages = async (profileMap?: Record<string, { name: string; isOwner: boolean }>) => {
     if (!id) return;
     const { data: msgs } = await supabase
       .from('messages')
@@ -117,14 +136,18 @@ const ChatroomPage: React.FC = () => {
       .order('created_at', { ascending: true });
 
     if (!profileMap) {
+      profileMap = memberProfileRef.current;
+    }
+
+    if (!profileMap || Object.keys(profileMap).length === 0) {
       const senderIds = [...new Set((msgs || []).map(m => m.sender_id))];
       if (senderIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name')
-          .in('id', senderIds);
+          .select('id, first_name, last_name');
         profileMap = {};
-        (profiles || []).forEach(p => { profileMap![p.id] = `${p.first_name || ''} ${p.last_name || ''}`.trim(); });
+        (profiles || []).forEach(p => { profileMap![p.id] = { name: `${p.first_name || ''} ${p.last_name || ''}`.trim(), isOwner: false }; });
+        memberProfileRef.current = profileMap;
       } else {
         profileMap = {};
       }
@@ -132,7 +155,7 @@ const ChatroomPage: React.FC = () => {
 
     setMessages((msgs || []).map(m => ({
       ...m,
-      sender_name: profileMap![m.sender_id] || 'Unknown',
+      sender_name: profileMap![m.sender_id]?.name || 'Unknown',
     })));
   };
 
@@ -384,10 +407,10 @@ const ChatroomPage: React.FC = () => {
     <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col" style={{ height: 'calc(100vh - 5rem)' }}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/chatrooms')}><ArrowLeft className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/chatrooms')}><ArrowLeft className={`w-4 h-4 ${iconClass}`} /></Button>
           <div>
-            <h2 className="font-semibold text-sm">
-              {members.filter(m => m.user_id !== user?.id).map(m => m.name.split(' ')[0]).join(' & ') || postTitle}
+            <h2 className="font-semibold text-sm text-foreground">
+              {members.map(m => (m.name || '').split(' ')[0] || 'Member').join(' & ') || postTitle}
             </h2>
             <p className="text-xs text-muted-foreground">{postTitle} • {members.length} members</p>
           </div>
@@ -396,7 +419,7 @@ const ChatroomPage: React.FC = () => {
           {isOwner && (
             <>
               <Button variant="ghost" size="icon" onClick={() => setShowInviteDialog(true)} title="Add member by email">
-                <UserPlus className="w-4 h-4" />
+                <UserPlus className={`w-4 h-4 ${iconClass}`} />
               </Button>
               <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(true)} title="Delete chatroom" className="text-destructive hover:text-destructive">
                 <Trash2 className="w-4 h-4" />
@@ -404,7 +427,7 @@ const ChatroomPage: React.FC = () => {
             </>
           )}
           <Button variant="ghost" size="icon" onClick={() => setShowMembers(!showMembers)}>
-            <Users className="w-4 h-4" />
+            <Users className={`w-4 h-4 ${iconClass}`} />
           </Button>
         </div>
       </div>
@@ -420,7 +443,7 @@ const ChatroomPage: React.FC = () => {
                     <AvatarFallback className="text-[10px] bg-primary/10">{m.name[0]}</AvatarFallback>
                   </Avatar>
                   <span className="text-xs flex-1">{m.name}</span>
-                  {(m.role === 'owner' || m.role === 'admin') && <Badge variant="secondary" className="text-[10px] h-4">Owner</Badge>}
+                  {m.isPostOwner && <Badge variant="secondary" className="text-[10px] h-4">Owner</Badge>}
                   {isOwner && m.user_id !== user?.id && (
                     <Button
                       variant="ghost"
@@ -471,7 +494,7 @@ const ChatroomPage: React.FC = () => {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  <div className={`max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'} rounded-lg px-3 py-2`}>
+                  <div className={`max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'} rounded-lg px-3 py-2`}>
                     {!isOwn && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{msg.sender_name}</p>}
                     {msg.type === 'image' && msg.file_url && (
                       <div className="mb-1">
@@ -499,10 +522,10 @@ const ChatroomPage: React.FC = () => {
       </ScrollArea>
 
       {isReadOnly ? (
-        <div className="text-center py-2 text-sm text-muted-foreground bg-muted rounded-lg">
-          <Info className="w-4 h-4 inline mr-1" /> This chat room is read-only
-        </div>
-      ) : (
+          <div className="text-center py-2 text-sm text-muted-foreground bg-muted rounded-lg">
+            <Info className={`w-4 h-4 inline mr-1 ${iconClass}`} /> This chat room is read-only
+          </div>
+        ) : (
         <div>
           {selectedFile && (
             <div className="flex items-center gap-3 p-2 mb-2 bg-muted rounded-lg border">
@@ -510,7 +533,7 @@ const ChatroomPage: React.FC = () => {
                 <img src={filePreviewUrl} alt="Preview" className="h-16 w-16 object-cover rounded-md" />
               ) : (
                 <div className="h-16 w-16 bg-background rounded-md flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-muted-foreground" />
+                  <FileText className={`w-6 h-6 text-muted-foreground ${iconClass}`} />
                 </div>
               )}
               <div className="flex-1 min-w-0">
@@ -523,11 +546,17 @@ const ChatroomPage: React.FC = () => {
           <div className="flex gap-2 items-center">
             <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar" className="hidden" onChange={handleFileSelect} />
             <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="shrink-0">
-              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+              {uploading ? <Loader2 className={`w-4 h-4 animate-spin ${iconClass}`} /> : <Paperclip className={`w-4 h-4 ${iconClass}`} />}
             </Button>
-            <Input value={messageText} onChange={e => setMessageText(e.target.value)} placeholder={selectedFile ? "Add a caption (optional)..." : "Type a message..."} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()} className="flex-1" />
+            <Input
+              value={messageText}
+              onChange={e => setMessageText(e.target.value)}
+              placeholder={selectedFile ? "Add a caption (optional)..." : "Type a message..."}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+              className="flex-1 text-foreground placeholder:text-foreground/70"
+            />
             <Button onClick={handleSend} disabled={(!messageText.trim() && !selectedFile) || uploading} className="bg-primary shrink-0">
-              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin text-foreground" /> : <Send className="w-4 h-4 text-foreground" />}
             </Button>
           </div>
         </div>
@@ -537,12 +566,18 @@ const ChatroomPage: React.FC = () => {
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Invite by Email</DialogTitle>
+            <DialogTitle className="text-foreground">Invite by Email</DialogTitle>
           </DialogHeader>
           <div className="py-2">
-            <Label>Email address</Label>
-            <Input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="user@example.com" className="mt-1" onKeyDown={e => e.key === 'Enter' && handleInviteByEmail()} />
-            <p className="text-xs text-muted-foreground mt-2">A post invitation will be sent. Once accepted, the user joins this chatroom.</p>
+            <Label className="text-foreground">Email address</Label>
+            <Input
+              value={inviteEmail}
+              onChange={e => setInviteEmail(e.target.value)}
+              placeholder="user@example.com"
+              className="mt-1 text-foreground placeholder:text-foreground/70"
+              onKeyDown={e => e.key === 'Enter' && handleInviteByEmail()}
+            />
+            <p className="text-xs text-foreground/80 mt-2">A post invitation will be sent. Once accepted, the user joins this chatroom.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowInviteDialog(false)}>Cancel</Button>
