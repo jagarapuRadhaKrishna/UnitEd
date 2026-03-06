@@ -1,7 +1,25 @@
 ﻿import React from 'react';
 import { Box, Container, Typography, Link, IconButton } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { GraduationCap, Mail, MapPin, Phone, Facebook, Twitter, Linkedin, Instagram } from 'lucide-react';
+import { GraduationCap, Mail, MapPin, Phone, Facebook, Linkedin, Instagram } from 'lucide-react';
+
+// Slim X mark without background to match the latest brand glyph
+const XGlyph: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    role="img"
+    aria-label="X"
+  >
+    <path
+      d="M4 4h4l4 5.5L16 4h4l-6.5 8.2L20 20h-4l-4-5.5L8 20H4l6.5-8.2L4 4Z"
+      fill="currentColor"
+    />
+  </svg>
+);
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -66,7 +84,7 @@ const Footer: React.FC = () => {
             <Box sx={{ display: 'flex', gap: 1 }}>
               {[
                 { icon: Facebook, href: 'https://facebook.com' },
-                { icon: Twitter, href: 'https://x.com' },
+                { icon: XGlyph, href: 'https://x.com' },
                 { icon: Linkedin, href: 'https://linkedin.com' },
                 { icon: Instagram, href: 'https://instagram.com' },
               ].map((social, index) => {
