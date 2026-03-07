@@ -277,7 +277,16 @@ const InvitationsPage: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return (
+      <motion.div
+        className="flex justify-center py-20"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </motion.div>
+    );
   }
 
   const InvitationCard = ({ inv, type }: { inv: InvitationItem; type: 'sent' | 'received' }) => (
@@ -401,12 +410,27 @@ const InvitationsPage: React.FC = () => {
   );
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="mb-6">
+    <motion.div
+      className="max-w-5xl mx-auto px-4 py-6"
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div
+        className="mb-6"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.46, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
+      >
         <h1 className="text-2xl font-bold text-foreground">{'\u{1F465}'} Invitations</h1>
         <p className="text-muted-foreground">Manage your team invitations - send invites and view received invitations.</p>
-      </div>
+      </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.48, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+      >
       <Tabs value={tab} onValueChange={(v) => setTab(isFaculty ? 'sent' : v)} className="mb-6">
         <TabsList>
           <TabsTrigger value="sent" className="gap-2"><Send className="w-4 h-4" /> I Invited ({sent.length})</TabsTrigger>
@@ -419,25 +443,49 @@ const InvitationsPage: React.FC = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="space-y-3">
             {tab === 'sent' ? (
               sent.length === 0 ? (
                 <Card className="py-8 text-center"><CardContent><p className="text-muted-foreground">No sent invitations yet</p></CardContent></Card>
-              ) : sent.map(inv => <InvitationCard key={inv.id} inv={inv} type="sent" />)
+              ) : sent.map((inv, index) => (
+                <motion.div
+                  key={inv.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.42, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <InvitationCard inv={inv} type="sent" />
+                </motion.div>
+              ))
             ) : (
               !isFaculty && (
                 received.length === 0 ? (
                   <Card className="py-8 text-center"><CardContent><p className="text-muted-foreground">No received invitations yet</p></CardContent></Card>
-                ) : received.map(inv => <InvitationCard key={inv.id} inv={inv} type="received" />)
+                ) : received.map((inv, index) => (
+                  <motion.div
+                    key={inv.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.42, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <InvitationCard inv={inv} type="received" />
+                  </motion.div>
+                ))
               )
             )}
           </div>
         </motion.div>
       </AnimatePresence>
       </Tabs>
+      </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.48, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+      >
       <Card className="bg-primary/5 border-l-4 border-l-primary">
         <CardContent className="p-4">
           <h4 className="font-semibold text-primary mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> How It Works</h4>
@@ -448,7 +496,8 @@ const InvitationsPage: React.FC = () => {
           </p>
         </CardContent>
       </Card>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

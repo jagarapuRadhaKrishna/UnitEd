@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageSquare, Users, Clock, ArrowRight, Loader2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { motion } from 'framer-motion';
 
 interface MemberProfile {
   user_id: string;
@@ -73,7 +74,6 @@ const ChatroomsPage: React.FC = () => {
         return;
       }
 
-      // Get post titles
       const postIds = rooms.map(r => r.post_id);
       const { data: posts } = await supabase
         .from('posts')
@@ -82,13 +82,11 @@ const ChatroomsPage: React.FC = () => {
       const postMap: Record<string, string> = {};
       (posts || []).forEach(p => { postMap[p.id] = p.title; });
 
-      // Get all members for these chatrooms
       const { data: allMembers } = await supabase
         .from('chatroom_members')
         .select('chatroom_id, user_id')
         .in('chatroom_id', chatroomIds);
 
-      // Get unique member IDs and fetch profiles
       const allMemberIds = [...new Set((allMembers || []).map(m => m.user_id))];
       const { data: profiles } = await supabase
         .from('profiles')
@@ -98,7 +96,6 @@ const ChatroomsPage: React.FC = () => {
       const profileMap: Record<string, { first_name: string | null; last_name: string | null; profile_picture_url: string | null }> = {};
       (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
-      // Build member lists per chatroom
       const chatroomMembersMap: Record<string, MemberProfile[]> = {};
       const memberCountMap: Record<string, number> = {};
       (allMembers || []).forEach(m => {
@@ -113,7 +110,6 @@ const ChatroomsPage: React.FC = () => {
         });
       });
 
-      // Get last messages
       const { data: lastMessages } = await supabase
         .from('messages')
         .select('chatroom_id, content, sender_id')
@@ -126,7 +122,6 @@ const ChatroomsPage: React.FC = () => {
         if (!lastMsgMap[m.chatroom_id]) lastMsgMap[m.chatroom_id] = m.content;
       });
 
-      // Check which posts have accepted invitations (invitation-based chatrooms)
       const { data: invitations } = await supabase
         .from('invitations')
         .select('post_id')
@@ -154,7 +149,6 @@ const ChatroomsPage: React.FC = () => {
     }
   };
 
-  // Real-time subscription
   useEffect(() => {
     if (!user?.id) return;
     const channel = supabase
@@ -175,104 +169,123 @@ const ChatroomsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
+      <motion.div
+        className="flex justify-center py-20"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+      >
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
+    <motion.div
+      className="max-w-4xl mx-auto px-4 py-6"
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div
+        className="flex items-center justify-between mb-6"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.46, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div>
           <h1 className="text-2xl font-bold text-foreground">Chat Rooms</h1>
           <p className={isDark ? 'text-foreground/80' : 'text-muted-foreground'}>Communicate with your project teams</p>
         </div>
         <Badge variant="secondary" className={`text-sm ${isDark ? 'text-foreground' : ''}`}>{chatrooms.length} rooms</Badge>
-      </div>
+      </motion.div>
 
       {chatrooms.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <MessageSquare className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-foreground/50' : 'text-muted-foreground/40'}`} />
-            <h3 className="text-lg font-semibold mb-2 text-foreground">No Chat Rooms Yet</h3>
-            <p className={isDark ? 'text-foreground/80 text-sm mb-4' : 'text-muted-foreground text-sm mb-4'}>
-              Chat rooms are created automatically when you get accepted into a project or accept an applicant.
-            </p>
-            <Button variant={isDark ? 'default' : 'outline'} onClick={() => navigate('/home')}>
-              Browse Opportunities
-            </Button>
-          </CardContent>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.46, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <Card>
+            <CardContent className="p-12 text-center">
+              <MessageSquare className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-foreground/50' : 'text-muted-foreground/40'}`} />
+              <h3 className="text-lg font-semibold mb-2 text-foreground">No Chat Rooms Yet</h3>
+              <p className={isDark ? 'text-foreground/80 text-sm mb-4' : 'text-muted-foreground text-sm mb-4'}>
+                Chat rooms are created automatically when you get accepted into a project or accept an applicant.
+              </p>
+              <Button variant={isDark ? 'default' : 'outline'} onClick={() => navigate('/home')}>
+                Browse Opportunities
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
       ) : (
         <div className="space-y-3">
-          {chatrooms.map(chat => {
-            // Always show everyone (including current user) using first names only
+          {chatrooms.map((chat, index) => {
             const finalDisplay = chat.members || [];
 
             return (
-              <Card
+              <motion.div
                 key={chat.id}
-                className={`transition-colors cursor-pointer ${
-                  isDark ? 'border-white/25 hover:border-white/60' : 'hover:border-primary/30'
-                }`}
-                onClick={() => navigate(`/chatroom/${chat.id}`)}
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.44, delay: 0.12 + index * 0.06, ease: [0.22, 1, 0.36, 1] }}
               >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    {/* Member avatars */}
-                    <div className="flex -space-x-2 shrink-0">
-                      {finalDisplay.slice(0, 3).map((m, i) => (
-                        <Avatar key={m.user_id} className="h-10 w-10 border-2 border-background" style={{ zIndex: 3 - i }}>
-                          {m.profile_picture_url ? (
-                            <AvatarImage src={m.profile_picture_url} alt={getFullName(m)} />
-                          ) : null}
-                          <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                            {getInitials(m.first_name, m.last_name)}
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
-                      {finalDisplay.length > 3 && (
-                        <Avatar className="h-10 w-10 border-2 border-background">
-                          <AvatarFallback className={`text-xs ${isDark ? 'bg-foreground/20 text-foreground' : 'bg-muted text-muted-foreground'}`}>+{finalDisplay.length - 3}</AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-semibold text-sm truncate text-foreground">
-                          {finalDisplay.map(m => (m.first_name || m.last_name || 'Unknown').split(' ')[0]).join(' & ')}
-                        </p>
-                        <Badge variant={chat.status === 'active' ? 'default' : 'secondary'} className="text-[10px] shrink-0">{chat.status}</Badge>
+                <Card
+                  className={`transition-colors cursor-pointer ${
+                    isDark ? 'border-white/25 hover:border-white/60' : 'hover:border-primary/30'
+                  }`}
+                  onClick={() => navigate(`/chatroom/${chat.id}`)}
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex -space-x-2 shrink-0">
+                        {finalDisplay.slice(0, 3).map((m, i) => (
+                          <Avatar key={m.user_id} className="h-10 w-10 border-2 border-background" style={{ zIndex: 3 - i }}>
+                            {m.profile_picture_url ? (
+                              <AvatarImage src={m.profile_picture_url} alt={getFullName(m)} />
+                            ) : null}
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                              {getInitials(m.first_name, m.last_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {finalDisplay.length > 3 && (
+                          <Avatar className="h-10 w-10 border-2 border-background">
+                            <AvatarFallback className={`text-xs ${isDark ? 'bg-foreground/20 text-foreground' : 'bg-muted text-muted-foreground'}`}>+{finalDisplay.length - 3}</AvatarFallback>
+                          </Avatar>
+                        )}
                       </div>
-                      <p className={`text-xs truncate ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`}>
-                        {chat.post_title} • {chat.last_message ? chat.last_message.substring(0, 50) : 'No messages yet'}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="font-semibold text-sm truncate text-foreground">
+                            {finalDisplay.map(m => (m.first_name || m.last_name || 'Unknown').split(' ')[0]).join(' & ')}
+                          </p>
+                          <Badge variant={chat.status === 'active' ? 'default' : 'secondary'} className="text-[10px] shrink-0">{chat.status}</Badge>
+                        </div>
+                        <p className={`text-xs truncate ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`}>
+                          {chat.post_title} - {chat.last_message ? chat.last_message.substring(0, 50) : 'No messages yet'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-3">
-                    <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`}>
-                      <Users className="w-3 h-3" /> {chat.member_count}
+                    <div className="flex items-center gap-3 shrink-0 ml-3">
+                      <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`}>
+                        <Users className="w-3 h-3" /> {chat.member_count}
+                      </div>
+                      <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`}>
+                        <Clock className="w-3 h-3" /> {new Date(chat.last_activity).toLocaleDateString()}
+                      </div>
+                      <ArrowRight className={`w-4 h-4 ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`} />
                     </div>
-                    <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`}>
-                      <Clock className="w-3 h-3" /> {new Date(chat.last_activity).toLocaleDateString()}
-                    </div>
-                    <ArrowRight className={`w-4 h-4 ${isDark ? 'text-foreground/70' : 'text-muted-foreground'}`} />
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
             );
           })}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
 export default ChatroomsPage;
-
-
-
-
-
-

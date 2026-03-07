@@ -6,6 +6,7 @@ import {
   Button,
   Container,
   Divider,
+  IconButton,
   InputAdornment,
   Paper,
   TextField,
@@ -13,7 +14,7 @@ import {
 } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import { motion } from 'framer-motion';
-import { GraduationCap, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap, Lock, Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import unitedTheme from '@/theme/unitedTheme';
 import { toast } from 'sonner';
@@ -32,6 +33,7 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Keep autofill from painting the inputs gray (Chrome)
   const autofillReset = {
@@ -139,7 +141,7 @@ const LoginPage: React.FC = () => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="john.doe.csd@anits.edu.in"
+                    placeholder="Enter your mail"
                     required
                     autoComplete="email"
                     InputProps={{
@@ -157,7 +159,7 @@ const LoginPage: React.FC = () => {
                   <TextField
                     fullWidth
                     label="Password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
@@ -167,6 +169,17 @@ const LoginPage: React.FC = () => {
                       startAdornment: (
                         <InputAdornment position="start">
                           <Lock size={18} color="#6B7280" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            edge="end"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showPassword ? <EyeOff size={18} color="#6B7280" /> : <Eye size={18} color="#6B7280" />}
+                          </IconButton>
                         </InputAdornment>
                       ),
                       sx: autofillReset,

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Send, Users, Info, Loader2, Paperclip, FileText, Download, X, Trash2, UserMinus, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface Msg {
   id: string;
@@ -448,12 +449,26 @@ const ChatroomPage: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return (
+      <motion.div
+        className="flex justify-center py-20"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </motion.div>
+    );
   }
 
   if (pageError) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+      <motion.div
+        className="max-w-4xl mx-auto px-4 py-8 text-center"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+      >
         <h2 className="text-xl font-bold mb-4">Unable to open chat room</h2>
         <p className="mb-6 text-sm text-muted-foreground">{pageError}</p>
         <div className="flex justify-center gap-3">
@@ -462,31 +477,47 @@ const ChatroomPage: React.FC = () => {
           </Button>
           <Button onClick={() => fetchChatroom()}>Try Again</Button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   if (!postTitle) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+      <motion.div
+        className="max-w-4xl mx-auto px-4 py-8 text-center"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+      >
         <h2 className="text-xl font-bold mb-4">Chat room not found</h2>
         <Button variant="outline" onClick={() => navigate('/chatrooms')}><ArrowLeft className="w-4 h-4 mr-2" /> Back to Chatrooms</Button>
-      </div>
+      </motion.div>
     );
   }
 
   const isReadOnly = status !== 'active';
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col" style={{ height: 'calc(100vh - 5rem)' }}>
-      <div className="flex items-center justify-between mb-3">
+    <motion.div
+      className="max-w-4xl mx-auto px-4 py-4 flex flex-col"
+      style={{ height: 'calc(100vh - 5rem)' }}
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div
+        className="flex items-center justify-between mb-3"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.46, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/chatrooms')}><ArrowLeft className={`w-4 h-4 ${iconClass}`} /></Button>
           <div>
             <h2 className="font-semibold text-sm text-foreground">
               {members.map(m => (m.name || '').split(' ')[0] || 'Member').join(' & ') || postTitle}
             </h2>
-            <p className="text-xs text-muted-foreground">{postTitle} • {members.length} members</p>
+            <p className="text-xs text-muted-foreground">{postTitle} - {members.length} members</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -504,119 +535,175 @@ const ChatroomPage: React.FC = () => {
             <Users className={`w-4 h-4 ${iconClass}`} />
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      {showMembers && (
-        <Card className="mb-3">
-          <CardContent className="p-3">
-            <h4 className="font-semibold text-xs mb-2">Members</h4>
-            <div className="space-y-2">
-              {members.map(m => (
-                <div key={m.user_id} className="flex items-center gap-2">
-                  <Avatar className="h-6 w-6">
-                    <AvatarFallback className="text-[10px] bg-primary/10">{m.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <span className="text-xs flex-1">{m.name}</span>
-                  {m.isPostOwner && <Badge variant="secondary" className="text-[10px] h-4">Owner</Badge>}
-                  {isOwner && m.user_id !== user?.id && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive hover:text-destructive"
-                      onClick={() => setRemovingMember(m.user_id)}
-                      title="Remove member"
+      <AnimatePresence initial={false}>
+        {showMembers && (
+          <motion.div
+            className="overflow-hidden"
+            initial={{ opacity: 0, height: 0, y: -8 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -8 }}
+            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Card className="mb-3">
+              <CardContent className="p-3">
+                <h4 className="font-semibold text-xs mb-2">Members</h4>
+                <div className="space-y-2">
+                  {members.map((m, index) => (
+                    <motion.div
+                      key={m.user_id}
+                      className="flex items-center gap-2"
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.32, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      <UserMinus className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="text-[10px] bg-primary/10">{m.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs flex-1">{m.name}</span>
+                      {m.isPostOwner && <Badge variant="secondary" className="text-[10px] h-4">Owner</Badge>}
+                      {isOwner && m.user_id !== user?.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() => setRemovingMember(m.user_id)}
+                          title="Remove member"
+                        >
+                          <UserMinus className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </motion.div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <ScrollArea className="flex-1 border rounded-lg p-3 mb-3">
-        <div className="space-y-3">
-          {messages.map(msg => {
-            const isOwn = msg.sender_id === user?.id;
-            const isSystem = msg.type === 'system';
+      <motion.div
+        className="flex-1 mb-3"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.48, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <ScrollArea className="flex-1 border rounded-lg p-3 h-full">
+          <div className="space-y-3">
+            <AnimatePresence initial={true}>
+              {messages.map(msg => {
+                const isOwn = msg.sender_id === user?.id;
+                const isSystem = msg.type === 'system';
 
-            if (isSystem) {
-              return (
-                <div key={msg.id} className="text-center">
-                  <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">{msg.content}</span>
-                </div>
-              );
-            }
+                if (isSystem) {
+                  return (
+                    <motion.div
+                      key={msg.id}
+                      className="text-center"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">{msg.content}</span>
+                    </motion.div>
+                  );
+                }
 
-            return (
-              <div key={msg.id} className={`group flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                <div className="flex items-start gap-2">
-                  <div className={`w-fit min-w-[8.5rem] max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'} rounded-2xl px-3 py-2 shadow-sm`}>
-                    {!isOwn && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{msg.sender_name}</p>}
-                    {msg.type === 'image' && msg.file_url && (
-                      <div className="mb-1">
-                        <img src={msg.file_url} alt={msg.file_name || 'Image'} className="rounded-md max-w-full max-h-60 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.file_url!, '_blank')} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                return (
+                  <motion.div
+                    key={msg.id}
+                    className={`group flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                    initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={`w-fit min-w-[8.5rem] max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'} rounded-2xl px-3 py-2 shadow-sm`}>
+                        {!isOwn && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{msg.sender_name}</p>}
+                        {msg.type === 'image' && msg.file_url && (
+                          <div className="mb-1">
+                            <img src={msg.file_url} alt={msg.file_name || 'Image'} className="rounded-md max-w-full max-h-60 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.file_url!, '_blank')} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          </div>
+                        )}
+                        {msg.type === 'file' && msg.file_url && (
+                          <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 p-2 rounded-md mb-1 ${isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/50 hover:bg-background/80'} transition-colors`}>
+                            <FileText className="w-5 h-5 shrink-0" />
+                            <span className="text-xs truncate flex-1">{msg.file_name || 'Document'}</span>
+                            <Download className="w-4 h-4 shrink-0" />
+                          </a>
+                        )}
+                        {msg.type === 'text' && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
+                        <p className={`mt-1 text-[10px] whitespace-nowrap text-right ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
-                    )}
-                    {msg.type === 'file' && msg.file_url && (
-                      <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 p-2 rounded-md mb-1 ${isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/50 hover:bg-background/80'} transition-colors`}>
-                        <FileText className="w-5 h-5 shrink-0" />
-                        <span className="text-xs truncate flex-1">{msg.file_name || 'Document'}</span>
-                        <Download className="w-4 h-4 shrink-0" />
-                      </a>
-                    )}
-                    {msg.type === 'text' && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
-                    <p className={`mt-1 text-[10px] whitespace-nowrap text-right ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                  {isOwn && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await supabase.from('messages').delete().eq('id', msg.id);
-                          setMessages(prev => prev.filter(m => m.id !== msg.id));
-                          toast.success('Message deleted');
-                        } catch { toast.error('Failed to delete'); }
-                      }}
-                      className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-destructive"
-                      title="Delete message"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          <div ref={scrollRef} />
-        </div>
-      </ScrollArea>
+                      {isOwn && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await supabase.from('messages').delete().eq('id', msg.id);
+                              setMessages(prev => prev.filter(m => m.id !== msg.id));
+                              toast.success('Message deleted');
+                            } catch { toast.error('Failed to delete'); }
+                          }}
+                          className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-destructive"
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+            <div ref={scrollRef} />
+          </div>
+        </ScrollArea>
+      </motion.div>
 
       {isReadOnly ? (
-          <div className="text-center py-2 text-sm text-muted-foreground bg-muted rounded-lg">
-            <Info className={`w-4 h-4 inline mr-1 ${iconClass}`} /> This chat room is read-only
-          </div>
-        ) : (
-        <div>
-          {selectedFile && (
-            <div className="flex items-center gap-3 p-2 mb-2 bg-muted rounded-lg border">
-              {filePreviewUrl ? (
-                <img src={filePreviewUrl} alt="Preview" className="h-16 w-16 object-cover rounded-md" />
-              ) : (
-                <div className="h-16 w-16 bg-background rounded-md flex items-center justify-center">
-                  <FileText className={`w-6 h-6 text-muted-foreground ${iconClass}`} />
+        <motion.div
+          className="text-center py-2 text-sm text-muted-foreground bg-muted rounded-lg"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.44, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <Info className={`w-4 h-4 inline mr-1 ${iconClass}`} /> This chat room is read-only
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.44, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <AnimatePresence>
+            {selectedFile && (
+              <motion.div
+                className="flex items-center gap-3 p-2 mb-2 bg-muted rounded-lg border"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {filePreviewUrl ? (
+                  <img src={filePreviewUrl} alt="Preview" className="h-16 w-16 object-cover rounded-md" />
+                ) : (
+                  <div className="h-16 w-16 bg-background rounded-md flex items-center justify-center">
+                    <FileText className={`w-6 h-6 text-muted-foreground ${iconClass}`} />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
+                  <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</p>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
-                <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={clearSelectedFile} className="shrink-0"><X className="w-4 h-4" /></Button>
-            </div>
-          )}
+                <Button variant="ghost" size="icon" onClick={clearSelectedFile} className="shrink-0"><X className="w-4 h-4" /></Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div className="flex gap-2 items-center">
             <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar" className="hidden" onChange={handleFileSelect} />
             <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="shrink-0">
@@ -625,7 +712,7 @@ const ChatroomPage: React.FC = () => {
             <Input
               value={messageText}
               onChange={e => setMessageText(e.target.value)}
-              placeholder={selectedFile ? "Add a caption (optional)..." : "Type a message..."}
+              placeholder={selectedFile ? 'Add a caption (optional)...' : 'Type a message...'}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
               className="flex-1 text-foreground placeholder:text-foreground/70"
             />
@@ -633,7 +720,7 @@ const ChatroomPage: React.FC = () => {
               {uploading ? <Loader2 className="w-4 h-4 animate-spin text-foreground" /> : <Send className="w-4 h-4 text-foreground" />}
             </Button>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Invite by Email Dialog */}
@@ -692,7 +779,7 @@ const ChatroomPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 };
 

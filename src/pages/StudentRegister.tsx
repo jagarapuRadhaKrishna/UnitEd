@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const departments = ['CSE', 'CSE (DATA SCIENCE)', 'CSE (AI ML)', 'CYBERSECURITY', 'INFORMATION TECHNOLOGY', 'ECE'];
+const STUDENT_EMAIL_REGEX = /^[a-zA-Z]+\.[0-9]{2}\.(cse|csd|csm|aim|csc|it|ece)@anits\.edu\.in$/i;
+const STUDENT_EMAIL_PATTERN = '[A-Za-z]+\\.[0-9]{2}\\.(cse|csd|csm|aim|csc|it|ece)@anits\\.edu\\.in';
 
 const StudentRegister: React.FC = () => {
   const navigate = useNavigate();
@@ -39,7 +41,7 @@ const StudentRegister: React.FC = () => {
     setError('');
     if (!formData.firstName || !formData.lastName) { setError('First and last names are required'); return; }
     if (!formData.rollNumber || !/^A\d{11}$/.test(formData.rollNumber)) { setError('Roll number must be A followed by 11 digits'); return; }
-    if (!formData.email || !/^[a-zA-Z]+\.[0-9]{2}\.(cse|csd|csm|aim|csc|it|ece)@anits\.edu\.in$/i.test(formData.email)) {
+    if (!formData.email || !STUDENT_EMAIL_REGEX.test(formData.email)) {
       setError('Use format: firstname.YY.dept@anits.edu.in (dept: cse/csd/csm/aim/csc/it/ece)'); return;
     }
     if (!formData.department || !formData.yearOfGraduation) { setError('Department and year are required'); return; }
@@ -110,7 +112,7 @@ const StudentRegister: React.FC = () => {
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><Label>Email *</Label><Input type="email" placeholder="john.22.cse@anits.edu.in" value={formData.email} onChange={e => handleChange('email', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">firstname.YY.dept@anits.edu.in</p></div>
+                <div><Label>Email *</Label><Input type="email" placeholder="Enter your mail" pattern={STUDENT_EMAIL_PATTERN} title="Use your college email in the format firstname.YY.dept@anits.edu.in" value={formData.email} onChange={e => handleChange('email', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">Enter you college mail</p></div>
                 <div>
                   <Label>Password *</Label>
                   <div className="relative">

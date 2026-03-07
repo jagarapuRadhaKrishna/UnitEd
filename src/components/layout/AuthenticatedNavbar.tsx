@@ -277,7 +277,7 @@ const AuthenticatedNavbar: React.FC = () => {
         </button>
 
         <nav className="hidden lg:flex flex-1 min-w-0 ml-1">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 pr-1">
+          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar py-1 pr-1">
             <NavLinks />
           </div>
         </nav>

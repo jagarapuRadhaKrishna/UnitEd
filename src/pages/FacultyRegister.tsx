@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const qualifications = ['Ph.D.', 'M.Tech', 'M.Sc', 'M.Phil', 'M.E', 'B.Tech', 'B.Sc', 'Other'];
+const FACULTY_EMAIL_REGEX = /^[a-zA-Z]+\.(csd|cse|ece|eee|mech|civil|it|chem|bio)@anits\.edu\.in$/i;
+const FACULTY_EMAIL_PATTERN = '[A-Za-z]+\\.(csd|cse|ece|eee|mech|civil|it|chem|bio)@anits\\.edu\\.in';
 
 const FacultyRegister: React.FC = () => {
   const navigate = useNavigate();
@@ -29,6 +31,8 @@ const FacultyRegister: React.FC = () => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [employeeIdEditable, setEmployeeIdEditable] = useState(false);
+  const [passwordEditable, setPasswordEditable] = useState(false);
 
   const handleChange = (field: string, value: string) => setFormData({ ...formData, [field]: value });
   const filteredSkills = AVAILABLE_SKILLS.filter(s => s.toLowerCase().includes(skillSearch.toLowerCase()) && !skills.includes(s));
@@ -39,7 +43,7 @@ const FacultyRegister: React.FC = () => {
     if (submitting) return;
     if (!formData.firstName || !formData.lastName) { setError('Names are required'); return; }
     if (!formData.employeeId || !/^100\d{3}$/.test(formData.employeeId)) { setError('Employee ID: 100 followed by 3 digits'); return; }
-    if (!formData.email || !/^[a-zA-Z]+\.(csd|cse|ece|eee|mech|civil|it|chem|bio)@anits\.edu\.in$/i.test(formData.email)) {
+    if (!formData.email || !FACULTY_EMAIL_REGEX.test(formData.email)) {
       setError('Use format: fullnamesurname.dept@anits.edu.in'); return;
     }
     if (!formData.designation || !formData.qualification) { setError('Designation and qualification required'); return; }
@@ -81,7 +85,9 @@ const FacultyRegister: React.FC = () => {
 
         <Card className="rounded-xl">
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+              <input type="text" name="username" autoComplete="username" tabIndex={-1} className="hidden" aria-hidden="true" />
+              <input type="password" name="current-password" autoComplete="current-password" tabIndex={-1} className="hidden" aria-hidden="true" />
               {/* Profile Picture */}
               <div className="text-center">
                 <input type="file" accept="image/*" id="pp" hidden onChange={(e) => {
@@ -104,7 +110,7 @@ const FacultyRegister: React.FC = () => {
                 <div><Label>Last Name *</Label><Input value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} /></div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><Label>Employee ID *</Label><Input placeholder="100000" value={formData.employeeId} onChange={e => handleChange('employeeId', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">100 followed by 3 digits</p></div>
+                <div><Label>Employee ID *</Label><Input name="facultyEmployeeId" autoComplete="off" readOnly={!employeeIdEditable} onFocus={() => setEmployeeIdEditable(true)} placeholder="100000" value={formData.employeeId} onChange={e => handleChange('employeeId', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">100 followed by 3 digits</p></div>
                 <div><Label>Gender</Label>
                   <Select value={formData.gender} onValueChange={v => handleChange('gender', v)}>
                     <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
@@ -113,11 +119,15 @@ const FacultyRegister: React.FC = () => {
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><Label>Email *</Label><Input type="email" placeholder="janesmith.cse@anits.edu.in" value={formData.email} onChange={e => handleChange('email', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">fullnamesurname.dept@anits.edu.in</p></div>
+                <div><Label>Email *</Label><Input type="email" name="facultyCollegeEmail" autoComplete="off" placeholder="Enter your mail" pattern={FACULTY_EMAIL_PATTERN} title="Use your college email in the format fullnamesurname.dept@anits.edu.in" value={formData.email} onChange={e => handleChange('email', e.target.value)} /><p className="text-xs text-muted-foreground mt-1">Please Enter Your college Mail</p></div>
                 <div>
                   <Label>Password *</Label>
                   <div className="relative">
                   <Input
+                    name="facultyNewPassword"
+                    autoComplete="new-password"
+                    readOnly={!passwordEditable}
+                    onFocus={() => setPasswordEditable(true)}
                     type={showPassword ? 'text' : 'password'}
                       value={formData.password}
                       onChange={e => handleChange('password', e.target.value)}
