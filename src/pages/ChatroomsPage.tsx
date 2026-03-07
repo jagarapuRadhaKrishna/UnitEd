@@ -211,7 +211,13 @@ const ChatroomsPage: React.FC = () => {
             const finalDisplay = chat.members || [];
 
             return (
-              <Card key={chat.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => navigate(`/chatroom/${chat.id}`)}>
+              <Card
+                key={chat.id}
+                className={`transition-colors cursor-pointer ${
+                  isDark ? 'border-white/25 hover:border-white/60' : 'hover:border-primary/30'
+                }`}
+                onClick={() => navigate(`/chatroom/${chat.id}`)}
+              >
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     {/* Member avatars */}
