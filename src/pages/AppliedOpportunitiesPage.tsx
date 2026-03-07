@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePalette } from '@/hooks/usePalette';
+import { isPostDeadlineReached, syncExpiredPosts, syncPostCurrentMembers } from '@/services/postAvailabilityService';
 
 interface AppItem {
   id: string;
@@ -86,6 +87,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
     if (!user?.id) return;
     setLoading(true);
     try {
+      await syncExpiredPosts();
       await Promise.all([fetchSentApplications(), fetchReceivedApplications()]);
     } finally {
       setLoading(false);
@@ -235,14 +237,26 @@ const AppliedOpportunitiesPage: React.FC = () => {
     setActionLoading(appId);
 
     try {
+      const app = receivedApps.find((a) => a.id === appId);
+      if (app && newStatus !== 'rejected') {
+        const { data: post } = await supabase
+          .from('posts')
+          .select('status, deadline')
+          .eq('id', app.post_id)
+          .maybeSingle();
+
+        if (!post || post.status !== 'active' || isPostDeadlineReached(post.deadline)) {
+          toast.error('This post is no longer accepting new members');
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from('applications')
         .update({ status: newStatus, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
         .eq('id', appId);
 
       if (error) throw error;
-
-      const app = receivedApps.find((a) => a.id === appId);
       if (app) {
         const notifTitle =
           newStatus === 'accepted'
@@ -336,6 +350,8 @@ const AppliedOpportunitiesPage: React.FC = () => {
         content: `${receivedApps.find((a) => a.post_id === postId)?.applicant_name || 'A new member'} has joined the team!`,
         type: 'system',
       });
+
+      await syncPostCurrentMembers(postId);
     } catch (err) {
       console.error('Error creating chatroom:', err);
     }

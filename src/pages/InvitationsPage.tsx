@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Send, Mail, CheckCircle, XCircle, Clock, Calendar, Info, Loader2, MessageCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { isPostDeadlineReached, syncExpiredPosts, syncPostCurrentMembers } from '@/services/postAvailabilityService';
 
 interface InvitationItem {
   id: string;
@@ -46,6 +47,7 @@ const InvitationsPage: React.FC = () => {
     if (!user?.id) return;
     setLoading(true);
     try {
+      await syncExpiredPosts();
       const { data: invitations } = await supabase
         .from('invitations')
         .select('*')
@@ -64,7 +66,7 @@ const InvitationsPage: React.FC = () => {
       const userIds = [...new Set(invitations.flatMap(i => [i.inviter_id, i.invitee_id]))];
 
       const [postsRes, profilesRes] = await Promise.all([
-        supabase.from('posts').select('id, title, purpose').in('id', postIds),
+        supabase.from('posts').select('id, title, purpose, status, deadline').in('id', postIds),
         supabase.from('profiles').select('id, first_name, last_name, skills, profile_picture_url').in('id', userIds),
       ]);
 
@@ -123,6 +125,20 @@ const InvitationsPage: React.FC = () => {
   const handleRespond = async (invitationId: string, action: 'accepted' | 'declined') => {
     try {
       const inv = received.find(i => i.id === invitationId);
+      if (action === 'accepted' && inv) {
+        const { data: post } = await supabase
+          .from('posts')
+          .select('status, deadline')
+          .eq('id', inv.post_id)
+          .maybeSingle();
+
+        if (!post || post.status !== 'active' || isPostDeadlineReached(post.deadline)) {
+          toast({ title: 'Post unavailable', description: 'This post is no longer accepting team members.', variant: 'destructive' });
+          await fetchInvitations();
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from('invitations')
         .update({ status: action, responded_at: new Date().toISOString() })
@@ -212,20 +228,7 @@ const InvitationsPage: React.FC = () => {
               });
             }
 
-            // Sync post current_members so cards show updated counts (exclude author from count)
-            const { data: postRow } = await supabase
-              .from('posts')
-              .select('id, author_id, chatroom_id')
-              .eq('id', inv.post_id)
-              .maybeSingle();
-            if (postRow?.chatroom_id) {
-              const { count: chatCount } = await supabase
-                .from('chatroom_members')
-                .select('user_id', { count: 'exact', head: true })
-                .eq('chatroom_id', postRow.chatroom_id);
-              const membersExcludingAuthor = Math.max(0, (chatCount || 0) - 1); // don't count the author
-              await supabase.from('posts').update({ current_members: membersExcludingAuthor }).eq('id', inv.post_id);
-            }
+            await syncPostCurrentMembers(inv.post_id);
           } catch (chatError) {
             console.error('Error creating chatroom:', chatError);
           }

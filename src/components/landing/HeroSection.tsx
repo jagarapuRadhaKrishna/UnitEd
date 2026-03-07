@@ -3,8 +3,18 @@ import { Link } from 'react-router-dom';
 import { Box, Container, Typography, Button } from '@mui/material';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import type { LandingStats } from '@/hooks/useLandingStats';
 
-const HeroSection: React.FC = () => {
+interface HeroSectionProps {
+  stats: LandingStats;
+}
+
+const formatStatNumber = (value: number | null) => {
+  if (value === null) return '...';
+  return value.toLocaleString();
+};
+
+const HeroSection: React.FC<HeroSectionProps> = ({ stats }) => {
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -156,9 +166,9 @@ const HeroSection: React.FC = () => {
                 }}
               >
                 {[
-                  { number: '2000+', label: 'Active Students' },
-                  { number: '150+', label: 'Faculty Members' },
-                  { number: '500+', label: 'Projects Completed' },
+                  { number: formatStatNumber(stats.totalStudents), label: 'Active Students' },
+                  { number: formatStatNumber(stats.totalFaculty), label: 'Faculty Members' },
+                  { number: formatStatNumber(stats.completedProjects), label: 'Projects Completed' },
                 ].map((stat, index) => (
                   <Box key={index}>
                     <Box>

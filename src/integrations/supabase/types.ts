@@ -533,6 +533,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_post_member_counts: {
+        Args: { post_ids: string[] }
+        Returns: {
+          accepted_members: number
+          post_id: string
+        }[]
+      }
+      get_public_landing_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          completed_projects: number
+          total_faculty: number
+          total_students: number
+          total_users: number
+        }[]
+      }
       is_chatroom_member: {
         Args: { _chatroom_id: string; _user_id: string }
         Returns: boolean

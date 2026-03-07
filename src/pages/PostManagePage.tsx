@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle, Clock, Mail, Users, XCircle } from 'lucide-react';
+import { isPostDeadlineReached, syncExpiredPosts, syncPostCurrentMembers } from '@/services/postAvailabilityService';
 
 interface AppWithProfile {
   id: string;
@@ -42,6 +43,8 @@ const PostManagePage: React.FC = () => {
 
   const [applications, setApplications] = useState<AppWithProfile[]>([]);
   const [postTitle, setPostTitle] = useState('');
+  const [postDeadline, setPostDeadline] = useState<string | null>(null);
+  const [postStatus, setPostStatus] = useState<string>('active');
   const [totalRequired, setTotalRequired] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,9 +57,10 @@ const PostManagePage: React.FC = () => {
       setError(null);
 
       try {
+        await syncExpiredPosts();
         const { data: post, error: postError } = await supabase
           .from('posts')
-          .select('title, skill_requirements, author_id, max_members')
+          .select('title, skill_requirements, author_id, max_members, deadline, status')
           .eq('id', id)
           .maybeSingle();
 
@@ -73,6 +77,8 @@ const PostManagePage: React.FC = () => {
         }
 
         setPostTitle(post.title);
+        setPostDeadline(post.deadline || null);
+        setPostStatus(isPostDeadlineReached(post.deadline) && post.status === 'active' ? 'closed' : post.status);
         const reqs = (post.skill_requirements as unknown as { requiredCount: number }[]) || [];
         setTotalRequired((post as any).max_members ?? reqs.reduce((sum, req) => sum + req.requiredCount, 0));
 
@@ -127,6 +133,12 @@ const PostManagePage: React.FC = () => {
   }, [id, user?.id]);
 
   const handleStatusUpdate = async (appId: string, applicantId: string, status: 'shortlisted' | 'accepted' | 'rejected') => {
+    const isUnavailable = postStatus !== 'active' || isPostDeadlineReached(postDeadline);
+    if (isUnavailable && status !== 'rejected') {
+      toast({ title: 'Post unavailable', description: 'This post is no longer accepting new members.', variant: 'destructive' });
+      return;
+    }
+
     const { error } = await supabase
       .from('applications')
       .update({ status, reviewed_at: new Date().toISOString() })
@@ -219,6 +231,14 @@ const PostManagePage: React.FC = () => {
           related_post_id: id,
           related_chatroom_id: chatroomId,
         });
+
+        const syncedMembers = await syncPostCurrentMembers(id);
+        if (typeof syncedMembers === 'number') {
+          setApplications((prev) => [...prev]);
+          if (postStatus === 'active' && totalRequired > 0 && syncedMembers >= totalRequired) {
+            setPostStatus('filled');
+          }
+        }
       } catch (chatError) {
         console.error('Error adding to chatroom:', chatError);
       }
@@ -284,6 +304,11 @@ const PostManagePage: React.FC = () => {
 
         <Card sx={{ borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: 'none', mb: 3, backgroundColor: colors.card }}>
           <CardContent sx={{ p: 2.3 }}>
+            {(postStatus !== 'active' || isPostDeadlineReached(postDeadline)) && (
+              <Typography sx={{ mb: 2, color: '#EF4444', fontWeight: 700, fontSize: 14 }}>
+                This post is closed for new members.
+              </Typography>
+            )}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2.6} alignItems={{ xs: 'flex-start', sm: 'center' }}>
               <Box>
                 <Typography sx={{ fontSize: 34, fontWeight: 700, color: '#6C47FF' }}>{applications.length}</Typography>

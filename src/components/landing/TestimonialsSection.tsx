@@ -3,40 +3,53 @@ import { Box, Container, Typography, Avatar } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { Quote } from 'lucide-react';
+import type { LandingStats } from '@/hooks/useLandingStats';
 
 const testimonials = [
   {
-    name: 'Chandrika',
-    role: 'Computer Science Student, ANITS',
-    avatar: 'https://i.pravatar.cc/150?img=1',
-    quote: 'The AI-powered matching makes finding perfect team members incredibly efficient. The platform has everything I need for academic collaboration!',
+    name: 'Godavarthi Vedaaksharee',
+    role: 'Student',
+    department: 'CSD Dept',
+    avatar: '/image/godavarthi vedaaksharee.png',
+    quote: 'This platform made it much easier to find the right teammates for my academic projects. Instead of searching manually or asking around, I could quickly discover students with the skills needed for my project. The collaboration features also help us communicate and manage tasks effectively, making the entire project workflow more organized and productive.',
   },
   {
-    name: 'Dr. Michael Chen',
-    role: 'Associate Professor, ANITS',
-    avatar: 'https://i.pravatar.cc/150?img=2',
-    quote: 'UnitEd\'s comprehensive platform with real-time chat, analytics, and candidate recommendations has transformed how I manage research teams.',
+    name: 'Jagarapu Radha Krishna',
+    role: 'Student',
+    department: 'CSD Dept',
+    avatar: '/image/krishna.png',
+    quote: 'Finding project partners used to take a lot of time, but this platform makes it simple. I can explore different project ideas, join teams, and collaborate with students who share similar interests. It has really improved the way we work together on academic projects.',
   },
   {
-    name: 'Ojas Gambheera',
-    role: 'Engineering Student, ANITS',
-    avatar: 'https://i.pravatar.cc/150?img=3',
-    quote: 'From personalized feeds to collaboration hubs, every feature is thoughtfully designed. The email notifications keep me updated on all opportunities!',
+    name: 'Annanya',
+    role: 'Student',
+    department: 'CSD Dept',
+    avatar: '',
+    quote: 'The platform provides a great space for students to collaborate on projects. From discovering new project opportunities to connecting with teammates, everything is well organized. It helps students focus more on building projects rather than struggling to find the right team.',
   },
 ];
 
-const stats = [
-  { number: '2000+', label: 'Active Users' },
-  { number: '150+', label: 'Faculty Members' },
-  { number: '500+', label: 'Projects Completed' },
-  { number: '10+', label: 'Core Features' },
-];
+interface TestimonialsSectionProps {
+  stats: LandingStats;
+}
 
-const TestimonialsSection: React.FC = () => {
+const formatStatNumber = (value: number | null) => {
+  if (value === null) return '...';
+  return value.toLocaleString();
+};
+
+const TestimonialsSection: React.FC<TestimonialsSectionProps> = ({ stats }) => {
   const [ref, inView] = useInView({
     triggerOnce: false,
     threshold: 0.1,
   });
+
+  const statItems = [
+    { number: formatStatNumber(stats.totalUsers), label: 'Active Users' },
+    { number: formatStatNumber(stats.totalFaculty), label: 'Faculty Members' },
+    { number: formatStatNumber(stats.completedProjects), label: 'Projects Completed' },
+    { number: stats.coreFeatures.toLocaleString(), label: 'Core Features' },
+  ];
 
   return (
     <Box
@@ -62,7 +75,7 @@ const TestimonialsSection: React.FC = () => {
               mb: 10,
             }}
           >
-            {stats.map((stat, index) => (
+            {statItems.map((stat, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -182,7 +195,14 @@ const TestimonialsSection: React.FC = () => {
                         mr: 2,
                         border: '3px solid #2563EB',
                       }}
-                    />
+                    >
+                      {testimonial.name
+                        .split(' ')
+                        .map((part) => part[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </Avatar>
                     <Box>
                       <Typography
                         variant="h6"
@@ -201,6 +221,14 @@ const TestimonialsSection: React.FC = () => {
                         }}
                       >
                         {testimonial.role}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: '#6B7280',
+                        }}
+                      >
+                        {testimonial.department}
                       </Typography>
                     </Box>
                   </Box>

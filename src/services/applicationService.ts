@@ -1,6 +1,7 @@
 import type { Application, Post, User } from '../types/united';
 import { sendNotification } from './notificationService';
 import { createChatroom } from './chatroomService';
+import { getLocalDateKey, normalizeDeadlineKey } from './postAvailabilityService';
 
 const generateApplicationId = (): string => `app_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
@@ -14,7 +15,10 @@ export const createApplication = (params: {
   if (!post) throw new Error('Post not found');
   if (post.status !== 'active') throw new Error('Post is no longer accepting applications');
   if (post.maxMembers && post.currentMembers >= post.maxMembers) throw new Error('Post has reached maximum members');
-  if (post.deadline && new Date(post.deadline) < new Date()) throw new Error('Post deadline has passed');
+  if (post.deadline) {
+    const deadlineKey = normalizeDeadlineKey(post.deadline);
+    if (deadlineKey && getLocalDateKey() > deadlineKey) throw new Error('Post deadline has passed');
+  }
 
   const users = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
   const applicant = users.find((u: User) => u.id === applicantId);

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Edit, Save, X, MapPin, Mail, Phone, Briefcase, GraduationCap,
@@ -29,7 +29,7 @@ const ProfilePage: React.FC = () => {
     github: (user as any)?.github || '', linkedin: (user as any)?.linkedin || '',
     leetcode: (user as any)?.leetcode || '', cgpa: (user as any)?.cgpa || '',
     skills: user?.skills || [], projects: user?.projects || [], achievements: user?.achievements || [],
-    resume: (user as any)?.resume || '', coverLetter: (user as any)?.coverLetter || '',
+    resumeUrl: (user as any)?.resumeUrl || '', coverLetter: (user as any)?.coverLetter || '',
   });
   const [newSkill, setNewSkill] = useState('');
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -84,6 +84,30 @@ const ProfilePage: React.FC = () => {
   const [newProject, setNewProject] = useState({ title: '', description: '', link: '', skills: [] as string[] });
   const [newAchievement, setNewAchievement] = useState({ title: '', description: '', date: '', issuer: '' });
 
+  useEffect(() => {
+    if (!user) return;
+
+    setFormData({
+      firstName: user.firstName || '',
+      middleName: user.middleName || '',
+      lastName: user.lastName || '',
+      email: user.email || '',
+      contactNo: user.contactNo || '',
+      bio: user.bio || '',
+      location: user.location || '',
+      portfolio: user.portfolio || '',
+      github: user.github || '',
+      linkedin: user.linkedin || '',
+      leetcode: user.leetcode || '',
+      cgpa: user.cgpa || '',
+      skills: user.skills || [],
+      projects: user.projects || [],
+      achievements: user.achievements || [],
+      resumeUrl: user.resumeUrl || '',
+      coverLetter: user.coverLetter || '',
+    });
+  }, [user]);
+
   const toggleEdit = (s: string) => setEditingSections(prev => ({ ...prev, [s]: !prev[s] }));
 
   const handleSave = async (section: string) => {
@@ -116,7 +140,38 @@ const ProfilePage: React.FC = () => {
     setNewAchievement({ title: '', description: '', date: '', issuer: '' });
   };
 
+  const handleEnableProfileEditing = () => {
+    setEditingSections(prev => ({
+      ...prev,
+      header: true,
+      contact: true,
+      social: true,
+      skills: true,
+      about: true,
+    }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (!user) { navigate('/login'); return null; }
+
+  const detailItems = [
+    user.role === 'student' && user.rollNumber ? { label: 'Roll Number', value: user.rollNumber } : null,
+    user.role === 'student' && user.department ? { label: 'Department', value: user.department } : null,
+    user.role === 'student' && user.yearOfGraduation ? { label: 'Graduation Year', value: String(user.yearOfGraduation) } : null,
+    user.role === 'student' && user.experience ? { label: 'Experience', value: user.experience } : null,
+    user.role === 'faculty' && user.employeeId ? { label: 'Employee ID', value: user.employeeId } : null,
+    user.role === 'faculty' && user.designation ? { label: 'Designation', value: user.designation } : null,
+    user.role === 'faculty' && user.dateOfJoining ? { label: 'Date of Joining', value: new Date(user.dateOfJoining).toLocaleDateString() } : null,
+    user.role === 'faculty' && user.qualification ? { label: 'Qualification', value: user.qualification } : null,
+    user.role === 'faculty' && user.specialization?.length ? { label: 'Specialization', value: user.specialization.join(', ') } : null,
+    user.role === 'faculty' && user.totalExperience !== undefined ? { label: 'Total Experience', value: `${user.totalExperience} years` } : null,
+    user.role === 'faculty' && user.teachingExperience !== undefined ? { label: 'Teaching Experience', value: `${user.teachingExperience} years` } : null,
+    user.role === 'faculty' && user.industryExperience !== undefined ? { label: 'Industry Experience', value: `${user.industryExperience} years` } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+  const documentItems = [
+    formData.resumeUrl ? { label: 'Resume', href: formData.resumeUrl } : null,
+  ].filter(Boolean) as Array<{ label: string; href: string }>;
 
   const EditButton = ({ section }: { section: string }) => (
     <button onClick={() => toggleEdit(section)} className="p-1 rounded hover:bg-muted"><Edit size={16} className="text-muted-foreground" /></button>
@@ -211,11 +266,11 @@ const ProfilePage: React.FC = () => {
                       {user.role === 'student' && formData.cgpa && <Badge variant="outline" className="bg-united-amber/10 text-united-amber border-united-amber/30"><Star size={12} className="mr-1" /> CGPA: {formData.cgpa}</Badge>}
                       {user.role === 'faculty' && (user as any).designation && <Badge variant="secondary">{(user as any).designation}</Badge>}
                     </div>
-                    {formData.location && <p className="text-sm text-muted-foreground flex items-center gap-1 justify-center md:justify-start"><MapPin size={14} /> {formData.location}</p>}
+                    {formData.location && <p className="text-sm text-foreground/90 flex items-center gap-1 justify-center md:justify-start"><MapPin size={14} /> {formData.location}</p>}
                   </>
                 )}
               </div>
-              <Button onClick={() => navigate('/settings/profile')} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+              <Button type="button" onClick={handleEnableProfileEditing} className="bg-accent hover:bg-accent/90 text-accent-foreground">
                 <Edit size={16} className="mr-1" /> Edit Profile
               </Button>
             </div>
@@ -242,9 +297,9 @@ const ProfilePage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground flex items-center gap-2"><Mail size={14} /> {user.email}</p>
-                    {user.contactNo && <p className="text-sm text-muted-foreground flex items-center gap-2"><Phone size={14} /> {user.contactNo}</p>}
-                    {formData.location && <p className="text-sm text-muted-foreground flex items-center gap-2"><MapPin size={14} /> {formData.location}</p>}
+                    <p className="text-sm text-foreground/90 flex items-center gap-2"><Mail size={14} /> {user.email}</p>
+                    {user.contactNo && <p className="text-sm text-foreground/90 flex items-center gap-2"><Phone size={14} /> {user.contactNo}</p>}
+                    {formData.location && <p className="text-sm text-foreground/90 flex items-center gap-2"><MapPin size={14} /> {formData.location}</p>}
                   </div>
                 )}
               </CardContent>
@@ -253,16 +308,61 @@ const ProfilePage: React.FC = () => {
             {/* Social Links */}
             <Card>
               <CardContent className="p-4">
-                <h2 className="font-semibold mb-3 text-foreground">Social Links</h2>
-                <div className="space-y-2">
-                  {formData.portfolio && <a href={formData.portfolio} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Globe size={14} /> Portfolio</span><ExternalLink size={12} /></a>}
-                  {formData.github && <a href={formData.github} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Github size={14} /> GitHub</span><ExternalLink size={12} /></a>}
-                  {formData.linkedin && <a href={formData.linkedin} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Linkedin size={14} /> LinkedIn</span><ExternalLink size={12} /></a>}
-                  {formData.leetcode && <a href={formData.leetcode} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Award size={14} /> LeetCode</span><ExternalLink size={12} /></a>}
-                  {!formData.portfolio && !formData.github && !formData.linkedin && !formData.leetcode && (
-                    <p className="text-sm text-muted-foreground text-center py-3">No social links added yet.</p>
-                  )}
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="font-semibold text-foreground">Social Links</h2>
+                  {!editingSections.social && <EditButton section="social" />}
                 </div>
+                {editingSections.social ? (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Globe size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                      <Input
+                        className="pl-9"
+                        placeholder="Portfolio URL"
+                        value={formData.portfolio}
+                        onChange={e => setFormData({ ...formData, portfolio: e.target.value })}
+                      />
+                    </div>
+                    <div className="relative">
+                      <Github size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                      <Input
+                        className="pl-9"
+                        placeholder="GitHub URL"
+                        value={formData.github}
+                        onChange={e => setFormData({ ...formData, github: e.target.value })}
+                      />
+                    </div>
+                    <div className="relative">
+                      <Linkedin size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                      <Input
+                        className="pl-9"
+                        placeholder="LinkedIn URL"
+                        value={formData.linkedin}
+                        onChange={e => setFormData({ ...formData, linkedin: e.target.value })}
+                      />
+                    </div>
+                    <div className="relative">
+                      <Award size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                      <Input
+                        className="pl-9"
+                        placeholder="LeetCode URL"
+                        value={formData.leetcode}
+                        onChange={e => setFormData({ ...formData, leetcode: e.target.value })}
+                      />
+                    </div>
+                    <SaveCancelButtons section="social" />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {formData.portfolio && <a href={formData.portfolio} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Globe size={14} /> Portfolio</span><ExternalLink size={12} /></a>}
+                    {formData.github && <a href={formData.github} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Github size={14} /> GitHub</span><ExternalLink size={12} /></a>}
+                    {formData.linkedin && <a href={formData.linkedin} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Linkedin size={14} /> LinkedIn</span><ExternalLink size={12} /></a>}
+                    {formData.leetcode && <a href={formData.leetcode} target="_blank" rel="noreferrer" className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted text-sm"><span className="flex items-center gap-2"><Award size={14} /> LeetCode</span><ExternalLink size={12} /></a>}
+                    {!formData.portfolio && !formData.github && !formData.linkedin && !formData.leetcode && (
+                      <p className="text-sm text-foreground/80 text-center py-3">No social links added yet.</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -292,7 +392,7 @@ const ProfilePage: React.FC = () => {
                   <div className="flex flex-wrap gap-1">
                     {formData.skills.length > 0 ? formData.skills.map(skill => (
                       <Badge key={skill} variant="outline" className="text-primary border-primary/30">{skill}</Badge>
-                    )) : <p className="text-sm text-muted-foreground">No skills added yet</p>}
+                    )) : <p className="text-sm text-foreground/80">No skills added yet</p>}
                   </div>
                 )}
               </CardContent>
@@ -314,10 +414,54 @@ const ProfilePage: React.FC = () => {
                     <SaveCancelButtons section="about" />
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">{formData.bio || 'No bio added yet. Click edit to add your bio.'}</p>
+                  <p className="text-sm text-foreground/90">{formData.bio || 'No bio added yet. Click edit to add your bio.'}</p>
                 )}
               </CardContent>
             </Card>
+
+            {(detailItems.length > 0 || formData.coverLetter) && (
+              <Card>
+                <CardContent className="p-4 space-y-4">
+                  {detailItems.length > 0 && (
+                    <div>
+                      <h2 className="font-semibold text-foreground mb-3">Academic & Professional Details</h2>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        {detailItems.map((item) => (
+                          <div key={item.label} className="rounded-lg border border-border p-3">
+                            <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.label}</p>
+                            <p className="mt-1 font-medium text-foreground">{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.coverLetter && (
+                    <div>
+                      <h2 className="font-semibold text-foreground mb-2">Cover Letter</h2>
+                      <p className="text-sm text-foreground/90 whitespace-pre-line">{formData.coverLetter}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {documentItems.length > 0 && (
+              <Card>
+                <CardContent className="p-4">
+                  <h2 className="font-semibold text-foreground mb-3">Documents</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {documentItems.map((item) => (
+                      <Button key={item.label} variant="outline" size="sm" asChild>
+                        <a href={item.href} target="_blank" rel="noreferrer">
+                          {item.label}
+                        </a>
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Projects */}
             <Card>
@@ -332,8 +476,8 @@ const ProfilePage: React.FC = () => {
                       <div key={project.id} className="p-3 rounded-lg border border-border">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <h3 className="font-semibold text-sm">{project.title}</h3>
-                            <p className="text-xs text-muted-foreground mt-1">{project.description}</p>
+                            <h3 className="font-semibold text-sm text-foreground">{project.title}</h3>
+                            <p className="text-xs text-foreground/85 mt-1">{project.description}</p>
                             {project.skills?.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {project.skills.map((s: string) => <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>)}
@@ -346,7 +490,7 @@ const ProfilePage: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                ) : <p className="text-sm text-muted-foreground">No projects added yet.</p>}
+                ) : <p className="text-sm text-foreground/80">No projects added yet.</p>}
               </CardContent>
             </Card>
 
@@ -362,15 +506,15 @@ const ProfilePage: React.FC = () => {
                     {formData.achievements.map((a: any) => (
                       <div key={a.id} className="flex justify-between items-center p-3 rounded-lg border border-border">
                         <div>
-                          <h3 className="font-semibold text-sm flex items-center gap-1"><Award size={14} className="text-united-amber" /> {a.title}</h3>
-                          {a.description && <p className="text-xs text-muted-foreground mt-0.5">{a.description}</p>}
-                          {(a.issuer || a.date) && <p className="text-xs text-muted-foreground mt-0.5">{a.issuer}{a.issuer && a.date ? ' • ' : ''}{a.date}</p>}
+                          <h3 className="font-semibold text-sm text-foreground flex items-center gap-1"><Award size={14} className="text-united-amber" /> {a.title}</h3>
+                          {a.description && <p className="text-xs text-foreground/85 mt-0.5">{a.description}</p>}
+                          {(a.issuer || a.date) && <p className="text-xs text-foreground/75 mt-0.5">{a.issuer}{a.issuer && a.date ? ' • ' : ''}{a.date}</p>}
                         </div>
                         <button onClick={() => setFormData(p => ({ ...p, achievements: p.achievements.filter((ac: any) => ac.id !== a.id) }))} className="text-destructive hover:bg-destructive/10 p-1 rounded"><Trash2 size={14} /></button>
                       </div>
                     ))}
                   </div>
-                ) : <p className="text-sm text-muted-foreground">No achievements added yet.</p>}
+                ) : <p className="text-sm text-foreground/80">No achievements added yet.</p>}
               </CardContent>
             </Card>
           </div>

@@ -1,11 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, GraduationCap, Briefcase, Github, Linkedin, Globe, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  GraduationCap,
+  Briefcase,
+  Github,
+  Linkedin,
+  Globe,
+  Loader2,
+  Mail,
+  Phone,
+  Award,
+} from 'lucide-react';
 
 const UserProfilePage: React.FC = () => {
   const { id } = useParams();
@@ -29,34 +40,69 @@ const UserProfilePage: React.FC = () => {
     setLoading(false);
   };
 
+  const parseArr = (val: any): any[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!profileUser) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 text-center">
         <h2 className="text-xl font-bold mb-4">User not found</h2>
-        <Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4 mr-2" /> Go Back</Button>
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Go Back
+        </Button>
       </div>
     );
   }
-
-  const parseArr = (val: any): any[] => {
-    if (!val) return [];
-    if (Array.isArray(val)) return val;
-    if (typeof val === 'string') {
-      try { const p = JSON.parse(val); return Array.isArray(p) ? p : []; } catch { return []; }
-    }
-    return [];
-  };
 
   const fullName = `${profileUser.first_name || ''} ${profileUser.last_name || ''}`.trim() || 'Unknown';
   const initials = `${(profileUser.first_name || 'U')[0]}${(profileUser.last_name || '')[0] || ''}`;
   const skills: string[] = parseArr(profileUser.skills);
   const projects: any[] = parseArr(profileUser.projects);
   const achievements: any[] = parseArr(profileUser.achievements);
+  const specialization: string[] = parseArr(profileUser.specialization);
   const resumeUrl: string | undefined = profileUser.resume_url || undefined;
+
+  const detailItems = [
+    profileUser.role === 'student' && profileUser.roll_number ? { label: 'Roll Number', value: profileUser.roll_number } : null,
+    profileUser.role === 'student' && profileUser.department ? { label: 'Department', value: profileUser.department } : null,
+    profileUser.role === 'student' && profileUser.year_of_graduation ? { label: 'Graduation Year', value: String(profileUser.year_of_graduation) } : null,
+    profileUser.role === 'student' && profileUser.cgpa ? { label: 'CGPA', value: profileUser.cgpa } : null,
+    profileUser.role === 'student' && profileUser.experience ? { label: 'Experience', value: profileUser.experience } : null,
+    profileUser.role === 'faculty' && profileUser.employee_id ? { label: 'Employee ID', value: profileUser.employee_id } : null,
+    profileUser.role === 'faculty' && profileUser.designation ? { label: 'Designation', value: profileUser.designation } : null,
+    profileUser.role === 'faculty' && profileUser.date_of_joining ? { label: 'Date of Joining', value: new Date(profileUser.date_of_joining).toLocaleDateString() } : null,
+    profileUser.role === 'faculty' && profileUser.qualification ? { label: 'Qualification', value: profileUser.qualification } : null,
+    profileUser.role === 'faculty' && specialization.length ? { label: 'Specialization', value: specialization.join(', ') } : null,
+    profileUser.role === 'faculty' && profileUser.total_experience !== null && profileUser.total_experience !== undefined
+      ? { label: 'Total Experience', value: `${profileUser.total_experience} years` }
+      : null,
+    profileUser.role === 'faculty' && profileUser.teaching_experience !== null && profileUser.teaching_experience !== undefined
+      ? { label: 'Teaching Experience', value: `${profileUser.teaching_experience} years` }
+      : null,
+    profileUser.role === 'faculty' && profileUser.industry_experience !== null && profileUser.industry_experience !== undefined
+      ? { label: 'Industry Experience', value: `${profileUser.industry_experience} years` }
+      : null,
+    profileUser.location ? { label: 'Location', value: profileUser.location } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
@@ -76,48 +122,99 @@ const UserProfilePage: React.FC = () => {
             <AvatarFallback className="bg-primary text-primary-foreground text-xl">{initials}</AvatarFallback>
           </Avatar>
           <h1 className="text-xl font-bold">{fullName}</h1>
-          <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 mt-1 text-sm text-foreground/85">
             <Badge variant="secondary" className="capitalize">{profileUser.role}</Badge>
             {profileUser.role === 'student' && profileUser.department && (
               <>
-                <span>•</span>
-                <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3" />{profileUser.department}</span>
+                <span>&bull;</span>
+                <span className="flex items-center gap-1">
+                  <GraduationCap className="w-3 h-3" />
+                  {profileUser.department}
+                </span>
               </>
             )}
             {profileUser.role === 'faculty' && profileUser.designation && (
               <>
-                <span>•</span>
-                <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{profileUser.designation}</span>
+                <span>&bull;</span>
+                <span className="flex items-center gap-1">
+                  <Briefcase className="w-3 h-3" />
+                  {profileUser.designation}
+                </span>
               </>
             )}
           </div>
 
-          {profileUser.bio && <p className="text-sm mt-3 text-muted-foreground">{profileUser.bio}</p>}
+          {profileUser.bio && <p className="text-sm mt-3 text-foreground/90">{profileUser.bio}</p>}
 
-          <div className="flex gap-2 mt-3">
-            {profileUser.github && (
-              <Button variant="outline" size="sm" asChild><a href={profileUser.github} target="_blank" rel="noopener"><Github className="w-4 h-4" /></a></Button>
-            )}
-            {profileUser.linkedin && (
-              <Button variant="outline" size="sm" asChild><a href={profileUser.linkedin} target="_blank" rel="noopener"><Linkedin className="w-4 h-4" /></a></Button>
-            )}
-            {profileUser.portfolio && (
-              <Button variant="outline" size="sm" asChild><a href={profileUser.portfolio} target="_blank" rel="noopener"><Globe className="w-4 h-4" /></a></Button>
-            )}
-            {resumeUrl && (
-              <Button variant="default" size="sm" asChild><a href={resumeUrl} target="_blank" rel="noopener">Resume</a></Button>
-            )}
+          <div className="grid sm:grid-cols-2 gap-2 mt-4 text-sm text-foreground/90">
+            {profileUser.email && <div className="flex items-center gap-2"><Mail className="w-4 h-4" /> {profileUser.email}</div>}
+            {profileUser.contact_no && <div className="flex items-center gap-2"><Phone className="w-4 h-4" /> {profileUser.contact_no}</div>}
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-2 mt-4 text-sm text-muted-foreground">
-            {profileUser.department && <div><strong className="text-foreground">Department:</strong> {profileUser.department}</div>}
-            {profileUser.year_of_graduation && <div><strong className="text-foreground">Graduation:</strong> Class of {profileUser.year_of_graduation}</div>}
-            {profileUser.cgpa && <div><strong className="text-foreground">CGPA:</strong> {profileUser.cgpa}</div>}
-            {profileUser.designation && <div><strong className="text-foreground">Designation:</strong> {profileUser.designation}</div>}
-            {profileUser.location && <div><strong className="text-foreground">Location:</strong> {profileUser.location}</div>}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {profileUser.github && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={profileUser.github} target="_blank" rel="noopener noreferrer">
+                  <Github className="w-4 h-4" />
+                </a>
+              </Button>
+            )}
+            {profileUser.linkedin && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={profileUser.linkedin} target="_blank" rel="noopener noreferrer">
+                  <Linkedin className="w-4 h-4" />
+                </a>
+              </Button>
+            )}
+            {profileUser.portfolio && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={profileUser.portfolio} target="_blank" rel="noopener noreferrer">
+                  <Globe className="w-4 h-4" />
+                </a>
+              </Button>
+            )}
+            {profileUser.leetcode && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={profileUser.leetcode} target="_blank" rel="noopener noreferrer">
+                  LeetCode
+                </a>
+              </Button>
+            )}
+            {resumeUrl && (
+              <Button variant="default" size="sm" asChild>
+                <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
+                  Resume
+                </a>
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      {detailItems.length > 0 && (
+        <Card className="mb-4">
+          <CardContent className="p-6">
+            <h3 className="font-semibold mb-3 text-foreground">Profile Details</h3>
+            <div className="grid sm:grid-cols-2 gap-3 text-sm">
+              {detailItems.map((item) => (
+                <div key={item.label} className="rounded-lg border p-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.label}</p>
+                  <p className="mt-1 font-medium text-foreground">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {profileUser.cover_letter && (
+        <Card className="mb-4">
+          <CardContent className="p-6">
+            <h3 className="font-semibold mb-3 text-foreground">Cover Letter</h3>
+            <p className="text-sm text-foreground/90 whitespace-pre-line">{profileUser.cover_letter}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {skills.length > 0 && (
         <Card className="mb-4">
@@ -139,8 +236,13 @@ const UserProfilePage: React.FC = () => {
             <div className="space-y-3">
               {projects.map((proj: any, i: number) => (
                 <div key={proj.id || i} className="p-3 border rounded-lg">
-                  <h4 className="font-medium text-sm">{proj.title}</h4>
-                  <p className="text-xs text-muted-foreground mt-1">{proj.description}</p>
+                  <h4 className="font-medium text-sm text-foreground">{proj.title}</h4>
+                  <p className="text-xs text-foreground/85 mt-1">{proj.description}</p>
+                  {proj.link && (
+                    <a href={proj.link} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs text-primary hover:underline">
+                      View Project
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
@@ -154,11 +256,16 @@ const UserProfilePage: React.FC = () => {
             <h3 className="font-semibold mb-3 text-foreground">Achievements</h3>
             <div className="space-y-2">
               {achievements.map((ach: any, i: number) => (
-                <div key={ach.id || i} className="flex items-center gap-2">
-                  <span>🏆</span>
+                <div key={ach.id || i} className="flex items-start gap-2">
+                  <Award className="w-4 h-4 text-primary mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium">{typeof ach === 'string' ? ach : ach.title}</p>
-                    {ach.description && <p className="text-xs text-muted-foreground">{ach.description}</p>}
+                    <p className="text-sm font-medium text-foreground">{typeof ach === 'string' ? ach : ach.title}</p>
+                    {ach.description && <p className="text-xs text-foreground/85">{ach.description}</p>}
+                    {(ach.issuer || ach.date) && (
+                      <p className="text-xs text-foreground/75">
+                        {[ach.issuer, ach.date].filter(Boolean).join(' • ')}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}

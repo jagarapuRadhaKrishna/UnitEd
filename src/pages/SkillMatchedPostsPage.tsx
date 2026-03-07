@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +6,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Calendar, Briefcase, Target, Loader2 } from 'lucide-react';
+import { Calendar, Briefcase, Target, Loader2, Users } from 'lucide-react';
+import { fetchPostMemberCounts, isPostDeadlineReached, syncExpiredPosts } from '@/services/postAvailabilityService';
+import { getDescriptionPreviewText } from '@/lib/post-description';
 
 interface MatchedPost {
   id: string;
@@ -16,10 +18,13 @@ interface MatchedPost {
   skill_requirements: any[];
   created_at: string;
   status: string;
+  deadline: string | null;
   author_id: string;
   author_name: string;
   author_avatar: string | null;
   application_count: number;
+  required_members: number;
+  accepted_members: number;
   matchScore: number;
 }
 
@@ -28,16 +33,21 @@ const SkillMatchedPostsPage: React.FC = () => {
   const { user } = useAuth();
   const [matchedPosts, setMatchedPosts] = useState<MatchedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const hasLoadedOnceRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
-    fetchMatchedPosts();
-  }, [user]);
+    void fetchMatchedPosts(hasLoadedOnceRef.current);
+  }, [user, refreshTick]);
 
-  const fetchMatchedPosts = async () => {
+  const fetchMatchedPosts = useCallback(async (backgroundRefresh = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!backgroundRefresh || !hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
     try {
+      await syncExpiredPosts();
       const userSkills = (user.skills || []).map(s => s.toLowerCase());
 
       // Fetch active posts not authored by the current user
@@ -53,13 +63,20 @@ const SkillMatchedPostsPage: React.FC = () => {
       const authorIds = [...new Set((posts || []).map(p => p.author_id))];
       const postIds = (posts || []).map(p => p.id);
 
-      const [profilesRes, appsRes] = await Promise.all([
+      const [profilesRes, appsRes, acceptedAppsRes, acceptedInvsRes, rpcMemberCounts] = await Promise.all([
         authorIds.length > 0
           ? supabase.from('profiles').select('id, first_name, last_name, profile_picture_url').in('id', authorIds)
           : { data: [], error: null },
         postIds.length > 0
           ? supabase.from('applications').select('post_id').in('post_id', postIds)
           : { data: [], error: null },
+        postIds.length > 0
+          ? supabase.from('applications').select('post_id, applicant_id').in('post_id', postIds).eq('status', 'accepted')
+          : { data: [], error: null },
+        postIds.length > 0
+          ? supabase.from('invitations').select('post_id, invitee_id').in('post_id', postIds).eq('status', 'accepted')
+          : { data: [], error: null },
+        fetchPostMemberCounts(postIds),
       ]);
 
       const profileMap: Record<string, any> = {};
@@ -67,6 +84,16 @@ const SkillMatchedPostsPage: React.FC = () => {
 
       const appCountMap: Record<string, number> = {};
       (appsRes.data || []).forEach(a => { appCountMap[a.post_id] = (appCountMap[a.post_id] || 0) + 1; });
+
+      const acceptedMemberSets: Record<string, Set<string>> = {};
+      (acceptedAppsRes.data || []).forEach((a: any) => {
+        acceptedMemberSets[a.post_id] ??= new Set<string>();
+        acceptedMemberSets[a.post_id].add(a.applicant_id);
+      });
+      (acceptedInvsRes.data || []).forEach((a: any) => {
+        acceptedMemberSets[a.post_id] ??= new Set<string>();
+        acceptedMemberSets[a.post_id].add(a.invitee_id);
+      });
 
       // Score and sort
       const scored = (posts || []).map(post => {
@@ -81,6 +108,13 @@ const SkillMatchedPostsPage: React.FC = () => {
         ).length;
         const matchScore = requirements.length > 0 ? Math.round((satisfiedCount / requirements.length) * 100) : 0;
         const author = profileMap[post.author_id];
+        const requiredMembers = post.max_members ?? requirements.reduce((sum: number, req: any) => sum + req.requiredCount, 0);
+        const acceptedMembers = Math.max(
+          0,
+          rpcMemberCounts.get(post.id) ?? 0,
+          post.current_members ?? 0,
+          acceptedMemberSets[post.id]?.size ?? 0
+        );
         return {
           id: post.id,
           title: post.title,
@@ -89,21 +123,70 @@ const SkillMatchedPostsPage: React.FC = () => {
           skill_requirements: skills,
           created_at: post.created_at,
           status: post.status,
+          deadline: post.deadline || null,
           author_id: post.author_id,
           author_name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
           author_avatar: author?.profile_picture_url || null,
           application_count: appCountMap[post.id] || 0,
+          required_members: requiredMembers,
+          accepted_members: acceptedMembers,
           matchScore,
         };
-      }).filter(p => p.matchScore > 0).sort((a, b) => b.matchScore - a.matchScore);
+      }).filter(
+        p =>
+          p.matchScore > 0 &&
+          !isPostDeadlineReached(p.deadline) &&
+          !(p.required_members > 0 && p.accepted_members >= p.required_members)
+      )
+        .sort((a, b) => b.matchScore - a.matchScore);
 
       setMatchedPosts(scored);
     } catch (err) {
       console.error('Error fetching matched posts:', err);
     } finally {
+      hasLoadedOnceRef.current = true;
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('skill-matched-posts-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => setRefreshTick((tick) => tick + 1))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invitations' }, () => setRefreshTick((tick) => tick + 1))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chatroom_members' }, () => setRefreshTick((tick) => tick + 1))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => setRefreshTick((tick) => tick + 1))
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const intervalId = window.setInterval(() => {
+      setRefreshTick((tick) => tick + 1);
+    }, 10000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setRefreshTick((tick) => tick + 1);
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user?.id]);
 
   if (loading) {
     return (
@@ -160,7 +243,7 @@ const SkillMatchedPostsPage: React.FC = () => {
                   </div>
 
                   <h3 className="font-semibold text-foreground mb-1 line-clamp-2">{post.title}</h3>
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{post.description}</p>
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{getDescriptionPreviewText(post.description)}</p>
 
                   <div className="flex items-center gap-2 mb-3">
                     <Briefcase className="w-3.5 h-3.5 text-muted-foreground" />
@@ -178,8 +261,9 @@ const SkillMatchedPostsPage: React.FC = () => {
                     })}
                   </div>
 
-                  <div className="flex gap-3 text-xs text-muted-foreground mt-auto">
+                  <div className="flex gap-3 text-xs text-muted-foreground mt-auto flex-wrap">
                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(post.created_at).toLocaleDateString()}</span>
+                    <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {post.accepted_members}/{post.required_members}</span>
                     <span>{post.application_count} applications</span>
                   </div>
 

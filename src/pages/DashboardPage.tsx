@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { TrendingUp, FileText, CheckCircle, Clock, Award, Target, Activity, Users, Plus, Eye } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { isPostDeadlineReached, syncExpiredPosts } from '@/services/postAvailabilityService';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -75,6 +76,7 @@ const DashboardPage: React.FC = () => {
     if (!user?.id) return;
     const fetchDashboard = async () => {
       setLoading(true);
+      await syncExpiredPosts();
 
       // Fetch all data in parallel
       const [
@@ -90,10 +92,11 @@ const DashboardPage: React.FC = () => {
       const posts = myPosts || [];
       const apps = myApps || [];
       const skills = profile?.skills || [];
+      const visiblePosts = posts.filter((post) => post.status === 'active' && !isPostDeadlineReached(post.deadline));
       setUserSkills(skills);
 
       // Get application counts for user's posts
-      const postIds = posts.map(p => p.id);
+      const postIds = visiblePosts.map(p => p.id);
       let receivedApps: any[] = [];
       if (postIds.length > 0) {
         const { data } = await supabase.from('applications').select('post_id, status').in('post_id', postIds);
@@ -117,12 +120,12 @@ const DashboardPage: React.FC = () => {
         acceptedApplications: apps.filter(a => a.status === 'accepted').length,
         pendingApplications: apps.filter(a => a.status === 'applied' || a.status === 'shortlisted').length,
         rejectedApplications: apps.filter(a => a.status === 'rejected').length,
-        postsCreated: posts.length,
+        postsCreated: visiblePosts.length,
         totalApplicationsReceived: receivedApps.length,
-        activePostsCount: posts.filter(p => p.status === 'active').length,
+        activePostsCount: visiblePosts.length,
       });
 
-      setRecentPosts(posts.slice(0, 5).map(p => ({
+      setRecentPosts(visiblePosts.slice(0, 5).map(p => ({
         id: p.id,
         title: p.title,
         purpose: p.purpose,
@@ -155,7 +158,7 @@ const DashboardPage: React.FC = () => {
           (applicantProfiles || []).forEach(p => nameMap.set(p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()));
 
           const postTitleMapFull = new Map<string, string>();
-          posts.forEach(p => postTitleMapFull.set(p.id, p.title));
+          visiblePosts.forEach(p => postTitleMapFull.set(p.id, p.title));
 
           receivedAppsList = receivedFull.map(a => ({
             id: a.id, status: a.status, applied_at: a.applied_at,

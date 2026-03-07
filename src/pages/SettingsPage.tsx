@@ -163,7 +163,7 @@ const SettingsPage: React.FC = () => {
                 <p className="font-medium text-sm capitalize">{user?.role}</p>
               </div>
               <Separator />
-              <Button variant="outline" onClick={() => navigate('/profile')}><User className="w-4 h-4 mr-2" /> Edit Profile</Button>
+              <Button variant="outline" onClick={() => navigate('/settings/profile')}><User className="w-4 h-4 mr-2" /> Edit Profile</Button>
               <Separator />
               <div>
                 <h4 className="font-medium text-sm text-destructive mb-2" style={headingStyle}>Danger Zone</h4>

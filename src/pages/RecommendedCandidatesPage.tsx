@@ -64,6 +64,7 @@ const RecommendedCandidatesPage: React.FC = () => {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, profile_picture_url, role, department, cgpa, designation, skills')
+        .eq('role', 'student')
         .neq('id', user?.id || '');
 
       // Fetch already invited users for this post
@@ -77,7 +78,7 @@ const RecommendedCandidatesPage: React.FC = () => {
       setInvitedIds(alreadyInvited);
 
       // Score candidates
-      const scored = (profiles || []).map(p => {
+      const scored = (profiles || []).filter((p) => p.role === 'student').map(p => {
         const pSkills = (p.skills || []).map((s: string) => s.toLowerCase());
         const satisfied = requirements.filter((req: any) =>
           req.skills.every((rs: string) => pSkills.some((ps: string) => ps.includes(rs.toLowerCase()) || rs.toLowerCase().includes(ps)))

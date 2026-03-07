@@ -1,28 +1,12 @@
 ﻿import React from 'react';
 import { Box, Container, Typography, Link, IconButton } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { GraduationCap, Mail, MapPin, Phone, Facebook, Linkedin, Instagram } from 'lucide-react';
-
-// Slim X mark without background to match the latest brand glyph
-const XGlyph: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    role="img"
-    aria-label="X"
-  >
-    <path
-      d="M4 4h4l4 5.5L16 4h4l-6.5 8.2L20 20h-4l-4-5.5L8 20H4l6.5-8.2L4 4Z"
-      fill="currentColor"
-    />
-  </svg>
-);
+import { GraduationCap, Mail, MapPin, Phone, Linkedin, Github, Globe } from 'lucide-react';
+import { DEVELOPERS } from '@/data/developers';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
+  const developer = DEVELOPERS[0];
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -83,10 +67,10 @@ const Footer: React.FC = () => {
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               {[
-                { icon: Facebook, href: 'https://facebook.com' },
-                { icon: XGlyph, href: 'https://x.com' },
-                { icon: Linkedin, href: 'https://linkedin.com' },
-                { icon: Instagram, href: 'https://instagram.com' },
+                { icon: Mail, href: `mailto:${developer?.email || 'jagarapuradhakrishna.work@gmail.com'}`, label: 'Gmail' },
+                { icon: Linkedin, href: developer?.linkedin || '#', label: 'LinkedIn' },
+                { icon: Github, href: developer?.github || '#', label: 'GitHub' },
+                { icon: Globe, href: developer?.portfolio || '#', label: 'Portfolio' },
               ].map((social, index) => {
                 const Icon = social.icon;
                 return (
@@ -95,6 +79,7 @@ const Footer: React.FC = () => {
                     href={social.href}
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label={social.label}
                     sx={{
                       color: '#9CA3AF',
                       '&:hover': {
@@ -180,25 +165,52 @@ const Footer: React.FC = () => {
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5, mb: 2 }}>
               <Mail size={18} color="#9CA3AF" />
-              <Typography variant="body2" sx={{ color: '#9CA3AF' }}>
-                210040017@anits.edu.in
-              </Typography>
+              <Link
+                href={`mailto:${developer?.email || 'jagarapuradhakrishna.work@gmail.com'}`}
+                sx={{
+                  color: '#9CA3AF',
+                  textDecoration: 'none',
+                  '&:hover': {
+                    color: '#2563EB',
+                  },
+                }}
+              >
+                {developer?.email || 'jagarapuradhakrishna.work@gmail.com'}
+              </Link>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5, mb: 2 }}>
               <Phone size={18} color="#9CA3AF" />
-              <Typography variant="body2" sx={{ color: '#9CA3AF' }}>
-                +91 9985949494
+              <Typography variant="body2" sx={{ color: '#9CA3AF', lineHeight: 1.7 }}>
+                +91 9550897539
+                <br />
+                +91 7075827539
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5 }}>
               <MapPin size={18} color="#9CA3AF" />
-              <Typography variant="body2" sx={{ color: '#9CA3AF', lineHeight: 1.6 }}>
-                Anil Neerukonda Institute of Technology & Sciences
-                <br />
-                Sangivalasa, Bheemunipatnam Mandal
-                <br />
-                Visakhapatnam, Andhra Pradesh 531162
-              </Typography>
+              <Box>
+                <Link
+                  href="https://anits.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{
+                    color: '#9CA3AF',
+                    textDecoration: 'none',
+                    lineHeight: 1.6,
+                    '&:hover': {
+                      color: '#2563EB',
+                    },
+                  }}
+                >
+                  Anil Neerukonda Institute of Technology & Sciences
+                </Link>
+                <Typography variant="body2" sx={{ color: '#9CA3AF', lineHeight: 1.6 }}>
+                  <br />
+                  Sangivalasa, Bheemunipatnam Mandal
+                  <br />
+                  Visakhapatnam, Andhra Pradesh 531162
+                </Typography>
+              </Box>
             </Box>
           </Box>
         </Box>

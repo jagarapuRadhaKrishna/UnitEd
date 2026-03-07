@@ -9,17 +9,20 @@ import WorkflowSection from '@/components/landing/WorkflowSection';
 import TestimonialsSection from '@/components/landing/TestimonialsSection';
 import Footer from '@/components/landing/Footer';
 import unitedTheme from '@/theme/unitedTheme';
+import { useLandingStats } from '@/hooks/useLandingStats';
 
 const LandingPage: React.FC = () => {
+  const stats = useLandingStats();
+
   return (
     <ThemeProvider theme={unitedTheme}>
       <Box sx={{ minHeight: '100vh', backgroundColor: '#0f172a' }}>
         <PublicNavbar />
-        <HeroSection />
+        <HeroSection stats={stats} />
         <AboutSection />
         <FeaturesSection />
         <WorkflowSection />
-        <TestimonialsSection />
+        <TestimonialsSection stats={stats} />
         <Footer />
       </Box>
     </ThemeProvider>

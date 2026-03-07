@@ -106,8 +106,19 @@ const AuthenticatedNavbar: React.FC = () => {
       )
       .subscribe();
 
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        fetchCount();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityRefresh);
+    document.addEventListener('visibilitychange', handleVisibilityRefresh);
+
     return () => {
       window.clearInterval(interval);
+      window.removeEventListener('focus', handleVisibilityRefresh);
+      document.removeEventListener('visibilitychange', handleVisibilityRefresh);
       supabase.removeChannel(channel);
     };
   }, [user?.id, location.pathname]);
@@ -119,39 +130,58 @@ const AuthenticatedNavbar: React.FC = () => {
     }
   }, [location.pathname]);
 
+  const fetchReceivedApplicationsCount = useCallback(async () => {
+    if (!user?.id || user.role !== 'faculty') {
+      setReceivedAppCount(0);
+      return;
+    }
+
+    const { data: myPosts } = await supabase.from('posts').select('id').eq('author_id', user.id);
+    if (!myPosts || myPosts.length === 0) {
+      setReceivedAppCount(0);
+      return;
+    }
+
+    const postIds = myPosts.map((post) => post.id);
+    const { count } = await supabase
+      .from('applications')
+      .select('*', { count: 'exact', head: true })
+      .in('post_id', postIds)
+      .eq('status', 'applied');
+    setReceivedAppCount(count || 0);
+  }, [user?.id, user?.role]);
+
   useEffect(() => {
     if (!user?.id || user.role !== 'faculty') {
       setReceivedAppCount(0);
       return;
     }
 
-    const fetchAppCount = async () => {
-      const { data: myPosts } = await supabase.from('posts').select('id').eq('author_id', user.id);
-      if (!myPosts || myPosts.length === 0) {
-        setReceivedAppCount(0);
-        return;
-      }
-
-      const postIds = myPosts.map((post) => post.id);
-      const { count } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .in('post_id', postIds)
-        .eq('status', 'applied');
-      setReceivedAppCount(count || 0);
-    };
-
-    fetchAppCount();
+    fetchReceivedApplicationsCount();
+    const interval = window.setInterval(fetchReceivedApplicationsCount, 15000);
 
     const channel = supabase
       .channel('navbar-received-apps')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, fetchAppCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, fetchReceivedApplicationsCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `author_id=eq.${user.id}` }, fetchReceivedApplicationsCount)
       .subscribe();
 
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        fetchReceivedApplicationsCount();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityRefresh);
+    document.addEventListener('visibilitychange', handleVisibilityRefresh);
+
     return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleVisibilityRefresh);
+      document.removeEventListener('visibilitychange', handleVisibilityRefresh);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, fetchReceivedApplicationsCount]);
 
   // Clear the badge immediately when the invitations page is viewed
   useEffect(() => {
@@ -160,6 +190,13 @@ const AuthenticatedNavbar: React.FC = () => {
       fetchInvCount();
     }
   }, [location.pathname, fetchInvCount]);
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/applications') && user?.role === 'faculty') {
+      setReceivedAppCount(0);
+      fetchReceivedApplicationsCount();
+    }
+  }, [location.pathname, user?.role, fetchReceivedApplicationsCount]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -226,8 +263,11 @@ const AuthenticatedNavbar: React.FC = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-background border-b border-border shadow-sm">
-      <div className="h-full max-w-[1440px] mx-auto px-4 flex items-center gap-3">
-        <button onClick={() => navigate('/home')} className="flex flex-col shrink-0 items-start leading-none pr-1">
+      <div className="h-full max-w-[1440px] mx-auto px-4 lg:px-6 flex items-center gap-4 lg:gap-6">
+        <button
+          onClick={() => navigate('/home')}
+          className="flex flex-col shrink-0 items-start leading-none pr-3 lg:pr-5"
+        >
           <span className="text-xl font-bold text-foreground">
             Unit<span className="text-primary">Ed</span> {'\u{1F91D}'}
           </span>
@@ -236,8 +276,8 @@ const AuthenticatedNavbar: React.FC = () => {
           </span>
         </button>
 
-        <nav className="hidden lg:flex flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 pr-1">
+        <nav className="hidden lg:flex flex-1 min-w-0 ml-1">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 pr-1">
             <NavLinks />
           </div>
         </nav>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { fetchPostMemberCounts, isPostDeadlineReached, syncExpiredPosts } from '@/services/postAvailabilityService';
+import { getDescriptionHtmlForDisplay } from '@/lib/post-description';
 import {
   ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase, UserPlus, Trash2, Edit2,
 } from 'lucide-react';
@@ -31,6 +33,7 @@ interface PostDetail {
   author_id: string;
   skill_requirements: SkillRequirement[];
   created_at: string;
+  deadline: string | null;
   current_members: number;
   max_members: number | null;
   author: { id: string; name: string; avatar?: string; type: string };
@@ -55,6 +58,8 @@ const PostDetailPage: React.FC = () => {
   const [inviting, setInviting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const hasLoadedOnceRef = useRef(false);
 
   const returnContext = (location.state as { from?: string; activeTab?: string } | null) || null;
   const handleBack = () => {
@@ -73,8 +78,11 @@ const PostDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (!id) return;
-    const fetchPost = async () => {
-      setLoading(true);
+    const fetchPost = async (backgroundRefresh = false) => {
+      if (!backgroundRefresh || !hasLoadedOnceRef.current) {
+        setLoading(true);
+      }
+      await syncExpiredPosts();
       const { data, error } = await supabase
         .from('posts')
         .select('*')
@@ -98,6 +106,7 @@ const PostDetailPage: React.FC = () => {
         { data: acceptedApps },
         { data: acceptedInvs },
         chatMembersRes,
+        rpcMemberCounts,
       ] = await Promise.all([
         supabase
           .from('applications')
@@ -116,6 +125,7 @@ const PostDetailPage: React.FC = () => {
         data.chatroom_id
           ? supabase.from('chatroom_members').select('user_id').eq('chatroom_id', data.chatroom_id)
           : Promise.resolve({ data: [] as any[] }),
+        fetchPostMemberCounts([id]),
       ]);
 
       const memberSet = new Set<string>();
@@ -124,6 +134,8 @@ const PostDetailPage: React.FC = () => {
       (chatMembersRes.data || []).forEach((m: any) => memberSet.add(m.user_id));
 
       const dynamicAccepted = memberSet.has(data.author_id) ? memberSet.size - 1 : memberSet.size;
+      const rpcAccepted = rpcMemberCounts.get(id) ?? 0;
+      const deadlineReached = isPostDeadlineReached(data.deadline);
 
       // Check if current user already applied
       if (user?.id) {
@@ -147,11 +159,12 @@ const PostDetailPage: React.FC = () => {
         title: data.title,
         description: data.description,
         purpose: data.purpose,
-        status: data.status,
+        status: deadlineReached && data.status === 'active' ? 'closed' : data.status,
         author_id: data.author_id,
         skill_requirements: reqs,
         created_at: data.created_at,
-        current_members: Math.max(0, dynamicAccepted > 0 ? dynamicAccepted : (data.current_members ?? 0)),
+        deadline: data.deadline,
+        current_members: Math.max(0, rpcAccepted, dynamicAccepted, data.current_members ?? 0),
         max_members: data.max_members,
         author: {
           id: data.author_id,
@@ -161,10 +174,49 @@ const PostDetailPage: React.FC = () => {
         },
         applicationCount: appCount || 0,
       });
+      hasLoadedOnceRef.current = true;
       setLoading(false);
     };
-    fetchPost();
-  }, [id, user?.id]);
+    void fetchPost(hasLoadedOnceRef.current);
+  }, [id, user?.id, refreshTick]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`post-detail-live-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications', filter: `post_id=eq.${id}` }, () => setRefreshTick((tick) => tick + 1))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invitations', filter: `post_id=eq.${id}` }, () => setRefreshTick((tick) => tick + 1))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `id=eq.${id}` }, () => setRefreshTick((tick) => tick + 1))
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const intervalId = window.setInterval(() => {
+      setRefreshTick((tick) => tick + 1);
+    }, 10000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setRefreshTick((tick) => tick + 1);
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [id]);
 
   if (loading) {
     return (
@@ -191,9 +243,16 @@ const PostDetailPage: React.FC = () => {
   const totalRequired = post.max_members ?? derivedRequired;
   const totalAccepted = post.current_members ?? derivedAccepted;
   const progress = totalRequired > 0 ? (totalAccepted / totalRequired) * 100 : 0;
+  const participantsFilled = totalRequired > 0 && totalAccepted >= totalRequired;
+  const deadlineReached = isPostDeadlineReached(post.deadline);
+  const isUnavailable = post.status !== 'active' || deadlineReached;
 
   const handleInvite = async () => {
     if (!user?.id || !id || !post) return;
+    if (isUnavailable) {
+      toast({ title: 'Post unavailable', description: 'This post is no longer accepting new activity.', variant: 'destructive' });
+      return;
+    }
     setInviting(true);
     try {
       const { error } = await supabase.from('invitations').insert({
@@ -226,6 +285,10 @@ const PostDetailPage: React.FC = () => {
 
   const handleApply = async () => {
     if (!user?.id || !id) return;
+    if (isUnavailable) {
+      toast({ title: 'Application unavailable', description: 'This application is no longer available.', variant: 'destructive' });
+      return;
+    }
     setSubmitting(true);
     const { error } = await supabase.from('applications').insert({
       post_id: id,
@@ -274,10 +337,12 @@ const PostDetailPage: React.FC = () => {
                 </Badge>
               </div>
               <h1 className="text-2xl font-bold text-foreground mb-2">{post.title}</h1>
-              <div
-                className="text-muted-foreground mb-4 prose prose-invert max-w-none whitespace-pre-wrap"
-                dangerouslySetInnerHTML={{ __html: post.description }}
-              />
+              <div className="text-muted-foreground mb-4 whitespace-pre-wrap">
+                <div
+                  className="[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_a]:break-all [&_li]:mb-1 [&_p]:mb-3 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
+                  dangerouslySetInnerHTML={{ __html: getDescriptionHtmlForDisplay(post.description) }}
+                />
+              </div>
             </div>
           </div>
 
@@ -293,7 +358,7 @@ const PostDetailPage: React.FC = () => {
                 <p className="text-xs text-muted-foreground capitalize">{post.author.type}</p>
               </div>
             </div>
-            {!isAuthor && post.status === 'active' && (
+            {!isAuthor && !isUnavailable && (
               <Button
                 size="sm"
                 variant="outline"
@@ -308,14 +373,20 @@ const PostDetailPage: React.FC = () => {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="w-4 h-4" />
               <span>{new Date(post.created_at).toLocaleDateString()}</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="w-4 h-4" />
+              <span>{post.deadline ? `Available through ${new Date(post.deadline).toLocaleDateString()}` : 'No expiry date'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Users className="w-4 h-4" />
-              <span>{totalAccepted}/{totalRequired} members</span>
+              <span className={participantsFilled ? 'font-semibold text-united-green' : undefined}>
+                {participantsFilled ? 'Participants Filled' : `${totalAccepted}/${totalRequired} members`}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Briefcase className="w-4 h-4" />
@@ -377,10 +448,22 @@ const PostDetailPage: React.FC = () => {
               </>
             ) : user?.role !== 'faculty' ? (
               <Button
-                onClick={() => setOpenApplyDialog(true)}
-                disabled={hasApplied || post.status !== 'active'}
+                onClick={() => {
+                  if (isUnavailable) {
+                    toast({ title: 'Application unavailable', description: 'This application is no longer available.', variant: 'destructive' });
+                    return;
+                  }
+                  setOpenApplyDialog(true);
+                }}
+                disabled={hasApplied}
               >
-                {hasApplied ? <><CheckCircle className="w-4 h-4 mr-2" /> Applied</> : <><Send className="w-4 h-4 mr-2" /> Apply Now</>}
+                {hasApplied ? (
+                  <><CheckCircle className="w-4 h-4 mr-2" /> Applied</>
+                ) : isUnavailable ? (
+                  <>This application is no longer available</>
+                ) : (
+                  <><Send className="w-4 h-4 mr-2" /> Apply Now</>
+                )}
               </Button>
             ) : null}
           </div>

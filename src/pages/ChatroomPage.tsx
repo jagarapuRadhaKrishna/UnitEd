@@ -552,23 +552,8 @@ const ChatroomPage: React.FC = () => {
 
             return (
               <div key={msg.id} className={`group flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                <div className="flex items-end gap-1">
-                  {isOwn && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await supabase.from('messages').delete().eq('id', msg.id);
-                          setMessages(prev => prev.filter(m => m.id !== msg.id));
-                          toast.success('Message deleted');
-                        } catch { toast.error('Failed to delete'); }
-                      }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-destructive"
-                      title="Delete message"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  <div className={`max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'} rounded-lg px-3 py-2`}>
+                <div className="flex items-start gap-2">
+                  <div className={`w-fit min-w-[8.5rem] max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'} rounded-2xl px-3 py-2 shadow-sm`}>
                     {!isOwn && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{msg.sender_name}</p>}
                     {msg.type === 'image' && msg.file_url && (
                       <div className="mb-1">
@@ -582,11 +567,26 @@ const ChatroomPage: React.FC = () => {
                         <Download className="w-4 h-4 shrink-0" />
                       </a>
                     )}
-                    {msg.type === 'text' && <p className="text-sm">{msg.content}</p>}
-                    <p className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                    {msg.type === 'text' && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
+                    <p className={`mt-1 text-[10px] whitespace-nowrap text-right ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
+                  {isOwn && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await supabase.from('messages').delete().eq('id', msg.id);
+                          setMessages(prev => prev.filter(m => m.id !== msg.id));
+                          toast.success('Message deleted');
+                        } catch { toast.error('Failed to delete'); }
+                      }}
+                      className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-destructive"
+                      title="Delete message"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             );

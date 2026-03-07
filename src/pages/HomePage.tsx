@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Filter, Users, Calendar, MessageSquare, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { fetchPostMemberCounts, isPostDeadlineReached, syncExpiredPosts } from '@/services/postAvailabilityService';
+import { getDescriptionPreviewText } from '@/lib/post-description';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +40,7 @@ interface HomePost {
   acceptedMembers: number;
   purpose: string;
   createdAt: string;
+  deadline?: string | null;
   isOwned: boolean;
 }
 
@@ -49,15 +52,20 @@ const HomePage: React.FC = () => {
   const initialTab = (location.state as any)?.activeTab ?? 'all';
   const [filterTab, setFilterTab] = useState(initialTab);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [skillSearchTerm, setSkillSearchTerm] = useState('');
   const [posts, setPosts] = useState<HomePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [confirmDeletePostId, setConfirmDeletePostId] = useState<string | null>(null);
   const [animatingDeletePostId, setAnimatingDeletePostId] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const hasLoadedOnceRef = useRef(false);
 
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
+  const fetchPosts = useCallback(async (backgroundRefresh = false) => {
+    if (!backgroundRefresh || !hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
+    await syncExpiredPosts();
     const { data, error } = await supabase
       .from('posts')
       .select('*, profiles!posts_author_id_fkey(id, first_name, last_name, role, profile_picture_url)')
@@ -65,6 +73,7 @@ const HomePage: React.FC = () => {
         .order('created_at', { ascending: false });
 
       const memberSets = new Map<string, Set<string>>();
+      let rpcMemberCounts = new Map<string, number>();
       const chatroomMap = new Map<string, string>(); // postId -> chatroomId
       if (data && data.length > 0) {
         data.forEach((p: any) => {
@@ -72,7 +81,7 @@ const HomePage: React.FC = () => {
         });
 
         const postIds = data.map((p: any) => p.id);
-        const [{ data: acceptedApps }, { data: acceptedInvs }, chatMembersRes] = await Promise.all([
+        const [{ data: acceptedApps }, { data: acceptedInvs }, chatMembersRes, rpcCounts] = await Promise.all([
           supabase
             .from('applications')
             .select('post_id, applicant_id')
@@ -89,7 +98,10 @@ const HomePage: React.FC = () => {
                 .select('chatroom_id, user_id')
                 .in('chatroom_id', Array.from(chatroomMap.values()))
             : Promise.resolve({ data: [] as any[] }),
+          fetchPostMemberCounts(postIds),
         ]);
+
+        rpcMemberCounts = rpcCounts;
 
         (acceptedApps || []).forEach((a) => {
           if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
@@ -109,6 +121,33 @@ const HomePage: React.FC = () => {
         });
       }
 
+        const resolveAcceptedMembers = (postRow: any, reqs: SkillRequirement[]) => {
+        const rpcCount = rpcMemberCounts.get(postRow.id) ?? 0;
+        const set = memberSets.get(postRow.id);
+        const setSize = set ? set.size : 0;
+        const setMinusAuthor = set ? (set.has(postRow.author_id) ? setSize - 1 : setSize) : 0;
+        const fallback = reqs.reduce((sum, requirement) => sum + (requirement.acceptedCount || 0), 0);
+        return Math.max(0, rpcCount, postRow.current_members ?? 0, setMinusAuthor, fallback);
+      };
+
+      const syncVisibleCount = async (postId: string, acceptedMembers: number, requiredMembers: number, currentStatus: string) => {
+        const nextStatus =
+          requiredMembers > 0 && acceptedMembers >= requiredMembers && currentStatus === 'active'
+            ? 'filled'
+            : requiredMembers > 0 && acceptedMembers < requiredMembers && currentStatus === 'filled'
+              ? 'active'
+              : currentStatus;
+
+        try {
+          await supabase
+            .from('posts')
+            .update({ current_members: acceptedMembers, status: nextStatus })
+            .eq('id', postId);
+        } catch (syncError) {
+          console.error('Failed to sync post count:', syncError);
+        }
+      };
+
       if (error) {
         // If foreign key doesn't exist, try without join
         const { data: plainData, error: plainError } = await supabase
@@ -123,7 +162,7 @@ const HomePage: React.FC = () => {
           chatroomMap.clear();
           if (plainData.length > 0) {
             const fallbackIds = plainData.map(p => p.id);
-            const [{ data: acceptedApps }, { data: acceptedInvs }] = await Promise.all([
+            const [{ data: acceptedApps }, { data: acceptedInvs }, rpcCounts] = await Promise.all([
               supabase
                 .from('applications')
                 .select('post_id, applicant_id')
@@ -134,7 +173,9 @@ const HomePage: React.FC = () => {
                 .select('post_id, invitee_id')
                 .in('post_id', fallbackIds)
                 .eq('status', 'accepted'),
+              fetchPostMemberCounts(fallbackIds),
             ]);
+            rpcMemberCounts = rpcCounts;
             (acceptedApps || []).forEach((a) => {
               if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
               memberSets.get(a.post_id)!.add(a.applicant_id);
@@ -169,6 +210,17 @@ const HomePage: React.FC = () => {
 
           const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 
+          const syncedUpdates = plainData.map((p) => {
+            const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
+              skills: r.skills || (r.skill ? [r.skill] : []),
+              requiredCount: r.requiredCount,
+              acceptedCount: r.acceptedCount || 0,
+            }));
+            const requiredMembers = p.max_members ?? reqs.reduce((sum, requirement) => sum + requirement.requiredCount, 0);
+            const acceptedMembers = resolveAcceptedMembers(p, reqs);
+            return { id: p.id, authorId: p.author_id, acceptedMembers, requiredMembers, currentMembers: p.current_members ?? 0, status: p.status };
+          }).filter((entry) => entry.acceptedMembers !== entry.currentMembers && entry.authorId === user?.id);
+
           setPosts(plainData.map(p => {
             const author = profileMap.get(p.author_id);
             const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
@@ -176,6 +228,8 @@ const HomePage: React.FC = () => {
               requiredCount: r.requiredCount,
               acceptedCount: r.acceptedCount || 0,
             }));
+            const requiredMembers = p.max_members ?? reqs.reduce((s, r) => s + r.requiredCount, 0);
+            const acceptedMembers = resolveAcceptedMembers(p, reqs);
             return {
               id: p.id,
               title: p.title,
@@ -189,26 +243,31 @@ const HomePage: React.FC = () => {
               },
               skills: reqs.flatMap(r => r.skills),
               requirements: reqs,
-              requiredMembers: p.max_members ?? reqs.reduce((s, r) => s + r.requiredCount, 0),
-              acceptedMembers: (() => {
-                const set = memberSets.get(p.id);
-                const setSize = set ? set.size : 0;
-                const setMinusAuthor = set ? (set.has(p.author_id) ? setSize - 1 : setSize) : undefined;
-                const fallback = reqs.reduce((s, r) => s + (r.acceptedCount || 0), 0);
-                return Math.max(
-                  0,
-                  p.current_members ?? 0,
-                  setMinusAuthor ?? 0,
-                  fallback
-                );
-              })(),
+              requiredMembers,
+              acceptedMembers,
               purpose: p.purpose,
               createdAt: p.created_at,
+              deadline: p.deadline ?? null,
               isOwned: p.author_id === user?.id,
             };
           }));
+
+          void Promise.all(
+            syncedUpdates.map((entry) => syncVisibleCount(entry.id, entry.acceptedMembers, entry.requiredMembers, entry.status))
+          );
         }
       } else if (data) {
+        const syncedUpdates = data.map((p: any) => {
+          const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
+            skills: r.skills || (r.skill ? [r.skill] : []),
+            requiredCount: r.requiredCount,
+            acceptedCount: r.acceptedCount || 0,
+          }));
+          const requiredMembers = p.max_members ?? reqs.reduce((sum, requirement) => sum + requirement.requiredCount, 0);
+          const acceptedMembers = resolveAcceptedMembers(p, reqs);
+          return { id: p.id, authorId: p.author_id, acceptedMembers, requiredMembers, currentMembers: p.current_members ?? 0, status: p.status };
+        }).filter((entry) => entry.acceptedMembers !== entry.currentMembers && entry.authorId === user?.id);
+
         setPosts(data.map((p: any) => {
           const author = p.profiles;
           const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
@@ -216,6 +275,8 @@ const HomePage: React.FC = () => {
             requiredCount: r.requiredCount,
             acceptedCount: r.acceptedCount || 0,
           }));
+          const requiredMembers = p.max_members ?? reqs.reduce((s, r) => s + r.requiredCount, 0);
+          const acceptedMembers = resolveAcceptedMembers(p, reqs);
           return {
             id: p.id,
             title: p.title,
@@ -229,30 +290,25 @@ const HomePage: React.FC = () => {
             },
             skills: reqs.flatMap(r => r.skills),
             requirements: reqs,
-            requiredMembers: p.max_members ?? reqs.reduce((s, r) => s + r.requiredCount, 0),
-            acceptedMembers: (() => {
-              const set = memberSets.get(p.id);
-              const setSize = set ? set.size : 0;
-              const setMinusAuthor = set ? (set.has(p.author_id) ? setSize - 1 : setSize) : undefined;
-              const fallback = reqs.reduce((s, r) => s + (r.acceptedCount || 0), 0);
-              return Math.max(
-                0,
-                p.current_members ?? 0,
-                setMinusAuthor ?? 0,
-                fallback
-              );
-            })(),
+            requiredMembers,
+            acceptedMembers,
             purpose: p.purpose,
             createdAt: p.created_at,
+            deadline: p.deadline ?? null,
             isOwned: p.author_id === user?.id,
           };
         }));
+
+        void Promise.all(
+          syncedUpdates.map((entry) => syncVisibleCount(entry.id, entry.acceptedMembers, entry.requiredMembers, entry.status))
+        );
       }
+      hasLoadedOnceRef.current = true;
       setLoading(false);
   }, [user?.id, user]);
 
   useEffect(() => {
-    fetchPosts();
+    void fetchPosts(hasLoadedOnceRef.current);
   }, [fetchPosts, refreshTick]);
 
   useEffect(() => {
@@ -267,8 +323,34 @@ const HomePage: React.FC = () => {
     return () => supabase.removeChannel(channel);
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const intervalId = window.setInterval(() => {
+      setRefreshTick((tick) => tick + 1);
+    }, 10000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setRefreshTick((tick) => tick + 1);
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user?.id]);
+
   const userSkills = user?.skills || [];
   const allSkills = Array.from(new Set(posts.flatMap(p => p.skills)));
+  const filteredSkillOptions = allSkills.filter((skill) =>
+    skill.toLowerCase().includes(skillSearchTerm.toLowerCase())
+  );
 
   const handleSkillToggle = (skill: string) => {
     setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
@@ -329,17 +411,22 @@ const HomePage: React.FC = () => {
   };
 
   const filteredPosts = posts.filter(post => {
+    const participantsFilled = post.requiredMembers > 0 && post.acceptedMembers >= post.requiredMembers;
+    const deadlineReached = isPostDeadlineReached(post.deadline);
+    const descriptionText = getDescriptionPreviewText(post.description).toLowerCase();
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      post.description.toLowerCase().includes(searchTerm.toLowerCase());
+      descriptionText.includes(searchTerm.toLowerCase());
 
+    if (deadlineReached) return false;
     if (user?.role === 'faculty') return matchesSearch && isMyPost(post);
 
     let matchesTab = true;
-    if (filterTab === 'all') matchesTab = !isMyPost(post);
+    if (filterTab === 'all') matchesTab = !isMyPost(post) && !participantsFilled;
     else if (filterTab === 'skill') {
       const postSkillsLower = post.skills.map(s => s.toLowerCase());
       matchesTab =
         !isMyPost(post) &&
+        !participantsFilled &&
         (selectedSkills.length === 0 ||
           selectedSkills.every(s => postSkillsLower.includes(s.toLowerCase())));
     } else if (filterTab === 'my') matchesTab = isMyPost(post);
@@ -440,8 +527,16 @@ const HomePage: React.FC = () => {
                     <Filter size={18} className="text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Filter by skills:</span>
                   </div>
+                  <div className="mb-3 max-w-sm">
+                    <Input
+                      placeholder="Search skills..."
+                      value={skillSearchTerm}
+                      onChange={(event) => setSkillSearchTerm(event.target.value)}
+                      className="h-9"
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {allSkills.map(skill => (
+                    {filteredSkillOptions.map(skill => (
                       <button
                         key={skill}
                         onClick={() => handleSkillToggle(skill)}
@@ -454,6 +549,9 @@ const HomePage: React.FC = () => {
                         {skill}
                       </button>
                     ))}
+                    {filteredSkillOptions.length === 0 && (
+                      <span className="text-xs text-muted-foreground">No skills match your search.</span>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -498,8 +596,10 @@ const HomePage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredPosts.map(post => {
                   const owned = isMyPost(post);
-                  return (
-                    <Card
+                const participantsFilled = post.requiredMembers > 0 && post.acceptedMembers >= post.requiredMembers;
+
+                return (
+                  <Card
                       key={post.id}
                       className={`flex flex-col hover:-translate-y-0.5 hover:border-orange-400/70 hover:shadow-[0_10px_28px_-12px_rgba(249,115,22,0.55)] transition-all duration-300 ${
                         animatingDeletePostId === post.id ? 'opacity-0 scale-95 -translate-y-2 pointer-events-none' : 'opacity-100 scale-100'
@@ -547,10 +647,9 @@ const HomePage: React.FC = () => {
                         <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded bg-united-green/10 text-united-green">
                           {post.purpose}
                         </span>
-                        <div
-                          className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap"
-                          dangerouslySetInnerHTML={{ __html: post.description }}
-                        />
+                        <div className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap">
+                          {getDescriptionPreviewText(post.description)}
+                        </div>
                         <div className="flex flex-wrap gap-1">
                           {post.skills.slice(0, 3).map(skill => {
                             const isMatched = userSkills.some(us => us.toLowerCase().includes(skill.toLowerCase()) || skill.toLowerCase().includes(us.toLowerCase()));
@@ -563,7 +662,14 @@ const HomePage: React.FC = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><Users size={14} /> {post.acceptedMembers}/{post.requiredMembers}</span>
+                          <span
+                            className={`flex items-center gap-1 ${
+                              participantsFilled ? 'font-semibold text-united-green' : ''
+                            }`}
+                          >
+                            <Users size={14} />
+                            {participantsFilled ? 'Participants Filled' : `${post.acceptedMembers}/${post.requiredMembers}`}
+                          </span>
                           <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                         </div>
                       </CardContent>
@@ -580,7 +686,7 @@ const HomePage: React.FC = () => {
                           >
                             View
                           </Button>
-                          {post.acceptedMembers === post.requiredMembers && post.requiredMembers > 0 && (
+                          {participantsFilled && (
                             <Button size="sm" variant="outline" className="flex-1 border-accent text-accent text-xs" onClick={() => navigate(`/chatroom/${post.chatroomId ?? post.id}`)}>
                               <MessageSquare size={14} className="mr-1" /> Chat
                             </Button>

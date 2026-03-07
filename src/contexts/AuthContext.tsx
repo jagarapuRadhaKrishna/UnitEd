@@ -371,6 +371,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Map camelCase to snake_case
       const dbUpdates: Record<string, any> = {};
+      if (updates.email !== undefined) dbUpdates.email = updates.email;
       if (updates.firstName !== undefined) dbUpdates.first_name = updates.firstName;
       if (updates.middleName !== undefined) dbUpdates.middle_name = updates.middleName;
       if (updates.lastName !== undefined) dbUpdates.last_name = updates.lastName;
@@ -384,8 +385,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.github !== undefined) dbUpdates.github = updates.github;
       if (updates.leetcode !== undefined) dbUpdates.leetcode = updates.leetcode;
       if (updates.portfolio !== undefined) dbUpdates.portfolio = updates.portfolio;
+      if (updates.rollNumber !== undefined) dbUpdates.roll_number = updates.rollNumber;
       if (updates.department !== undefined) dbUpdates.department = updates.department;
+      if (updates.yearOfGraduation !== undefined) dbUpdates.year_of_graduation = updates.yearOfGraduation;
+      if (updates.cgpa !== undefined) dbUpdates.cgpa = updates.cgpa;
+      if (updates.experience !== undefined) dbUpdates.experience = updates.experience;
+      if (updates.employeeId !== undefined) dbUpdates.employee_id = updates.employeeId;
       if (updates.designation !== undefined) dbUpdates.designation = updates.designation;
+      if (updates.dateOfJoining !== undefined) dbUpdates.date_of_joining = updates.dateOfJoining;
+      if (updates.qualification !== undefined) dbUpdates.qualification = updates.qualification;
+      if (updates.specialization !== undefined) dbUpdates.specialization = updates.specialization;
+      if (updates.totalExperience !== undefined) dbUpdates.total_experience = updates.totalExperience;
+      if (updates.teachingExperience !== undefined) dbUpdates.teaching_experience = updates.teachingExperience;
+      if (updates.industryExperience !== undefined) dbUpdates.industry_experience = updates.industryExperience;
       if (updates.projects !== undefined) dbUpdates.projects = updates.projects;
       if (updates.achievements !== undefined) dbUpdates.achievements = updates.achievements;
       if (updates.resumeUrl !== undefined) dbUpdates.resume_url = updates.resumeUrl;
