@@ -9,6 +9,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { AuthProvider } from "./contexts/AuthContext";
 import { initializePostLifecycle } from "./services/postLifecycleService";
 import { storageSecurityMonitor } from "./services/storageSecurityMonitor";
+import AppErrorBoundary from "./components/app/AppErrorBoundary";
 import PrivateRoute from "./components/layout/PrivateRoute";
 import MainLayout from "./components/layout/MainLayout";
 import BlankPage from "./pages/BlankPage";
@@ -47,6 +48,12 @@ const AboutDevelopersPage = lazy(() => import("./pages/AboutDevelopersPage"));
 
 const queryClient = new QueryClient();
 
+const AppLoader = () => (
+  <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+    Loading...
+  </div>
+);
+
 const App = () => {
   useEffect(() => {
     const cleanup = initializePostLifecycle();
@@ -56,66 +63,68 @@ const App = () => {
 
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <CssBaseline />
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>}>
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<BlankPage />} />
-              <Route path="/landing" element={<LandingPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/register" element={<RoleSelection />} />
-              <Route path="/register/student" element={<StudentRegister />} />
-              <Route path="/register/faculty" element={<FacultyRegister />} />
+      <AppErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <CssBaseline />
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AuthProvider>
+                <Suspense fallback={<AppLoader />}>
+                  <Routes>
+                    {/* Public Routes */}
+                    <Route path="/" element={<BlankPage />} />
+                    <Route path="/landing" element={<LandingPage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
+                    <Route path="/register" element={<RoleSelection />} />
+                    <Route path="/register/student" element={<StudentRegister />} />
+                    <Route path="/register/faculty" element={<FacultyRegister />} />
 
-              {/* Protected Routes */}
-              <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
-                <Route path="/home" element={<HomePage />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/create-post" element={<CreatePostPage />} />
-                <Route path="/create-opportunity" element={<CreatePostPage />} />
-                <Route path="/post/:id" element={<PostDetailPage />} />
-                <Route path="/edit-post/:id" element={<EditPostPage />} />
-                <Route path="/matched-posts" element={<SkillMatchedPostsPage />} />
-                <Route path="/applications" element={<AppliedOpportunitiesPage />} />
-                <Route path="/applied" element={<AppliedOpportunitiesPage />} />
-                <Route path="/accepted-applications" element={<AcceptedApplicationsPage />} />
-                <Route path="/invitations" element={<InvitationsPage />} />
-                <Route path="/post/:postId/candidates" element={<RecommendedCandidatesPage />} />
-                <Route path="/candidate/:candidateId" element={<CandidateProfilePage />} />
-                <Route path="/post/manage/:id" element={<PostManagePage />} />
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/chatrooms" element={<ChatroomsPage />} />
-                <Route path="/chatroom/:id" element={<ChatroomPage />} />
-                <Route path="/forums" element={<ForumsPage />} />
-                <Route path="/forum/:threadId" element={<ForumThreadPage />} />
-                <Route path="/forum/create" element={<CreateThreadPage />} />
-              <Route path="/about" element={<AboutPage />}>
-                <Route index element={<Navigate to="application" replace />} />
-                <Route path="application" element={<AboutApplicationPage />} />
-                <Route path="developers" element={<AboutDevelopersPage />} />
-                <Route path="developer" element={<Navigate to="/about/developers" replace />} />
-              </Route>
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/settings/profile" element={<ProfilePage />} />
-                <Route path="/profile/:id" element={<UserProfilePage />} />
-              </Route>
+                    {/* Protected Routes */}
+                    <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+                      <Route path="/home" element={<HomePage />} />
+                      <Route path="/dashboard" element={<DashboardPage />} />
+                      <Route path="/profile" element={<ProfilePage />} />
+                      <Route path="/create-post" element={<CreatePostPage />} />
+                      <Route path="/create-opportunity" element={<CreatePostPage />} />
+                      <Route path="/post/:id" element={<PostDetailPage />} />
+                      <Route path="/edit-post/:id" element={<EditPostPage />} />
+                      <Route path="/matched-posts" element={<SkillMatchedPostsPage />} />
+                      <Route path="/applications" element={<AppliedOpportunitiesPage />} />
+                      <Route path="/applied" element={<AppliedOpportunitiesPage />} />
+                      <Route path="/accepted-applications" element={<AcceptedApplicationsPage />} />
+                      <Route path="/invitations" element={<InvitationsPage />} />
+                      <Route path="/post/:postId/candidates" element={<RecommendedCandidatesPage />} />
+                      <Route path="/candidate/:candidateId" element={<CandidateProfilePage />} />
+                      <Route path="/post/manage/:id" element={<PostManagePage />} />
+                      <Route path="/notifications" element={<NotificationsPage />} />
+                      <Route path="/chatrooms" element={<ChatroomsPage />} />
+                      <Route path="/chatroom/:id" element={<ChatroomPage />} />
+                      <Route path="/forums" element={<ForumsPage />} />
+                      <Route path="/forum/:threadId" element={<ForumThreadPage />} />
+                      <Route path="/forum/create" element={<CreateThreadPage />} />
+                      <Route path="/about" element={<AboutPage />}>
+                        <Route index element={<Navigate to="application" replace />} />
+                        <Route path="application" element={<AboutApplicationPage />} />
+                        <Route path="developers" element={<AboutDevelopersPage />} />
+                        <Route path="developer" element={<Navigate to="/about/developers" replace />} />
+                      </Route>
+                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/settings/profile" element={<ProfilePage />} />
+                      <Route path="/profile/:id" element={<UserProfilePage />} />
+                    </Route>
 
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-            </Suspense>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Routes>
+                </Suspense>
+              </AuthProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </AppErrorBoundary>
     </ThemeProvider>
   );
 };

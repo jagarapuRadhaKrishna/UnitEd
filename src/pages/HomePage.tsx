@@ -30,6 +30,7 @@ interface HomePost {
   id: string;
   title: string;
   description: string;
+  chatroomId?: string | null;
   author: { id: string; name: string; avatar?: string; type: 'Student' | 'Faculty' };
   skills: string[];
   requirements: SkillRequirement[];
@@ -179,6 +180,7 @@ const HomePage: React.FC = () => {
               id: p.id,
               title: p.title,
               description: p.description,
+              chatroomId: p.chatroom_id ?? null,
               author: {
                 id: p.author_id,
                 name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
@@ -218,6 +220,7 @@ const HomePage: React.FC = () => {
             id: p.id,
             title: p.title,
             description: p.description,
+            chatroomId: p.chatroom_id ?? null,
             author: {
               id: p.author_id,
               name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
@@ -578,7 +581,7 @@ const HomePage: React.FC = () => {
                             View
                           </Button>
                           {post.acceptedMembers === post.requiredMembers && post.requiredMembers > 0 && (
-                            <Button size="sm" variant="outline" className="flex-1 border-accent text-accent text-xs" onClick={() => navigate(`/chatroom/${post.id}`)}>
+                            <Button size="sm" variant="outline" className="flex-1 border-accent text-accent text-xs" onClick={() => navigate(`/chatroom/${post.chatroomId ?? post.id}`)}>
                               <MessageSquare size={14} className="mr-1" /> Chat
                             </Button>
                           )}

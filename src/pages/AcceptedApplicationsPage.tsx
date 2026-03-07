@@ -23,6 +23,7 @@ interface AppItem {
   applied_at: string;
   reviewed_at: string | null;
   post_id: string;
+  chatroom_id?: string | null;
   post_title: string;
   post_purpose: string;
 }
@@ -31,6 +32,7 @@ interface PostSummary {
   id: string;
   title: string;
   purpose: string;
+  chatroom_id?: string | null;
 }
 
 const AcceptedApplicationsPage: React.FC = () => {
@@ -60,7 +62,7 @@ const AcceptedApplicationsPage: React.FC = () => {
       }
 
       const postIds = [...new Set(apps.map((a) => a.post_id))];
-      const { data: posts } = await supabase.from('posts').select('id, title, purpose').in('id', postIds);
+      const { data: posts } = await supabase.from('posts').select('id, title, purpose, chatroom_id').in('id', postIds);
 
       const postMap: Record<string, PostSummary> = {};
       (posts || []).forEach((p) => {
@@ -76,6 +78,7 @@ const AcceptedApplicationsPage: React.FC = () => {
             applied_at: a.applied_at,
             reviewed_at: a.reviewed_at,
             post_id: a.post_id,
+            chatroom_id: post?.chatroom_id || null,
             post_title: post?.title || 'Unknown',
             post_purpose: post?.purpose || '',
           };
@@ -269,7 +272,7 @@ const AcceptedApplicationsPage: React.FC = () => {
                               variant="contained"
                               size="small"
                               startIcon={<MessageCircle size={14} />}
-                              onClick={() => navigate(`/chatroom/${app.post_id}`)}
+                              onClick={() => navigate(`/chatroom/${app.chatroom_id ?? app.post_id}`)}
                               sx={{
                                 backgroundColor: '#10B981',
                                 textTransform: 'none',

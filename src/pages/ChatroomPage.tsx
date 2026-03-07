@@ -32,6 +32,12 @@ interface Member {
   isPostOwner?: boolean;
 }
 
+interface ResolvedChatroom {
+  id: string;
+  status: string;
+  post_id: string;
+}
+
 const ChatroomPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -40,9 +46,11 @@ const ChatroomPage: React.FC = () => {
   const [messageText, setMessageText] = useState('');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [chatroomId, setChatroomId] = useState<string | null>(null);
   const [postTitle, setPostTitle] = useState('');
   const [postId, setPostId] = useState<string | null>(null);
   const [status, setStatus] = useState('active');
+  const [pageError, setPageError] = useState<string | null>(null);
   const [showMembers, setShowMembers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -64,30 +72,80 @@ const ChatroomPage: React.FC = () => {
   }, [theme, resolvedTheme]);
 
   const iconClass = isDark ? 'text-foreground' : '';
-  const subtleIconClass = isDark ? 'text-foreground/80' : '';
 
   useEffect(() => {
     if (id && user?.id) fetchChatroom();
   }, [id, user?.id]);
 
+  const resolveChatroom = async (routeId: string): Promise<ResolvedChatroom | null> => {
+    const { data: directMatch, error: directError } = await supabase
+      .from('chatrooms')
+      .select('id, status, post_id')
+      .eq('id', routeId)
+      .maybeSingle();
+
+    if (directError) throw directError;
+    if (directMatch) return directMatch;
+
+    const { data: postMatch, error: postError } = await supabase
+      .from('posts')
+      .select('chatroom_id')
+      .eq('id', routeId)
+      .maybeSingle();
+
+    if (postError) throw postError;
+
+    if (postMatch?.chatroom_id) {
+      const { data: chatroomFromPost, error: chatroomFromPostError } = await supabase
+        .from('chatrooms')
+        .select('id, status, post_id')
+        .eq('id', postMatch.chatroom_id)
+        .maybeSingle();
+
+      if (chatroomFromPostError) throw chatroomFromPostError;
+      if (chatroomFromPost) return chatroomFromPost;
+    }
+
+    const { data: byPostId, error: byPostIdError } = await supabase
+      .from('chatrooms')
+      .select('id, status, post_id')
+      .eq('post_id', routeId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (byPostIdError) throw byPostIdError;
+    return byPostId ?? null;
+  };
+
   const fetchChatroom = async () => {
     if (!id || !user?.id) return;
     setLoading(true);
+    setPageError(null);
     try {
-      const { data: chatroom } = await supabase
-        .from('chatrooms')
-        .select('id, status, post_id')
-        .eq('id', id)
-        .maybeSingle();
+      const resolvedChatroom = await resolveChatroom(id);
 
-      if (!chatroom) { setLoading(false); return; }
-      setStatus(chatroom.status);
-      setPostId(chatroom.post_id);
+      if (!resolvedChatroom) {
+        setChatroomId(null);
+        setPostId(null);
+        setPostTitle('');
+        setMembers([]);
+        setMessages([]);
+        return;
+      }
+
+      if (resolvedChatroom.id !== id) {
+        navigate(`/chatroom/${resolvedChatroom.id}`, { replace: true });
+      }
+
+      setChatroomId(resolvedChatroom.id);
+      setStatus(resolvedChatroom.status);
+      setPostId(resolvedChatroom.post_id);
 
       const [{ data: post }, { data: memberData }, { data: msgs }] = await Promise.all([
-        supabase.from('posts').select('title, author_id').eq('id', chatroom.post_id).maybeSingle(),
-        supabase.from('chatroom_members').select('user_id, role').eq('chatroom_id', id),
-        supabase.from('messages').select('id, content, sender_id, type, file_url, file_name, created_at').eq('chatroom_id', id).order('created_at', { ascending: true }),
+        supabase.from('posts').select('title, author_id').eq('id', resolvedChatroom.post_id).maybeSingle(),
+        supabase.from('chatroom_members').select('user_id, role').eq('chatroom_id', resolvedChatroom.id),
+        supabase.from('messages').select('id, content, sender_id, type, file_url, file_name, created_at').eq('chatroom_id', resolvedChatroom.id).order('created_at', { ascending: true }),
       ]);
 
       setPostTitle(post?.title || 'Chat Room');
@@ -122,17 +180,18 @@ const ChatroomPage: React.FC = () => {
       })));
     } catch (err) {
       console.error(err);
+      setPageError('Failed to load this chat room. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchMessages = async (profileMap?: Record<string, { name: string; isOwner: boolean }>) => {
-    if (!id) return;
+    if (!chatroomId) return;
     const { data: msgs } = await supabase
       .from('messages')
       .select('id, content, sender_id, type, file_url, file_name, created_at')
-      .eq('chatroom_id', id)
+      .eq('chatroom_id', chatroomId)
       .order('created_at', { ascending: true });
 
     if (!profileMap) {
@@ -161,15 +220,15 @@ const ChatroomPage: React.FC = () => {
 
   // Real-time messages
   useEffect(() => {
-    if (!id) return;
+    if (!chatroomId) return;
     const channel = supabase
-      .channel(`chatroom-${id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, () => {
+      .channel(`chatroom-${chatroomId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${chatroomId}` }, () => {
         fetchMessages();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [id]);
+  }, [chatroomId]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -195,7 +254,7 @@ const ChatroomPage: React.FC = () => {
   };
 
   const notifyOtherMembers = async (content: string) => {
-    if (!user?.id || !id) return;
+    if (!user?.id || !chatroomId) return;
     const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Someone';
     const otherMembers = members.filter(m => m.user_id !== user.id);
     if (otherMembers.length === 0) return;
@@ -205,8 +264,8 @@ const ChatroomPage: React.FC = () => {
       type: 'new_message',
       title: `New message from ${senderName}`,
       message: content.length > 100 ? content.substring(0, 100) + '...' : content,
-      link: `/chatroom/${id}`,
-      related_chatroom_id: id,
+      link: `/chatroom/${chatroomId}`,
+      related_chatroom_id: chatroomId,
       related_user_id: user.id,
     }));
 
@@ -214,27 +273,27 @@ const ChatroomPage: React.FC = () => {
   };
 
   const handleSend = async () => {
-    if (!user?.id || !id) return;
+    if (!user?.id || !chatroomId) return;
     if (!messageText.trim() && !selectedFile) return;
 
     if (selectedFile) {
       setUploading(true);
       try {
         const ext = selectedFile.name.split('.').pop() || 'file';
-        const filePath = `${user.id}/${id}/${Date.now()}.${ext}`;
+        const filePath = `${user.id}/${chatroomId}/${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('chat-files').upload(filePath, selectedFile);
         if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage.from('chat-files').getPublicUrl(filePath);
         const isImage = selectedFile.type.startsWith('image/');
         const { error } = await supabase.from('messages').insert({
-          chatroom_id: id, sender_id: user.id,
+          chatroom_id: chatroomId, sender_id: user.id,
           content: isImage ? '📷 Image' : `📎 ${selectedFile.name}`,
           type: isImage ? 'image' : 'file', file_url: publicUrl, file_name: selectedFile.name,
         });
         if (error) throw error;
         const fileContent = isImage ? '📷 Image' : `📎 ${selectedFile.name}`;
         clearSelectedFile();
-        await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id), notifyOtherMembers(fileContent)]);
+        await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', chatroomId), notifyOtherMembers(fileContent)]);
         toast.success(`${isImage ? 'Image' : 'File'} sent!`);
       } catch (err: any) {
         console.error(err);
@@ -246,7 +305,7 @@ const ChatroomPage: React.FC = () => {
         const text = messageText.trim();
         setMessageText('');
         try {
-          await supabase.from('messages').insert({ chatroom_id: id, sender_id: user.id, content: text, type: 'text' });
+          await supabase.from('messages').insert({ chatroom_id: chatroomId, sender_id: user.id, content: text, type: 'text' });
           await fetchMessages();
         } catch (e) { console.error(e); }
       }
@@ -256,9 +315,9 @@ const ChatroomPage: React.FC = () => {
     const text = messageText.trim();
     setMessageText('');
     try {
-      const { error } = await supabase.from('messages').insert({ chatroom_id: id, sender_id: user.id, content: text, type: 'text' });
+      const { error } = await supabase.from('messages').insert({ chatroom_id: chatroomId, sender_id: user.id, content: text, type: 'text' });
       if (error) throw error;
-      await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', id), notifyOtherMembers(text)]);
+      await Promise.all([fetchMessages(), supabase.from('chatrooms').update({ last_activity: new Date().toISOString() }).eq('id', chatroomId), notifyOtherMembers(text)]);
     } catch (e) {
       console.error(e);
       setMessageText(text);
@@ -267,9 +326,9 @@ const ChatroomPage: React.FC = () => {
 
   // Owner: Delete chatroom
   const handleDeleteChatroom = async () => {
-    if (!id) return;
+    if (!chatroomId) return;
     try {
-      await supabase.from('chatrooms').update({ status: 'deleted', deleted_at: new Date().toISOString() }).eq('id', id);
+      await supabase.from('chatrooms').update({ status: 'deleted', deleted_at: new Date().toISOString() }).eq('id', chatroomId);
       toast.success('Chatroom deleted');
       navigate('/chatrooms');
     } catch (err) {
@@ -280,7 +339,7 @@ const ChatroomPage: React.FC = () => {
 
   // Owner: Remove member
   const handleRemoveMember = async (memberId: string) => {
-    if (!id) return;
+    if (!chatroomId) return;
     try {
       // We can't delete chatroom_members (no RLS DELETE policy), so we'll remove via a workaround
       // Actually let's check — the schema says can't DELETE. We need a migration for that.
@@ -291,13 +350,13 @@ const ChatroomPage: React.FC = () => {
       const { error } = await supabase
         .from('chatroom_members')
         .delete()
-        .eq('chatroom_id', id)
+        .eq('chatroom_id', chatroomId)
         .eq('user_id', memberId);
       
       if (error) throw error;
 
       await supabase.from('messages').insert({
-        chatroom_id: id, sender_id: user!.id,
+        chatroom_id: chatroomId, sender_id: user!.id,
         content: `${memberName} was removed from the chatroom`,
         type: 'system',
       });
@@ -390,6 +449,21 @@ const ChatroomPage: React.FC = () => {
 
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  }
+
+  if (pageError) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+        <h2 className="text-xl font-bold mb-4">Unable to open chat room</h2>
+        <p className="mb-6 text-sm text-muted-foreground">{pageError}</p>
+        <div className="flex justify-center gap-3">
+          <Button variant="outline" onClick={() => navigate('/chatrooms')}>
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Chatrooms
+          </Button>
+          <Button onClick={() => fetchChatroom()}>Try Again</Button>
+        </div>
+      </div>
+    );
   }
 
   if (!postTitle) {

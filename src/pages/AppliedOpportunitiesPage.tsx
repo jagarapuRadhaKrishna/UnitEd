@@ -34,6 +34,7 @@ interface AppItem {
   status: string;
   applied_at: string;
   post_id: string;
+  chatroom_id?: string | null;
   post_title: string;
   post_purpose: string;
   author_name: string;
@@ -55,6 +56,7 @@ interface PostSummary {
   title: string;
   purpose: string;
   author_id: string;
+  chatroom_id?: string | null;
 }
 
 const AppliedOpportunitiesPage: React.FC = () => {
@@ -105,7 +107,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
     }
 
     const postIds = [...new Set(apps.map((a) => a.post_id))];
-    const { data: posts } = await supabase.from('posts').select('id, title, purpose, author_id').in('id', postIds);
+    const { data: posts } = await supabase.from('posts').select('id, title, purpose, author_id, chatroom_id').in('id', postIds);
     const authorIds = [...new Set((posts || []).map((p) => p.author_id))];
     const { data: profiles } = await supabase.from('profiles').select('id, first_name, last_name').in('id', authorIds);
 
@@ -127,6 +129,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
           status: a.status,
           applied_at: a.applied_at,
           post_id: a.post_id,
+          chatroom_id: post?.chatroom_id || null,
           post_title: post?.title || 'Unknown',
           post_purpose: post?.purpose || '',
           author_name: post ? profileMap[post.author_id] || 'Unknown' : 'Unknown',
@@ -526,7 +529,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
                                 <Button
                                     variant="contained"
                                     startIcon={<MessageCircle size={16} />}
-                                    onClick={() => navigate(`/chatroom/${app.post_id}`)}
+                                    onClick={() => navigate(`/chatroom/${app.chatroom_id ?? app.post_id}`)}
                                     sx={{
                                       backgroundColor: '#10B981',
                                       textTransform: 'none',
