@@ -611,7 +611,7 @@ const ChatroomPage: React.FC = () => {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                <p className="text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
                 <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</p>
               </div>
               <Button variant="ghost" size="icon" onClick={clearSelectedFile} className="shrink-0"><X className="w-4 h-4" /></Button>

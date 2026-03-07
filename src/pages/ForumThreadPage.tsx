@@ -53,7 +53,7 @@ const ForumThreadPage: React.FC = () => {
 
   const repliesEndRef = useRef<HTMLDivElement>(null);
 
-  const fetchThread = async () => {
+  const fetchThread = async (registerView = false) => {
     if (!threadId) return;
 
     const { data: threadRow } = await supabase.from('forum_threads').select('*').eq('id', threadId).maybeSingle();
@@ -63,10 +63,19 @@ const ForumThreadPage: React.FC = () => {
       return;
     }
 
-    await supabase
-      .from('forum_threads')
-      .update({ view_count: (threadRow.view_count || 0) + 1 })
-      .eq('id', threadId);
+    let resolvedViewCount = threadRow.view_count || 0;
+    if (registerView && user?.id) {
+      const { data: uniqueViewerCount, error: viewError } = await supabase.rpc('register_forum_thread_view', {
+        p_thread_id: threadId,
+        p_viewer_id: user.id,
+      });
+
+      if (viewError) {
+        console.error('Failed to register forum thread view:', viewError);
+      } else {
+        resolvedViewCount = Number(uniqueViewerCount || 0);
+      }
+    }
 
     const { data: authorProfile } = await supabase
       .from('profiles')
@@ -81,7 +90,7 @@ const ForumThreadPage: React.FC = () => {
       category: threadRow.category,
       author_name: authorProfile ? `${authorProfile.first_name || ''} ${authorProfile.last_name || ''}`.trim() : 'Unknown',
       created_at: threadRow.created_at,
-      view_count: (threadRow.view_count || 0) + 1,
+      view_count: resolvedViewCount,
     });
   };
 
@@ -129,7 +138,7 @@ const ForumThreadPage: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([fetchThread(), fetchReplies()]);
+      await Promise.all([fetchThread(true), fetchReplies()]);
       setLoading(false);
     };
 
@@ -141,6 +150,11 @@ const ForumThreadPage: React.FC = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'forum_replies', filter: `thread_id=eq.${threadId}` },
         fetchReplies
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'forum_threads', filter: `id=eq.${threadId}` },
+        () => fetchThread(false)
       )
       .subscribe();
 

@@ -533,6 +533,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      register_forum_thread_view: {
+        Args: { p_thread_id: string; p_viewer_id: string }
+        Returns: number
+      }
       get_post_member_counts: {
         Args: { post_ids: string[] }
         Returns: {
