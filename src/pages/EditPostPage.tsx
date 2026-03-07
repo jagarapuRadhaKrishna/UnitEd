@@ -89,13 +89,15 @@ const EditPostPage: React.FC = () => {
     }
 
     const parts = rawInput.split(/[,+]/).map((part) => part.trim()).filter(Boolean);
-    const resolved = parts.map((part) => AVAILABLE_SKILLS.find((skill) => skill.toLowerCase() === part.toLowerCase()) || '');
+    const resolved: string[] = parts.map(
+      (part) => AVAILABLE_SKILLS.find((skill) => skill.toLowerCase() === part.toLowerCase()) ?? ''
+    );
     if (resolved.some((skill) => !skill)) {
       setErrors({ ...errors, skill: 'Select a valid skill from the list' });
       return;
     }
 
-    const uniqueSkills = Array.from(new Set(resolved));
+    const uniqueSkills: string[] = Array.from(new Set(resolved.filter(Boolean)));
     const bundleExists = skillRequirements.some((requirement) => {
       const requirementSkills = requirement.skills || (requirement.skill ? [requirement.skill] : []);
       return requirementSkills.length === uniqueSkills.length && requirementSkills.every((skill) => uniqueSkills.includes(skill));
