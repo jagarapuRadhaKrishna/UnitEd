@@ -14,6 +14,7 @@ import { ArrowLeft, Send, Users, Info, Loader2, Paperclip, FileText, Download, X
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 import { AnimatePresence, motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface Msg {
   id: string;
@@ -73,6 +74,23 @@ const ChatroomPage: React.FC = () => {
   }, [theme, resolvedTheme]);
 
   const iconClass = isDark ? 'text-foreground' : '';
+  const pageSurfaceClass = isDark ? 'bg-[#0b1220]' : 'bg-background';
+  const panelSurfaceClass = isDark ? 'bg-[#18233d]' : 'bg-card/95';
+
+  useEffect(() => {
+    const previousBodyBackground = document.body.style.backgroundColor;
+    const previousHtmlBackground = document.documentElement.style.backgroundColor;
+
+    if (isDark) {
+      document.body.style.backgroundColor = '#0b1220';
+      document.documentElement.style.backgroundColor = '#0b1220';
+    }
+
+    return () => {
+      document.body.style.backgroundColor = previousBodyBackground;
+      document.documentElement.style.backgroundColor = previousHtmlBackground;
+    };
+  }, [isDark]);
 
   useEffect(() => {
     if (id && user?.id) fetchChatroom();
@@ -498,13 +516,17 @@ const ChatroomPage: React.FC = () => {
   const isReadOnly = status !== 'active';
 
   return (
-    <motion.div
-      className="max-w-4xl mx-auto px-4 py-4 flex flex-col"
-      style={{ height: 'calc(100vh - 5rem)' }}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
+    <div
+      className={cn('relative left-1/2 w-screen -translate-x-1/2 overflow-hidden text-foreground', pageSurfaceClass)}
+      style={{ minHeight: 'calc(100vh - 4rem)' }}
     >
+      <motion.div
+        className={cn('max-w-4xl mx-auto flex min-h-0 flex-col px-4 py-4 text-foreground', pageSurfaceClass)}
+        style={{ height: 'calc(100vh - 5rem)' }}
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
+      >
       <motion.div
         className="flex items-center justify-between mb-3"
         initial={{ opacity: 0, y: 12 }}
@@ -584,12 +606,12 @@ const ChatroomPage: React.FC = () => {
       </AnimatePresence>
 
       <motion.div
-        className="flex-1 mb-3"
+        className={cn('mb-3 flex min-h-0 flex-1 rounded-2xl border border-border shadow-sm', panelSurfaceClass)}
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.48, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
       >
-        <ScrollArea className="flex-1 border rounded-lg p-3 h-full">
+        <ScrollArea className="h-full min-h-0 flex-1 rounded-[inherit] p-3">
           <div className="space-y-3">
             <AnimatePresence initial={true}>
               {messages.map(msg => {
@@ -667,7 +689,7 @@ const ChatroomPage: React.FC = () => {
 
       {isReadOnly ? (
         <motion.div
-          className="text-center py-2 text-sm text-muted-foreground bg-muted rounded-lg"
+          className={cn('rounded-2xl border border-border py-2 text-center text-sm text-muted-foreground', panelSurfaceClass)}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.44, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
@@ -676,6 +698,7 @@ const ChatroomPage: React.FC = () => {
         </motion.div>
       ) : (
         <motion.div
+          className={cn('rounded-2xl border border-border p-3 shadow-sm', panelSurfaceClass)}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.44, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
@@ -779,7 +802,8 @@ const ChatroomPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 };
 
