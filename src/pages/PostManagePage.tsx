@@ -19,14 +19,17 @@ import {
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle, Clock, Mail, Users, XCircle } from 'lucide-react';
 import { isPostDeadlineReached, syncExpiredPosts, syncPostCurrentMembers } from '@/services/postAvailabilityService';
+import { getRelevantExperienceText } from '@/lib/application-display';
 
 interface AppWithProfile {
   id: string;
   applicant_id: string;
   status: string;
   cover_letter: string | null;
+  answers: unknown;
   applied_at: string;
   applied_for_skill: string | null;
+  resume: string | null;
   applicant: {
     name: string;
     email: string;
@@ -108,8 +111,10 @@ const PostManagePage: React.FC = () => {
                 applicant_id: a.applicant_id,
                 status: a.status,
                 cover_letter: a.cover_letter,
+                answers: a.answers,
                 applied_at: a.applied_at,
                 applied_for_skill: a.applied_for_skill,
+                resume: a.resume,
                 applicant: {
                   name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Unknown',
                   email: profile?.email || '',
@@ -248,6 +253,63 @@ const PostManagePage: React.FC = () => {
   const pending = applications.filter((a) => a.status === 'applied' || a.status === 'shortlisted');
   const accepted = applications.filter((a) => a.status === 'accepted');
   const rejected = applications.filter((a) => a.status === 'rejected');
+
+  const renderSubmissionDetails = (app: AppWithProfile) => {
+    const relevantExperience = getRelevantExperienceText(app.answers);
+
+    if (!app.cover_letter && !relevantExperience && !app.resume) {
+      return null;
+    }
+
+    return (
+      <Stack spacing={1.1} sx={{ mt: 1.2 }}>
+        {app.cover_letter && (
+          <Box sx={{ backgroundColor: isDark ? colors.card : '#F9FAFB', borderRadius: '8px', p: 1.2 }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: colors.subtext, mb: 0.5 }}>
+              Why are you interested?
+            </Typography>
+            <Typography sx={{ color: colors.heading, fontSize: 14, whiteSpace: 'pre-line' }}>
+              {app.cover_letter}
+            </Typography>
+          </Box>
+        )}
+
+        {relevantExperience && (
+          <Box sx={{ backgroundColor: isDark ? colors.card : '#F9FAFB', borderRadius: '8px', p: 1.2 }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: colors.subtext, mb: 0.5 }}>
+              Relevant Experience
+            </Typography>
+            <Typography sx={{ color: colors.heading, fontSize: 14, whiteSpace: 'pre-line' }}>
+              {relevantExperience}
+            </Typography>
+          </Box>
+        )}
+
+        {app.resume && (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: colors.subtext }}>
+              Resume
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              href={app.resume}
+              target="_blank"
+              rel="noreferrer"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                borderColor: colors.border,
+                color: colors.heading,
+              }}
+            >
+              View Resume
+            </Button>
+          </Box>
+        )}
+      </Stack>
+    );
+  };
 
   if (loading) {
     return (
@@ -398,13 +460,7 @@ const PostManagePage: React.FC = () => {
                             ))}
                           </Stack>
 
-                            {app.cover_letter && (
-                              <Box sx={{ backgroundColor: isDark ? colors.card : '#F9FAFB', borderRadius: '8px', p: 1.2, mb: 1.2 }}>
-                                <Typography sx={{ color: colors.subtext, fontStyle: 'italic', fontSize: 14 }}>
-                                  "{app.cover_letter}"
-                                </Typography>
-                              </Box>
-                            )}
+                          {renderSubmissionDetails(app)}
 
                           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                             <Button
@@ -463,25 +519,28 @@ const PostManagePage: React.FC = () => {
               {accepted.map((app) => (
                 <Card key={app.id} sx={{ borderRadius: '10px', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
                   <CardContent sx={{ p: 1.8 }}>
-                    <Stack direction="row" spacing={1.3} alignItems="center">
-                      <Avatar sx={{ width: 44, height: 44, bgcolor: '#10B981', fontWeight: 700 }}>
-                        {app.applicant.name.split(' ').map((n) => n.charAt(0)).join('')}
-                      </Avatar>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontWeight: 700, color: '#111827' }}>{app.applicant.name}</Typography>
-                        <Typography sx={{ color: '#6B7280', fontSize: 14 }}>{app.applicant.email}</Typography>
-                      </Box>
-                      <Chip
-                        icon={<CheckCircle size={14} />}
-                        label="Accepted"
-                        size="small"
-                        sx={{
-                          backgroundColor: '#D1FAE5',
-                          color: '#10B981',
-                          fontWeight: 700,
-                          '& .MuiChip-icon': { color: '#10B981' },
-                        }}
-                      />
+                    <Stack spacing={1.3}>
+                      <Stack direction="row" spacing={1.3} alignItems="center">
+                        <Avatar sx={{ width: 44, height: 44, bgcolor: '#10B981', fontWeight: 700 }}>
+                          {app.applicant.name.split(' ').map((n) => n.charAt(0)).join('')}
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography sx={{ fontWeight: 700, color: '#111827' }}>{app.applicant.name}</Typography>
+                          <Typography sx={{ color: '#6B7280', fontSize: 14 }}>{app.applicant.email}</Typography>
+                        </Box>
+                        <Chip
+                          icon={<CheckCircle size={14} />}
+                          label="Accepted"
+                          size="small"
+                          sx={{
+                            backgroundColor: '#D1FAE5',
+                            color: '#10B981',
+                            fontWeight: 700,
+                            '& .MuiChip-icon': { color: '#10B981' },
+                          }}
+                        />
+                      </Stack>
+                      {renderSubmissionDetails(app)}
                     </Stack>
                   </CardContent>
                 </Card>
@@ -508,11 +567,17 @@ const PostManagePage: React.FC = () => {
                   }}
                 >
                   <CardContent sx={{ p: 1.6 }}>
-                    <Stack direction="row" spacing={1.3} alignItems="center">
-                      <Avatar sx={{ width: 40, height: 40, bgcolor: isDark ? '#4c1d1d' : '#FEE2E2', color: isDark ? '#fecaca' : '#EF4444', fontWeight: 700 }}>
-                        {app.applicant.name.split(' ').map((n) => n.charAt(0)).join('')}
-                      </Avatar>
-                      <Typography sx={{ fontWeight: 600, color: colors.heading }}>{app.applicant.name}</Typography>
+                    <Stack spacing={1.2}>
+                      <Stack direction="row" spacing={1.3} alignItems="center">
+                        <Avatar sx={{ width: 40, height: 40, bgcolor: isDark ? '#4c1d1d' : '#FEE2E2', color: isDark ? '#fecaca' : '#EF4444', fontWeight: 700 }}>
+                          {app.applicant.name.split(' ').map((n) => n.charAt(0)).join('')}
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography sx={{ fontWeight: 600, color: colors.heading }}>{app.applicant.name}</Typography>
+                          <Typography sx={{ color: colors.subtext, fontSize: 14 }}>{app.applicant.email}</Typography>
+                        </Box>
+                      </Stack>
+                      {renderSubmissionDetails(app)}
                     </Stack>
                   </CardContent>
                 </Card>

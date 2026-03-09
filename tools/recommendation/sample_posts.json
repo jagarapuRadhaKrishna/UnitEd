@@ -1,0 +1,42 @@
+[
+  {
+    "post_id": "post-101",
+    "title": "AI Research Assistant for Vision Models",
+    "purpose": "research",
+    "department": "CSE",
+    "required_skills": ["Python", "Machine Learning", "Computer Vision"],
+    "preferred_skills": ["PyTorch", "Git"],
+    "description_keywords": ["ai", "research", "vision", "experimentation"],
+    "status": "active"
+  },
+  {
+    "post_id": "post-102",
+    "title": "Web Platform Engineer for Faculty Dashboard",
+    "purpose": "project",
+    "department": "IT",
+    "required_skills": ["React", "TypeScript", "SQL"],
+    "preferred_skills": ["UI Design", "Testing"],
+    "description_keywords": ["dashboard", "frontend", "platform"],
+    "status": "active"
+  },
+  {
+    "post_id": "post-103",
+    "title": "NLP Internship for Academic Document Mining",
+    "purpose": "research",
+    "department": "CSE",
+    "required_skills": ["Python", "NLP", "Data Analysis"],
+    "preferred_skills": ["Transformers", "Machine Learning"],
+    "description_keywords": ["language", "papers", "research", "analytics"],
+    "status": "active"
+  },
+  {
+    "post_id": "post-104",
+    "title": "Embedded Systems Research Trainee",
+    "purpose": "research",
+    "department": "ECE",
+    "required_skills": ["C", "Microcontrollers", "Signal Processing"],
+    "preferred_skills": ["MATLAB"],
+    "description_keywords": ["hardware", "circuits", "embedded"],
+    "status": "active"
+  }
+]

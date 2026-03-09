@@ -1,0 +1,65 @@
+{
+  "module": "UnitEd Recommendation Module",
+  "version": "1.0.0",
+  "generated_at": "2026-03-07T19:51:27.255214+00:00",
+  "pipeline": "post-discovery-ranking",
+  "model": "Cosine Similarity Ranker",
+  "profile": {
+    "student_id": "stu-001",
+    "name": "Ananya",
+    "department": "CSE",
+    "year_of_graduation": 2027,
+    "skills_count": 5,
+    "interests_count": 3
+  },
+  "summary": {
+    "requested_top_k": 5,
+    "active_posts_considered": 4,
+    "recommendations_returned": 4,
+    "vocabulary_size": 34
+  },
+  "recommendations": [
+    {
+      "post_id": "post-103",
+      "title": "NLP Internship for Academic Document Mining",
+      "cosine_score": 0.7776,
+      "matched_terms": [
+        "data analysis",
+        "nlp",
+        "python",
+        "machine learning",
+        "research"
+      ],
+      "rationale": "Matched on data analysis, nlp, python, machine learning, research"
+    },
+    {
+      "post_id": "post-101",
+      "title": "AI Research Assistant for Vision Models",
+      "cosine_score": 0.71,
+      "matched_terms": [
+        "machine learning",
+        "python",
+        "computer vision",
+        "git",
+        "research"
+      ],
+      "rationale": "Matched on machine learning, python, computer vision, git, research"
+    },
+    {
+      "post_id": "post-104",
+      "title": "Embedded Systems Research Trainee",
+      "cosine_score": 0.018,
+      "matched_terms": [
+        "research"
+      ],
+      "rationale": "Matched on research"
+    },
+    {
+      "post_id": "post-102",
+      "title": "Web Platform Engineer for Faculty Dashboard",
+      "cosine_score": 0.0,
+      "matched_terms": [],
+      "rationale": "Low explicit overlap, ranked by sparse content similarity"
+    }
+  ]
+}

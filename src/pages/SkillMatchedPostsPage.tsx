@@ -6,9 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Calendar, Briefcase, Target, Loader2, Users } from 'lucide-react';
+import { Activity, Calendar, Briefcase, Loader2, Users } from 'lucide-react';
 import { fetchPostMemberCounts, isPostDeadlineReached, syncExpiredPosts } from '@/services/postAvailabilityService';
 import { getDescriptionPreviewText } from '@/lib/post-description';
+import { requestPythonRecommendations } from '@/services/pythonRecommendationService';
 
 interface MatchedPost {
   id: string;
@@ -26,7 +27,13 @@ interface MatchedPost {
   required_members: number;
   accepted_members: number;
   matchScore: number;
+  cosineScore?: number;
+  matchedTerms?: string[];
+  rationale?: string;
+  rankingSource?: 'local' | 'python';
 }
+
+const PYTHON_ENGINE_RETRY_MS = 30000;
 
 const SkillMatchedPostsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,7 +41,10 @@ const SkillMatchedPostsPage: React.FC = () => {
   const [matchedPosts, setMatchedPosts] = useState<MatchedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [pythonLogs, setPythonLogs] = useState<string[]>([]);
+  const [engineStatus, setEngineStatus] = useState<'checking' | 'connected' | 'fallback'>('checking');
   const hasLoadedOnceRef = useRef(false);
+  const pythonRetryAfterRef = useRef(0);
 
   useEffect(() => {
     if (!user) return;
@@ -95,8 +105,7 @@ const SkillMatchedPostsPage: React.FC = () => {
         acceptedMemberSets[a.post_id].add(a.invitee_id);
       });
 
-      // Score and sort
-      const scored = (posts || []).map(post => {
+      const enrichedPosts = (posts || []).map(post => {
         const skills = Array.isArray(post.skill_requirements) ? post.skill_requirements : [];
         const requirements = skills.map((sr: any) => ({
           skills: sr.skills || (sr.skill ? [sr.skill] : []),
@@ -131,16 +140,89 @@ const SkillMatchedPostsPage: React.FC = () => {
           required_members: requiredMembers,
           accepted_members: acceptedMembers,
           matchScore,
+          rankingSource: 'local' as const,
         };
-      }).filter(
+      });
+
+      const availablePosts = enrichedPosts.filter(
         p =>
           p.matchScore > 0 &&
           !isPostDeadlineReached(p.deadline) &&
           !(p.required_members > 0 && p.accepted_members >= p.required_members)
-      )
-        .sort((a, b) => b.matchScore - a.matchScore);
+      );
 
-      setMatchedPosts(scored);
+      const locallyRankedPosts = [...availablePosts].sort((a, b) => b.matchScore - a.matchScore);
+      const canTryPython = Date.now() >= pythonRetryAfterRef.current;
+
+      if (canTryPython && availablePosts.length > 0) {
+        try {
+          const response = await requestPythonRecommendations(
+            {
+              student_id: user.id,
+              name: `${user.firstName} ${user.lastName}`.trim() || user.email,
+              department: user.department || 'Unknown',
+              skills: user.skills || [],
+              interests: user.specialization || [],
+              year_of_graduation: user.yearOfGraduation,
+            },
+            availablePosts.map((post) => ({
+              id: post.id,
+              title: post.title,
+              description: post.description,
+              purpose: post.purpose,
+              department: '',
+              skill_requirements: Array.isArray(post.skill_requirements) ? post.skill_requirements : [],
+              status: post.status,
+            })),
+            availablePosts.length,
+          );
+
+          const recommendationMap = new Map(
+            response.recommendations.map((recommendation, index) => [recommendation.post_id, { recommendation, index }]),
+          );
+
+          const pythonRankedPosts = availablePosts
+            .filter((post) => recommendationMap.has(post.id))
+            .map((post) => {
+              const payload = recommendationMap.get(post.id);
+              if (!payload) return post;
+              return {
+                ...post,
+                matchScore: Math.round(payload.recommendation.cosine_score * 100),
+                cosineScore: payload.recommendation.cosine_score,
+                matchedTerms: payload.recommendation.matched_terms,
+                rationale: payload.recommendation.rationale,
+                rankingSource: 'python' as const,
+              };
+            })
+            .sort((left, right) => {
+              const leftRank = recommendationMap.get(left.id)?.index ?? Number.MAX_SAFE_INTEGER;
+              const rightRank = recommendationMap.get(right.id)?.index ?? Number.MAX_SAFE_INTEGER;
+              return leftRank - rightRank;
+            });
+
+          if (pythonRankedPosts.length > 0) {
+            setMatchedPosts(pythonRankedPosts);
+            setPythonLogs(response.logs);
+            setEngineStatus('connected');
+            return;
+          }
+        } catch (err) {
+          console.warn('Python recommendation bridge unavailable, falling back to frontend matcher.', err);
+          pythonRetryAfterRef.current = Date.now() + PYTHON_ENGINE_RETRY_MS;
+          setPythonLogs([
+            'Python bridge unavailable on http://127.0.0.1:8765.',
+            'Showing the built-in frontend skill matcher until the bridge comes back.',
+          ]);
+          setEngineStatus('fallback');
+        }
+      }
+
+      if (!canTryPython) {
+        setEngineStatus('fallback');
+      }
+
+      setMatchedPosts(locallyRankedPosts);
     } catch (err) {
       console.error('Error fetching matched posts:', err);
     } finally {
@@ -211,6 +293,42 @@ const SkillMatchedPostsPage: React.FC = () => {
         )}
       </div>
 
+      <Card className="mb-6 border-dashed">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary" />
+                <p className="text-sm font-semibold text-foreground">Recommendation Engine</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {engineStatus === 'connected'
+                  ? 'Python bridge connected. Ranking and logs are coming from the running recommendation process.'
+                  : engineStatus === 'fallback'
+                    ? 'Python bridge not detected. The page is using the existing frontend skill matcher.'
+                    : 'Checking whether the local Python recommendation bridge is running.'}
+              </p>
+            </div>
+            <Badge variant={engineStatus === 'connected' ? 'default' : 'outline'}>
+              {engineStatus === 'connected' ? 'Python Connected' : engineStatus === 'fallback' ? 'Frontend Fallback' : 'Checking'}
+            </Badge>
+          </div>
+
+          {pythonLogs.length > 0 && (
+            <div className="mt-4 rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs font-semibold text-foreground mb-2">Bridge Logs</p>
+              <div className="space-y-1 font-mono text-xs text-muted-foreground max-h-40 overflow-auto">
+                {pythonLogs.map((logLine, index) => (
+                  <p key={`${logLine}-${index}`} className="break-words">
+                    {logLine}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {matchedPosts.length === 0 ? (
         <Card className="py-12 text-center">
           <CardContent>
@@ -245,9 +363,25 @@ const SkillMatchedPostsPage: React.FC = () => {
                   <h3 className="font-semibold text-foreground mb-1 line-clamp-2">{post.title}</h3>
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{getDescriptionPreviewText(post.description)}</p>
 
+                  {post.rankingSource === 'python' && post.rationale && (
+                    <div className="mb-3 rounded-md bg-primary/5 border border-primary/10 p-2">
+                      <p className="text-[11px] font-medium text-foreground">{post.rationale}</p>
+                      {post.matchedTerms && post.matchedTerms.length > 0 && (
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Matched terms: {post.matchedTerms.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2 mb-3">
                     <Briefcase className="w-3.5 h-3.5 text-muted-foreground" />
                     <Badge variant="outline" className="text-xs">{post.purpose}</Badge>
+                    {typeof post.cosineScore === 'number' && (
+                      <Badge variant="outline" className="text-xs">
+                        cosine {post.cosineScore.toFixed(3)}
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-1 mb-3">

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePalette } from '@/hooks/usePalette';
+import { getRelevantExperienceText } from '@/lib/application-display';
 import { isPostDeadlineReached, syncExpiredPosts, syncPostCurrentMembers } from '@/services/postAvailabilityService';
 
 interface AppItem {
@@ -50,6 +51,9 @@ interface ReceivedAppItem {
   applicant_name: string;
   applicant_id: string;
   applied_for_skill: string | null;
+  cover_letter: string | null;
+  answers: unknown;
+  resume: string | null;
 }
 
 interface PostSummary {
@@ -160,7 +164,7 @@ const AppliedOpportunitiesPage: React.FC = () => {
 
     const { data: apps } = await supabase
       .from('applications')
-      .select('id, status, applied_at, post_id, applicant_id, applied_for_skill')
+      .select('id, status, applied_at, post_id, applicant_id, applied_for_skill, cover_letter, answers, resume')
       .in('post_id', postIds)
       .order('applied_at', { ascending: false });
 
@@ -187,6 +191,9 @@ const AppliedOpportunitiesPage: React.FC = () => {
         applicant_name: nameMap.get(a.applicant_id) || 'Unknown',
         applicant_id: a.applicant_id,
         applied_for_skill: a.applied_for_skill,
+        cover_letter: a.cover_letter,
+        answers: a.answers,
+        resume: a.resume,
       }))
     );
   };
@@ -364,6 +371,64 @@ const AppliedOpportunitiesPage: React.FC = () => {
   const receivedPendingCount = receivedApps.filter((a) => a.status === 'applied').length;
   const receivedAcceptedCount = receivedApps.filter((a) => a.status === 'accepted').length;
   const receivedRejectedCount = receivedApps.filter((a) => a.status === 'rejected').length;
+
+  const renderReceivedApplicationDetails = (app: ReceivedAppItem) => {
+    const relevantExperience = getRelevantExperienceText(app.answers);
+
+    if (!app.cover_letter && !relevantExperience && !app.resume) {
+      return null;
+    }
+
+    return (
+      <Stack spacing={1.1} sx={{ mt: 1.4 }}>
+        {app.cover_letter && (
+          <Box sx={{ backgroundColor: isDark ? colors.card : '#F9FAFB', borderRadius: '8px', p: 1.2 }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: colors.subtext, mb: 0.5 }}>
+              Why are you interested?
+            </Typography>
+            <Typography sx={{ fontSize: 14, color: colors.heading, whiteSpace: 'pre-line' }}>
+              {app.cover_letter}
+            </Typography>
+          </Box>
+        )}
+
+        {relevantExperience && (
+          <Box sx={{ backgroundColor: isDark ? colors.card : '#F9FAFB', borderRadius: '8px', p: 1.2 }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: colors.subtext, mb: 0.5 }}>
+              Relevant Experience
+            </Typography>
+            <Typography sx={{ fontSize: 14, color: colors.heading, whiteSpace: 'pre-line' }}>
+              {relevantExperience}
+            </Typography>
+          </Box>
+        )}
+
+        {app.resume && (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: colors.subtext }}>
+              Resume
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              href={app.resume}
+              target="_blank"
+              rel="noreferrer"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                color: colors.heading,
+                borderColor: colors.border,
+                backgroundColor: isDark ? colors.card : undefined,
+              }}
+            >
+              View Resume
+            </Button>
+          </Box>
+        )}
+      </Stack>
+    );
+  };
 
   if (loading) {
     return (
@@ -623,6 +688,8 @@ const AppliedOpportunitiesPage: React.FC = () => {
                                 <Calendar size={15} />
                                 <Typography sx={{ fontSize: 14 }}>{new Date(app.applied_at).toLocaleDateString()}</Typography>
                               </Stack>
+
+                              {renderReceivedApplicationDetails(app)}
                             </Box>
 
                             <Stack spacing={1.1} alignItems={{ xs: 'flex-start', md: 'flex-end' }}>

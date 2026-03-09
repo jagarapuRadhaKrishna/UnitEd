@@ -12,7 +12,7 @@
 
 UnitEd is a full-stack academic collaboration platform built for students and faculty. It helps faculty publish opportunities, review candidates, invite students, manage teams, and communicate through chatrooms and forums. Students can build profiles, discover matching posts, apply, receive invitations, and collaborate in real time.
 
-The project uses a React + Vite frontend and a Supabase backend for authentication, PostgreSQL data, real-time subscriptions, and storage.
+The project uses a React + Vite frontend and a Supabase backend for authentication, PostgreSQL data, real-time subscriptions, and storage. The repository also includes a standalone cosine-similarity recommendation prototype for ranking posts against student skill profiles.
 
 ---
 
@@ -21,6 +21,7 @@ The project uses a React + Vite frontend and a Supabase backend for authenticati
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
+- [Recommendation Engine](#recommendation-engine)
 - [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
 - [Endpoints](#endpoints)
@@ -29,6 +30,7 @@ The project uses a React + Vite frontend and a Supabase backend for authenticati
 - [Deployment](#deployment)
 - [Contributing](#contributing)
 - [Project Info](#project-info)
+- [License](#license)
 
 ---
 
@@ -39,6 +41,7 @@ The project uses a React + Vite frontend and a Supabase backend for authenticati
 - Create and manage academic profiles with skills, projects, achievements, and links
 - Browse research and project opportunities
 - View skill-matched recommendations
+- Cosine-similarity recommendation prototype for post discovery experiments
 - Apply to faculty posts
 - Track application status
 - Accept or decline invitations
@@ -100,6 +103,13 @@ The project uses a React + Vite frontend and a Supabase backend for authenticati
 - PostCSS
 - npm and bun
 
+### Recommendation Prototype
+
+- Python 3
+- Cosine similarity based ranking
+- Weighted vectorization of skills, interests, and post metadata
+- Explainable recommendation output with matched terms
+
 ---
 
 ## Architecture
@@ -122,6 +132,11 @@ UnitEd uses a serverless backend architecture through Supabase.
 | - Storage                                     |
 | - Row Level Security                          |
 +-----------------------------------------------+
+
+      Standalone Recommendation Layer
+      --------------------------------
+      Python Cosine Similarity Engine
+      tools/recommendation/post_recommender.py
 ```
 
 ### Key Design Points
@@ -130,6 +145,85 @@ UnitEd uses a serverless backend architecture through Supabase.
 - Supabase handles auth, data, realtime subscriptions, and storage
 - Business logic is split across page components, services, and context providers
 - Reusable UI is built with shadcn/ui components and Tailwind utilities
+- A standalone recommendation prototype is included for offline ranking experiments without changing the live app
+
+---
+
+## Recommendation Engine
+
+The repository includes a real standalone recommendation prototype for ranking posts against student profiles using cosine similarity.
+
+### Location
+
+```text
+tools/recommendation/post_recommender.py
+```
+
+### What It Does
+
+- Builds weighted vectors from student skills, interests, department, and post metadata
+- Uses cosine similarity to score post relevance
+- Returns top-ranked posts with matched terms and rationale
+- Prints a branded CLI summary so the run output reads like a UnitEd subsystem
+- Can export structured JSON reports for evaluation or future integration work
+- Runs independently from the frontend so existing application functionality remains unchanged
+
+### Input Signals
+
+- Student skills
+- Student interests
+- Student department
+- Post required skills
+- Post preferred skills
+- Post purpose
+- Post keywords
+
+### Run the Demo
+
+```bash
+pip install -r requirements.txt
+python tools/recommendation/post_recommender.py --demo
+```
+
+### Run with Sample Data
+
+```bash
+pip install -r requirements.txt
+python tools/recommendation/post_recommender.py --profile-file tools/recommendation/sample_profile.json --posts-file tools/recommendation/sample_posts.json --top-k 5
+```
+
+### Run with Live Supabase Posts
+
+```bash
+pip install -r requirements.txt
+python tools/recommendation/post_recommender.py --supabase-live --profile-file tools/recommendation/sample_profile.json --top-k 5
+```
+
+### Run with Your Real Supabase Profile
+
+```bash
+pip install -r requirements.txt
+python tools/recommendation/post_recommender.py --supabase-live --supabase-email your-email@example.com --top-k 5
+```
+
+If `--supabase-password` is not provided, the script prompts for it securely and then loads your profile from the `profiles` table while fetching live `posts` from the same Supabase project used by the frontend.
+
+### Run the Local UI Bridge
+
+```bash
+pip install -r requirements.txt
+python tools/recommendation/post_recommender.py --serve
+```
+
+When the bridge is running, opening the Skill Matched Posts page makes the frontend send recommendation requests to the Python process on `http://127.0.0.1:8765`. The page shows the same request logs that are printed in the Python terminal. If the bridge is not running, the page falls back to the existing frontend matcher automatically.
+
+### Export a Recommendation Report
+
+```bash
+python tools/recommendation/post_recommender.py --demo --output-json tools/recommendation/output/demo_report.json
+```
+
+This module is documented as a prototype recommendation layer for future integration into the post discovery pipeline.
 
 ---
 
@@ -202,6 +296,14 @@ zip-file-explorer/
 |-- vite.config.ts
 |-- tailwind.config.ts
 |-- eslint.config.js
+|-- LICENSE
+|-- tools/
+|   `-- recommendation/
+|       |-- __init__.py
+|       |-- README.md
+|       |-- post_recommender.py
+|       |-- sample_profile.json
+|       `-- sample_posts.json
 `-- readme2.md
 ```
 
@@ -211,6 +313,7 @@ zip-file-explorer/
 - `src/services/` contains app-specific business logic
 - `src/integrations/supabase/` contains the backend client and generated types
 - `supabase/migrations/` currently contains 20 SQL migration files
+- `tools/recommendation/` contains the standalone cosine-similarity recommendation prototype
 
 ---
 
@@ -479,6 +582,7 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 - Authentication, chatrooms, invitations, posts, and forums are already integrated into the application flow
 - The project uses a modern component-driven structure with typed Supabase integration
 - Recent UI work includes animation support across invitations and chatroom flows
+- The repository includes a standalone recommendation prototype for content-based post ranking
 
 ---
 
@@ -496,7 +600,7 @@ For maintenance or future updates, review:
 
 ## License
 
-This repository should follow your project licensing decision. Update this section when the final license is confirmed.
+This project is licensed under the MIT License. See [LICENSE](./LICENSE).
 
 ---
 

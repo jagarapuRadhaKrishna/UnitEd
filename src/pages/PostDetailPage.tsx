@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { fetchPostMemberCounts, isPostDeadlineReached, syncExpiredPosts } from '@/services/postAvailabilityService';
 import { getDescriptionHtmlForDisplay } from '@/lib/post-description';
@@ -54,6 +55,7 @@ const PostDetailPage: React.FC = () => {
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
   const [motivation, setMotivation] = useState('');
   const [experience, setExperience] = useState('');
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -283,6 +285,39 @@ const PostDetailPage: React.FC = () => {
     }
   };
 
+  const resetApplyForm = () => {
+    setMotivation('');
+    setExperience('');
+    setResumeFile(null);
+  };
+
+  const uploadApplicationResume = async (): Promise<string | null> => {
+    if (!resumeFile || !user?.id || !id) return null;
+
+    const extension = resumeFile.name.split('.').pop()?.toLowerCase() || 'pdf';
+    const baseName = resumeFile.name
+      .replace(/\.[^.]+$/, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'resume';
+    const filePath = `${user.id}/applications/${id}/${Date.now()}-${baseName}.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('chat-files')
+      .upload(filePath, resumeFile, { upsert: false });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('chat-files').getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
   const handleApply = async () => {
     if (!user?.id || !id) return;
     if (isUnavailable) {
@@ -290,34 +325,43 @@ const PostDetailPage: React.FC = () => {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from('applications').insert({
-      post_id: id,
-      applicant_id: user.id,
-      cover_letter: motivation,
-      answers: [{ question: 'Experience', answer: experience }],
-    });
-    setSubmitting(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      return;
-    }
 
-    // Notify post author about new application
-    if (post && post.author_id !== user.id) {
-      await supabase.from('notifications').insert({
-        user_id: post.author_id,
-        type: 'application_received',
-        title: 'New Application Received',
-        message: `${user?.firstName || ''} ${user?.lastName || ''} applied for "${post.title}"`,
-        link: `/applications`,
-        related_post_id: id,
-        related_user_id: user.id,
+    try {
+      const resumeUrl = await uploadApplicationResume();
+      const { error } = await supabase.from('applications').insert({
+        post_id: id,
+        applicant_id: user.id,
+        cover_letter: motivation.trim(),
+        answers: experience.trim() ? [{ question: 'Relevant Experience', answer: experience.trim() }] : [],
+        resume: resumeUrl,
       });
-    }
 
-    setHasApplied(true);
-    setOpenApplyDialog(false);
-    toast({ title: 'Application submitted!', description: 'Your application has been sent successfully.' });
+      if (error) {
+        throw error;
+      }
+
+      // Notify post author about new application
+      if (post && post.author_id !== user.id) {
+        await supabase.from('notifications').insert({
+          user_id: post.author_id,
+          type: 'application_received',
+          title: 'New Application Received',
+          message: `${user?.firstName || ''} ${user?.lastName || ''} applied for "${post.title}"`,
+          link: `/applications`,
+          related_post_id: id,
+          related_user_id: user.id,
+        });
+      }
+
+      setHasApplied(true);
+      resetApplyForm();
+      setOpenApplyDialog(false);
+      toast({ title: 'Application submitted!', description: 'Your application has been sent successfully.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to submit application', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -508,6 +552,24 @@ const PostDetailPage: React.FC = () => {
             <div>
               <Label>Relevant Experience</Label>
               <Textarea value={experience} onChange={e => setExperience(e.target.value)} placeholder="Describe your relevant experience..." className="mt-1" />
+            </div>
+            <div>
+              <Label htmlFor="application-resume">Resume</Label>
+              <Input
+                id="application-resume"
+                type="file"
+                accept=".pdf,.doc,.docx"
+                className="mt-1"
+                onChange={(event) => setResumeFile(event.target.files?.[0] || null)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Upload PDF, DOC, or DOCX. This will be visible to the post owner during review.
+              </p>
+              {resumeFile && (
+                <p className="mt-1 text-xs font-medium text-foreground">
+                  Selected: {resumeFile.name}
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>

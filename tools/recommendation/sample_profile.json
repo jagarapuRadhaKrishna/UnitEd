@@ -1,0 +1,18 @@
+{
+  "student_id": "stu-001",
+  "name": "Ananya",
+  "department": "CSE",
+  "skills": [
+    "Python",
+    "Machine Learning",
+    "Data Analysis",
+    "NLP",
+    "Git"
+  ],
+  "interests": [
+    "research",
+    "ai",
+    "computer vision"
+  ],
+  "year_of_graduation": 2027
+}

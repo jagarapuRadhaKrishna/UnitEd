@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchPostMemberCounts, isPostDeadlineReached, syncExpiredPosts } from '@/services/postAvailabilityService';
+import { rankPostsWithTfLiteCosineSimilarity, type PostRecommendationScore } from '@/services/tfLitePostRecommendationService';
 import { getDescriptionPreviewText } from '@/lib/post-description';
 import {
   AlertDialog,
@@ -58,6 +59,7 @@ const HomePage: React.FC = () => {
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [confirmDeletePostId, setConfirmDeletePostId] = useState<string | null>(null);
   const [animatingDeletePostId, setAnimatingDeletePostId] = useState<string | null>(null);
+  const [recommendationScores, setRecommendationScores] = useState<Record<string, PostRecommendationScore>>({});
   const [refreshTick, setRefreshTick] = useState(0);
   const hasLoadedOnceRef = useRef(false);
 
@@ -347,10 +349,66 @@ const HomePage: React.FC = () => {
   }, [user?.id]);
 
   const userSkills = user?.skills || [];
+  const userSkillSignature = userSkills.join('|');
   const allSkills = Array.from(new Set(posts.flatMap(p => p.skills)));
   const filteredSkillOptions = allSkills.filter((skill) =>
     skill.toLowerCase().includes(skillSearchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const buildRecommendations = async () => {
+      if (!user?.id || user.role === 'faculty' || posts.length === 0) {
+        if (!isCancelled) {
+          setRecommendationScores({});
+        }
+        return;
+      }
+
+      const candidatePosts = posts.filter((post) => post.author.id !== user.id);
+      if (candidatePosts.length === 0) {
+        if (!isCancelled) {
+          setRecommendationScores({});
+        }
+        return;
+      }
+
+      try {
+        const result = await rankPostsWithTfLiteCosineSimilarity(
+          {
+            id: user.id,
+            skills: userSkills,
+          },
+          candidatePosts.map((post) => ({
+            id: post.id,
+            title: post.title,
+            skillRequirements: post.requirements,
+          })),
+        );
+
+        if (isCancelled) return;
+
+        setRecommendationScores(
+          result.scores.reduce<Record<string, PostRecommendationScore>>((accumulator, score) => {
+            accumulator[score.postId] = score;
+            return accumulator;
+          }, {}),
+        );
+      } catch (recommendationError) {
+        console.error('TensorFlow Lite recommendation generation failed:', recommendationError);
+        if (!isCancelled) {
+          setRecommendationScores({});
+        }
+      }
+    };
+
+    void buildRecommendations();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [posts, user?.id, user?.role, userSkillSignature]);
 
   const handleSkillToggle = (skill: string) => {
     setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
@@ -358,16 +416,8 @@ const HomePage: React.FC = () => {
 
   const isMyPost = (post: HomePost) => user?.id === post.author.id;
 
-  // Calculate match score for each post based on user skills
   const getMatchScore = (post: HomePost): number => {
-    if (userSkills.length === 0 || post.requirements.length === 0) return 0;
-    const lowerUserSkills = userSkills.map(s => s.toLowerCase());
-    const satisfied = post.requirements.filter(req =>
-      req.skills.every(skill =>
-        lowerUserSkills.some(us => us.includes(skill.toLowerCase()) || skill.toLowerCase().includes(us))
-      )
-    ).length;
-    return Math.round((satisfied / post.requirements.length) * 100);
+    return Math.round(recommendationScores[post.id]?.recommendationPercent ?? 0);
   };
 
   const handleDeleteClick = (postId: string) => {
@@ -606,12 +656,14 @@ const HomePage: React.FC = () => {
                       }`}
                     >
                       <CardContent className="p-4 pb-2 flex-1 space-y-2">
-                        <div className="flex items-center justify-between gap-1">
-                          {owned && (
-                            <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-united-amber/15 text-united-amber border border-united-amber/30">
-                              📌 My Post
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            {owned && (
+                              <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-united-amber/15 text-united-amber border border-united-amber/30">
+                              My Post
                             </span>
                           )}
+                          </div>
                           {owned && (
                             <Button
                               size="sm"
@@ -626,12 +678,12 @@ const HomePage: React.FC = () => {
                             </Button>
                           )}
                           {!owned && getMatchScore(post) > 0 && (
-                            <span className={`ml-auto inline-block px-2 py-0.5 text-[10px] font-bold rounded ${
+                            <span className={`ml-auto inline-flex w-1/2 min-w-[138px] items-center justify-center px-2 py-1 text-[10px] font-bold rounded ${
                               getMatchScore(post) >= 75 ? 'bg-united-green/15 text-united-green' :
                               getMatchScore(post) >= 40 ? 'bg-united-amber/15 text-united-amber' :
                               'bg-primary/10 text-primary'
                             }`}>
-                              🎯 {getMatchScore(post)}% match
+                              {getMatchScore(post)}% recommendation
                             </span>
                           )}
                         </div>
@@ -652,7 +704,10 @@ const HomePage: React.FC = () => {
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {post.skills.slice(0, 3).map(skill => {
-                            const isMatched = userSkills.some(us => us.toLowerCase().includes(skill.toLowerCase()) || skill.toLowerCase().includes(us.toLowerCase()));
+                            const matchedSkills = recommendationScores[post.id]?.matchedSkills || [];
+                            const isMatched = matchedSkills.some((matchedSkill) =>
+                              matchedSkill.includes(skill.toLowerCase()) || skill.toLowerCase().includes(matchedSkill)
+                            );
                             return (
                               <span key={skill} className={`px-1.5 py-0.5 text-[10px] rounded ${isMatched ? 'bg-accent/20 text-accent-foreground font-semibold' : 'bg-secondary text-foreground'}`}>{skill}</span>
                             );
