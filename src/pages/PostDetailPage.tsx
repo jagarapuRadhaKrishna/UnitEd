@@ -15,12 +15,14 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { fetchPostMemberCounts, isPostDeadlineReached, syncExpiredPosts } from '@/services/postAvailabilityService';
 import { getDescriptionHtmlForDisplay } from '@/lib/post-description';
+import { safeSessionStorage } from '@/lib/browser-storage';
 import {
-  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Star, Briefcase, UserPlus, Trash2, Edit2,
+  ArrowLeft, Users, Calendar, Target, Award, CheckCircle, Send, UserCheck, Briefcase, UserPlus, Trash2, Edit2, Info,
 } from 'lucide-react';
 
 interface SkillRequirement {
-  skill: string;
+  skills?: string[];
+  skill?: string;
   requiredCount: number;
   acceptedCount?: number;
 }
@@ -40,6 +42,12 @@ interface PostDetail {
   author: { id: string; name: string; avatar?: string; type: string };
   applicationCount: number;
 }
+
+const matchesRequiredSkill = (userSkill: string, requiredSkill: string) => {
+  const left = userSkill.toLowerCase();
+  const right = requiredSkill.toLowerCase();
+  return left.includes(right) || right.includes(left);
+};
 
 const PostDetailPage: React.FC = () => {
   const { id } = useParams();
@@ -74,7 +82,7 @@ const PostDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (id && typeof window !== 'undefined') {
-      sessionStorage.setItem('lastViewedPostId', id);
+      safeSessionStorage.setItem('lastViewedPostId', id);
     }
   }, [id]);
 
@@ -248,6 +256,24 @@ const PostDetailPage: React.FC = () => {
   const participantsFilled = totalRequired > 0 && totalAccepted >= totalRequired;
   const deadlineReached = isPostDeadlineReached(post.deadline);
   const isUnavailable = post.status !== 'active' || deadlineReached;
+  const userSkills = user?.skills || [];
+  const bundledRequirements = post.skill_requirements
+    .map((requirement, index) => {
+      const reqSkills = requirement.skills || (requirement.skill ? [requirement.skill] : []);
+      const missingSkills = reqSkills.filter(
+        (requiredSkill) => !userSkills.some((userSkill) => matchesRequiredSkill(userSkill, requiredSkill)),
+      );
+
+      return {
+        id: `${reqSkills.join('+')}-${index}`,
+        label: reqSkills.join(' + '),
+        requiredCount: requirement.requiredCount,
+        hasMultipleSkills: reqSkills.length > 1,
+        missingSkills,
+        isFullyMatched: reqSkills.length > 0 && missingSkills.length === 0,
+      };
+    })
+    .filter((requirement) => requirement.hasMultipleSkills);
 
   const handleInvite = async () => {
     if (!user?.id || !id || !post) return;
@@ -467,6 +493,30 @@ const PostDetailPage: React.FC = () => {
                 );
               })}
             </div>
+            {bundledRequirements.length > 0 && (
+              <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+                <p className="font-semibold text-primary">Bundled skill requirement</p>
+                <p className="mt-1 text-muted-foreground">
+                  This post needs one candidate who has all the skills in each bundle, not separate candidates for each skill.
+                </p>
+                <div className="mt-2 space-y-2">
+                  {bundledRequirements.map((requirement) => (
+                    <div key={requirement.id} className="rounded-md border border-primary/10 bg-background/80 p-2">
+                      <p className="font-medium text-foreground">
+                        {requirement.label} ({requirement.requiredCount} candidate{requirement.requiredCount > 1 ? 's' : ''})
+                      </p>
+                      {!isAuthor && user?.role !== 'faculty' && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {requirement.isFullyMatched
+                            ? 'Your profile currently matches this full skill bundle.'
+                            : `Your profile is currently missing: ${requirement.missingSkills.join(', ')}`}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -545,6 +595,30 @@ const PostDetailPage: React.FC = () => {
             <DialogTitle className="text-white">Apply for {post.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {bundledRequirements.length > 0 && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+                  <Info className="h-4 w-4" /> This post has bundled skill requirements
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  One candidate is expected to have all the skills listed together in a bundle.
+                </p>
+                <div className="mt-2 space-y-2">
+                  {bundledRequirements.map((requirement) => (
+                    <div key={`apply-${requirement.id}`} className="rounded-md border border-primary/10 bg-background/80 p-2">
+                      <p className="text-sm font-medium text-foreground">
+                        {requirement.label} ({requirement.requiredCount} candidate{requirement.requiredCount > 1 ? 's' : ''})
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {requirement.isFullyMatched
+                          ? 'Your current profile matches this requirement.'
+                          : `Your current profile is missing: ${requirement.missingSkills.join(', ')}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <Label>Why are you interested? *</Label>
               <Textarea value={motivation} onChange={e => setMotivation(e.target.value)} placeholder="Share your motivation..." className="mt-1" />

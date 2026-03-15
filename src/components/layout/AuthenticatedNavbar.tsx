@@ -53,6 +53,20 @@ const AuthenticatedNavbar: React.FC = () => {
     setInvitationCount(count || 0);
   }, [user?.id]);
 
+  const fetchNotificationCount = useCallback(async () => {
+    if (!user?.id) {
+      setNotificationCount(0);
+      return;
+    }
+
+    const { count } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('read', false);
+    setNotificationCount(count || 0);
+  }, [user?.id]);
+
   useEffect(() => {
     if (!user?.id) {
       setInvitationCount(0);
@@ -85,50 +99,40 @@ const AuthenticatedNavbar: React.FC = () => {
       return;
     }
 
-    const fetchCount = async () => {
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-      setNotificationCount(count || 0);
-    };
-
-    fetchCount();
-    const interval = window.setInterval(fetchCount, 15000);
+    fetchNotificationCount();
+    const interval = window.setInterval(fetchNotificationCount, 15000);
 
     const channel = supabase
       .channel('navbar-notifications')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-        fetchCount
+        fetchNotificationCount
       )
       .subscribe();
 
     const handleVisibilityRefresh = () => {
       if (document.visibilityState === 'visible') {
-        fetchCount();
+        fetchNotificationCount();
       }
+    };
+
+    const handleNotificationsRefresh = () => {
+      fetchNotificationCount();
     };
 
     window.addEventListener('focus', handleVisibilityRefresh);
     document.addEventListener('visibilitychange', handleVisibilityRefresh);
+    window.addEventListener('notifications:refresh', handleNotificationsRefresh);
 
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('focus', handleVisibilityRefresh);
       document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+      window.removeEventListener('notifications:refresh', handleNotificationsRefresh);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, location.pathname]);
-
-  // Clear notification badge when viewing notifications page
-  useEffect(() => {
-    if (location.pathname.startsWith('/notifications')) {
-      setNotificationCount(0);
-    }
-  }, [location.pathname]);
+  }, [user?.id, location.pathname, fetchNotificationCount]);
 
   const fetchReceivedApplicationsCount = useCallback(async () => {
     if (!user?.id || user.role !== 'faculty') {

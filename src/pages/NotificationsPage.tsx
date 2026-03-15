@@ -42,11 +42,23 @@ const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const triggerNotificationRefresh = () => {
+    window.dispatchEvent(new Event('notifications:refresh'));
+  };
+
   useEffect(() => {
     if (user?.id) {
       fetchNotifications();
       // Mark all as read when opening the page
-      supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false).then();
+      supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false)
+        .then(() => {
+          triggerNotificationRefresh();
+          fetchNotifications();
+        });
     }
   }, [user?.id]);
 
@@ -77,6 +89,7 @@ const NotificationsPage: React.FC = () => {
   const handleClick = async (notif: Notification) => {
     if (!notif.read) {
       await supabase.from('notifications').update({ read: true }).eq('id', notif.id);
+      triggerNotificationRefresh();
       fetchNotifications();
     }
     if (notif.link) navigate(notif.link);
@@ -85,18 +98,28 @@ const NotificationsPage: React.FC = () => {
   const handleMarkAllRead = async () => {
     if (!user?.id) return;
     await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    triggerNotificationRefresh();
+    fetchNotifications();
+  };
+
+  const handleMarkAllUnread = async () => {
+    if (!user?.id) return;
+    await supabase.from('notifications').update({ read: false }).eq('user_id', user.id).eq('read', true);
+    triggerNotificationRefresh();
     fetchNotifications();
   };
 
   const handleDeleteAll = async () => {
     if (!user?.id) return;
     await supabase.from('notifications').delete().eq('user_id', user.id);
+    triggerNotificationRefresh();
     fetchNotifications();
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     await supabase.from('notifications').delete().eq('id', id);
+    triggerNotificationRefresh();
     fetchNotifications();
   };
 
@@ -115,6 +138,11 @@ const NotificationsPage: React.FC = () => {
           {unreadCount > 0 && (
             <Button variant="outline" size="sm" onClick={handleMarkAllRead}>
               <CheckCheck className="w-4 h-4 mr-1" /> Mark all read
+            </Button>
+          )}
+          {notifications.length > 0 && unreadCount === 0 && (
+            <Button variant="outline" size="sm" onClick={handleMarkAllUnread}>
+              <Bell className="w-4 h-4 mr-1" /> Mark all unread
             </Button>
           )}
           {notifications.length > 0 && (

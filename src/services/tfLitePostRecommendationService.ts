@@ -21,8 +21,7 @@ export interface PostRecommendationScore {
   postId: string;
   title: string;
   cosineSimilarity: number;
-  recommendationPercent: number;
-  accuracyPercent: number;
+  matchPercent: number;
   coveragePercent: number;
   matchedSkills: string[];
   vocabularySize: number;
@@ -33,7 +32,7 @@ export interface PostRecommendationScore {
 export interface PostRecommendationSummary {
   totalPosts: number;
   recommendedPosts: number;
-  averageAccuracyPercent: number;
+  averageMatchPercent: number;
   vocabularySize: number;
 }
 
@@ -156,6 +155,34 @@ function roundToTwoDecimals(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function relayRecommendationLogsToTerminal(
+  profileId: string,
+  summary: PostRecommendationSummary,
+  scores: PostRecommendationScore[],
+): void {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return;
+
+  const lines = [
+    `Summary: profileId=${profileId}, totalPosts=${summary.totalPosts}, recommendedPosts=${summary.recommendedPosts}, averageMatchPercent=${summary.averageMatchPercent}, vocabularySize=${summary.vocabularySize}`,
+    ...scores.map((score, index) => (
+      `Rank ${index + 1}: ${score.title} | postId=${score.postId} | matchPercent=${score.matchPercent.toFixed(2)} | cosineSimilarity=${roundToTwoDecimals(score.cosineSimilarity)} | coveragePercent=${score.coveragePercent} | matchedSkills=${score.matchedSkills.join(', ') || 'none'}`
+    )),
+  ];
+
+  void fetch('/__dev-log', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title: '[TensorFlow Lite] Post recommendation match scoring',
+      lines,
+    }),
+  }).catch(() => {
+    // Keep browser-side recommendation scoring unaffected if the dev relay is unavailable.
+  });
+}
+
 export async function rankPostsWithTfLiteCosineSimilarity(
   profile: RecommendationUserProfile,
   posts: RecommendationPostInput[],
@@ -179,14 +206,13 @@ export async function rankPostsWithTfLiteCosineSimilarity(
         : matchedSkills.length > 0
           ? 100
           : 0;
-      const recommendationPercent = roundToTwoDecimals(cosineSimilarity * 100);
+      const matchPercent = roundToTwoDecimals(cosineSimilarity * 100);
 
       return {
         postId: post.id,
         title: post.title,
         cosineSimilarity,
-        recommendationPercent,
-        accuracyPercent: recommendationPercent,
+        matchPercent,
         coveragePercent: roundToTwoDecimals(coveragePercent),
         matchedSkills,
         vocabularySize: vocabulary.length,
@@ -206,26 +232,26 @@ export async function rankPostsWithTfLiteCosineSimilarity(
       return left.title.localeCompare(right.title);
     });
 
-  const recommendedScores = scores.filter((score) => score.recommendationPercent > 0);
-  const averageAccuracyPercent = recommendedScores.length > 0
+  const recommendedScores = scores.filter((score) => score.matchPercent > 0);
+  const averageMatchPercent = recommendedScores.length > 0
     ? roundToTwoDecimals(
-        recommendedScores.reduce((total, score) => total + score.accuracyPercent, 0) / recommendedScores.length,
+        recommendedScores.reduce((total, score) => total + score.matchPercent, 0) / recommendedScores.length,
       )
     : 0;
   const vocabularySize = scores.reduce((max, score) => Math.max(max, score.vocabularySize), 0);
 
-  console.groupCollapsed('[TensorFlow Lite] Post recommendation accuracy');
+  console.groupCollapsed('[TensorFlow Lite] Post recommendation match scoring');
   console.log('Summary', {
     profileId: profile.id,
     totalPosts: posts.length,
     recommendedPosts: recommendedScores.length,
-    averageAccuracyPercent,
+    averageMatchPercent,
     vocabularySize,
   });
   scores.forEach((score, index) => {
     console.log(`Rank ${index + 1}: ${score.title}`, {
       postId: score.postId,
-      accuracyPercent: score.accuracyPercent,
+      matchPercent: score.matchPercent,
       cosineSimilarity: roundToTwoDecimals(score.cosineSimilarity),
       coveragePercent: score.coveragePercent,
       matchedSkills: score.matchedSkills,
@@ -234,13 +260,17 @@ export async function rankPostsWithTfLiteCosineSimilarity(
   });
   console.groupEnd();
 
+  const summary: PostRecommendationSummary = {
+    totalPosts: posts.length,
+    recommendedPosts: recommendedScores.length,
+    averageMatchPercent,
+    vocabularySize,
+  };
+
+  relayRecommendationLogsToTerminal(profile.id, summary, scores);
+
   return {
     scores,
-    summary: {
-      totalPosts: posts.length,
-      recommendedPosts: recommendedScores.length,
-      averageAccuracyPercent,
-      vocabularySize,
-    },
+    summary,
   };
 }

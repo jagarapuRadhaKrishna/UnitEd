@@ -368,54 +368,98 @@ UnitEd does not use a custom Express or Spring Boot API. It uses:
 | `/forums` | Forum threads list |
 | `/forum/:threadId` | Forum thread details |
 | `/forum/create` | Create a forum thread |
+| `/about` | Parent about route that redirects to `/about/application` |
 | `/about/application` | About application page |
 | `/about/developers` | About developers page |
+| `/about/developer` | Redirect alias to `/about/developers` |
 | `/settings` | Account settings |
-| `/settings/profile` | Profile settings shortcut |
+| `/settings/profile` | Shortcut route to the profile page |
+
+#### Fallback Route
+
+| Route | Purpose |
+|------|---------|
+| `*` | Not found page for unmatched routes |
 
 ### Supabase Auth Endpoints
 
-These are accessed through the Supabase client in code rather than handwritten REST controllers.
+These flows are usually called through the Supabase client in code, but they map to the hosted Auth API under `${SUPABASE_URL}`.
 
-| Operation | Usage in App |
-|------|---------|
-| `signInWithPassword` | Login with email and password |
-| `signUp` | Register new users |
-| `signOut` | Logout |
-| `getSession` | Restore active session |
-| `onAuthStateChange` | Listen for auth/session changes |
-| `resetPasswordForEmail` | Trigger password reset email |
-| `updateUser` | Update password after reset |
+| Method | Endpoint | Usage in App |
+|------|---------|---------|
+| `POST` | `${SUPABASE_URL}/auth/v1/token?grant_type=password` | Login with email and password |
+| `POST` | `${SUPABASE_URL}/auth/v1/signup` | Register new users |
+| `POST` | `${SUPABASE_URL}/auth/v1/logout` | Logout |
+| `GET` | `${SUPABASE_URL}/auth/v1/user` | Restore active session / fetch current user |
+| `POST` | `${SUPABASE_URL}/auth/v1/recover` | Trigger password reset email |
+| `PUT` | `${SUPABASE_URL}/auth/v1/user` | Update password after reset |
 
-### Database Tables Used as API Resources
+### Direct Supabase REST Endpoints Used by Tooling
 
-| Resource | Main Purpose |
-|------|---------|
-| `profiles` | Student and faculty profile records |
-| `posts` | Research and project opportunities |
-| `applications` | Student applications to posts |
-| `invitations` | Faculty invitations and responses |
-| `chatrooms` | Team communication rooms |
-| `chatroom_members` | Chatroom membership records |
-| `messages` | Chat messages and file metadata |
-| `notifications` | In-app alerts |
-| `forum_threads` | Discussion threads |
-| `forum_replies` | Replies inside a forum thread |
+These are the explicit REST paths used directly by `tools/recommendation/post_recommender.py` when running with live Supabase data.
+
+| Method | Endpoint | Purpose |
+|------|---------|---------|
+| `GET` | `${SUPABASE_URL}/rest/v1/profiles?select=id,first_name,last_name,department,skills,specialization,year_of_graduation&id=eq.<user-id>` | Load one authenticated profile for recommendation input |
+| `GET` | `${SUPABASE_URL}/rest/v1/posts?select=id,title,purpose,status,description,skill_requirements&status=eq.active&order=created_at.desc&limit=50` | Load active posts for recommendation ranking |
+
+### Recommendation Bridge Endpoints
+
+These are served by the local Python recommendation bridge when you run:
+
+```bash
+python tools/recommendation/post_recommender.py --serve
+```
+
+| Method | Endpoint | Purpose |
+|------|---------|---------|
+| `GET` | `/health` | Health check for the recommendation bridge |
+| `GET` | `/logs` | Returns recent recommendation bridge logs |
+| `POST` | `/recommend` | Accepts a profile + candidate posts payload and returns ranked recommendations |
+
+### Dev-Only Log Relay Endpoint
+
+This endpoint is served by the Vite dev server only and is used to mirror browser-side recommendation logs into the terminal while running `npm run dev`.
+
+| Method | Endpoint | Purpose |
+|------|---------|---------|
+| `POST` | `/__dev-log` | Receives browser log payloads and prints them in the development terminal |
+
+### Supabase REST Table Endpoints
+
+The frontend mainly talks to these resources through `supabase.from('<table>')`, which maps to `${SUPABASE_URL}/rest/v1/<table>`.
+
+| Resource | REST Endpoint | Main Purpose |
+|------|---------|---------|
+| `profiles` | `${SUPABASE_URL}/rest/v1/profiles` | Student and faculty profile records |
+| `posts` | `${SUPABASE_URL}/rest/v1/posts` | Research and project opportunities |
+| `applications` | `${SUPABASE_URL}/rest/v1/applications` | Student applications to posts |
+| `invitations` | `${SUPABASE_URL}/rest/v1/invitations` | Faculty invitations and responses |
+| `chatrooms` | `${SUPABASE_URL}/rest/v1/chatrooms` | Team communication rooms |
+| `chatroom_members` | `${SUPABASE_URL}/rest/v1/chatroom_members` | Chatroom membership records |
+| `messages` | `${SUPABASE_URL}/rest/v1/messages` | Chat messages and file metadata |
+| `notifications` | `${SUPABASE_URL}/rest/v1/notifications` | In-app alerts |
+| `forum_threads` | `${SUPABASE_URL}/rest/v1/forum_threads` | Discussion threads |
+| `forum_replies` | `${SUPABASE_URL}/rest/v1/forum_replies` | Replies inside a forum thread |
 
 ### RPC Endpoints
 
-| Function | Purpose |
-|------|---------|
-| `get_public_landing_stats` | Fetch landing page statistics |
-| `get_post_member_counts` | Resolve post member totals |
-| `register_forum_thread_view` | Track unique forum thread views |
+These are available through `${SUPABASE_URL}/rest/v1/rpc/<function-name>`.
+
+| Function | RPC Endpoint | Purpose |
+|------|---------|---------|
+| `get_public_landing_stats` | `${SUPABASE_URL}/rest/v1/rpc/get_public_landing_stats` | Fetch landing page statistics |
+| `get_post_member_counts` | `${SUPABASE_URL}/rest/v1/rpc/get_post_member_counts` | Resolve post member totals |
+| `register_forum_thread_view` | `${SUPABASE_URL}/rest/v1/rpc/register_forum_thread_view` | Track unique forum thread views |
 
 ### Storage Endpoints
 
-| Bucket | Purpose |
-|------|---------|
-| `profile-pictures` | User avatar uploads |
-| `chat-files` | Files shared inside chatrooms |
+These are accessed through the Supabase Storage API under `${SUPABASE_URL}/storage/v1`.
+
+| Bucket | Endpoint Pattern | Purpose |
+|------|---------|---------|
+| `profile-pictures` | `${SUPABASE_URL}/storage/v1/object/public/profile-pictures/<path>` | User avatar uploads |
+| `chat-files` | `${SUPABASE_URL}/storage/v1/object/public/chat-files/<path>` | Files shared inside chatrooms |
 
 ### Realtime Channels
 
@@ -604,4 +648,4 @@ This project is licensed under the MIT License. See [LICENSE](./LICENSE).
 
 ---
 
-**Last Updated:** March 8, 2026
+**Last Updated:** March 15, 2026

@@ -580,8 +580,9 @@ class RecommendationRequestHandler(BaseHTTPRequestHandler):
             recommendations = recommend_posts(profile, posts, top_k=top_k)
             for rank, recommendation in enumerate(recommendations, start=1):
                 terms = ", ".join(recommendation.matched_terms) if recommendation.matched_terms else "none"
+                match_percent = recommendation.cosine_score * 100
                 _record_log(
-                    f"Rank {rank}: {recommendation.title} | score={recommendation.cosine_score:.4f} | matched={terms}",
+                    f"Rank {rank}: {recommendation.title} | score={recommendation.cosine_score:.4f} | match={match_percent:.1f}% | matched={terms}",
                     request_logs,
                 )
 
@@ -651,9 +652,11 @@ def _print_recommendations(profile: StudentProfile, recommendations: Sequence[Re
     print("-" * 78)
     for rank, item in enumerate(recommendations, start=1):
         matched = ", ".join(item.matched_terms) if item.matched_terms else "None"
+        match_percent = item.cosine_score * 100
         print(f"{rank}. {item.title}")
         print(f"   Post ID       : {item.post_id}")
         print(f"   Cosine Score  : {item.cosine_score:.4f}")
+        print(f"   Match Percent : {match_percent:.1f}%")
         print(f"   Matched Terms : {matched}")
         print(f"   Rationale     : {item.rationale}")
         print()

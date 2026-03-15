@@ -67,22 +67,27 @@ const HomePage: React.FC = () => {
     if (!backgroundRefresh || !hasLoadedOnceRef.current) {
       setLoading(true);
     }
-    await syncExpiredPosts();
-    const { data, error } = await supabase
-      .from('posts')
-      .select('*, profiles!posts_author_id_fkey(id, first_name, last_name, role, profile_picture_url)')
-      .in('status', ['active', 'filled'])
+    try {
+      await syncExpiredPosts();
+      const { data: postRows, error: postsError } = await supabase
+        .from('posts')
+        .select('*')
+        .in('status', ['active', 'filled'])
         .order('created_at', { ascending: false });
+
+      if (postsError) throw postsError;
 
       const memberSets = new Map<string, Set<string>>();
       let rpcMemberCounts = new Map<string, number>();
-      const chatroomMap = new Map<string, string>(); // postId -> chatroomId
-      if (data && data.length > 0) {
-        data.forEach((p: any) => {
-          if (p.chatroom_id) chatroomMap.set(p.id, p.chatroom_id);
-        });
+      const chatroomMap = new Map<string, string>();
+      const rows = postRows || [];
 
-        const postIds = data.map((p: any) => p.id);
+      rows.forEach((post: any) => {
+        if (post.chatroom_id) chatroomMap.set(post.id, post.chatroom_id);
+      });
+
+      const postIds = rows.map((post: any) => post.id);
+      if (postIds.length > 0) {
         const [{ data: acceptedApps }, { data: acceptedInvs }, chatMembersRes, rpcCounts] = await Promise.all([
           supabase
             .from('applications')
@@ -105,30 +110,49 @@ const HomePage: React.FC = () => {
 
         rpcMemberCounts = rpcCounts;
 
-        (acceptedApps || []).forEach((a) => {
-          if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
-          memberSets.get(a.post_id)!.add(a.applicant_id);
+        (acceptedApps || []).forEach((application) => {
+          if (!memberSets.has(application.post_id)) memberSets.set(application.post_id, new Set());
+          memberSets.get(application.post_id)!.add(application.applicant_id);
         });
-        (acceptedInvs || []).forEach((a) => {
-          if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
-          memberSets.get(a.post_id)!.add(a.invitee_id);
+        (acceptedInvs || []).forEach((invitation) => {
+          if (!memberSets.has(invitation.post_id)) memberSets.set(invitation.post_id, new Set());
+          memberSets.get(invitation.post_id)!.add(invitation.invitee_id);
         });
 
         const chatMembers = chatMembersRes.data || [];
-        chatMembers.forEach((m: any) => {
-          const postId = Array.from(chatroomMap.entries()).find(([, cid]) => cid === m.chatroom_id)?.[0];
+        chatMembers.forEach((member: any) => {
+          const postId = Array.from(chatroomMap.entries()).find(([, chatroomId]) => chatroomId === member.chatroom_id)?.[0];
           if (!postId) return;
           if (!memberSets.has(postId)) memberSets.set(postId, new Set());
-          memberSets.get(postId)!.add(m.user_id);
+          memberSets.get(postId)!.add(member.user_id);
         });
       }
 
-        const resolveAcceptedMembers = (postRow: any, reqs: SkillRequirement[]) => {
+      const authorIds = [...new Set(rows.map((post: any) => post.author_id).filter(Boolean))];
+      const profilesRes = authorIds.length > 0
+        ? await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, role, profile_picture_url')
+            .in('id', authorIds)
+        : { data: [], error: null };
+
+      if (profilesRes.error) throw profilesRes.error;
+
+      const profileMap = new Map((profilesRes.data || []).map((profile) => [profile.id, profile]));
+
+      const toRequirements = (rawRequirements: unknown): SkillRequirement[] =>
+        ((rawRequirements as SkillRequirement[]) || []).map((requirement) => ({
+          skills: requirement.skills || (requirement.skill ? [requirement.skill] : []),
+          requiredCount: requirement.requiredCount,
+          acceptedCount: requirement.acceptedCount || 0,
+        }));
+
+      const resolveAcceptedMembers = (postRow: any, requirements: SkillRequirement[]) => {
         const rpcCount = rpcMemberCounts.get(postRow.id) ?? 0;
         const set = memberSets.get(postRow.id);
         const setSize = set ? set.size : 0;
         const setMinusAuthor = set ? (set.has(postRow.author_id) ? setSize - 1 : setSize) : 0;
-        const fallback = reqs.reduce((sum, requirement) => sum + (requirement.acceptedCount || 0), 0);
+        const fallback = requirements.reduce((sum, requirement) => sum + (requirement.acceptedCount || 0), 0);
         return Math.max(0, rpcCount, postRow.current_members ?? 0, setMinusAuthor, fallback);
       };
 
@@ -150,163 +174,61 @@ const HomePage: React.FC = () => {
         }
       };
 
-      if (error) {
-        // If foreign key doesn't exist, try without join
-        const { data: plainData, error: plainError } = await supabase
-          .from('posts')
-          .select('*')
-          .in('status', ['active', 'filled'])
-          .order('created_at', { ascending: false });
+      const syncedUpdates = rows
+        .map((post: any) => {
+          const requirements = toRequirements(post.skill_requirements);
+          const requiredMembers = post.max_members ?? requirements.reduce((sum, requirement) => sum + requirement.requiredCount, 0);
+          const acceptedMembers = resolveAcceptedMembers(post, requirements);
 
-        if (!plainError && plainData) {
-          // recompute accepted counts for fallback set
-          memberSets.clear();
-          chatroomMap.clear();
-          if (plainData.length > 0) {
-            const fallbackIds = plainData.map(p => p.id);
-            const [{ data: acceptedApps }, { data: acceptedInvs }, rpcCounts] = await Promise.all([
-              supabase
-                .from('applications')
-                .select('post_id, applicant_id')
-                .in('post_id', fallbackIds)
-                .eq('status', 'accepted'),
-              supabase
-                .from('invitations')
-                .select('post_id, invitee_id')
-                .in('post_id', fallbackIds)
-                .eq('status', 'accepted'),
-              fetchPostMemberCounts(fallbackIds),
-            ]);
-            rpcMemberCounts = rpcCounts;
-            (acceptedApps || []).forEach((a) => {
-              if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
-              memberSets.get(a.post_id)!.add(a.applicant_id);
-            });
-            (acceptedInvs || []).forEach((a) => {
-              if (!memberSets.has(a.post_id)) memberSets.set(a.post_id, new Set());
-              memberSets.get(a.post_id)!.add(a.invitee_id);
-            });
-
-            plainData.forEach((p: any) => {
-              if (p.chatroom_id) chatroomMap.set(p.id, p.chatroom_id);
-            });
-            if (chatroomMap.size > 0) {
-              const { data: chatMembers } = await supabase
-                .from('chatroom_members')
-                .select('chatroom_id, user_id')
-                .in('chatroom_id', Array.from(chatroomMap.values()));
-              (chatMembers || []).forEach((m: any) => {
-                const postId = Array.from(chatroomMap.entries()).find(([, cid]) => cid === m.chatroom_id)?.[0];
-                if (!postId) return;
-                if (!memberSets.has(postId)) memberSets.set(postId, new Set());
-                memberSets.get(postId)!.add(m.user_id);
-              });
-            }
-          }
-          // Fetch author profiles separately
-          const authorIds = [...new Set(plainData.map(p => p.author_id))];
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, role, profile_picture_url')
-            .in('id', authorIds);
-
-          const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-
-          const syncedUpdates = plainData.map((p) => {
-            const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
-              skills: r.skills || (r.skill ? [r.skill] : []),
-              requiredCount: r.requiredCount,
-              acceptedCount: r.acceptedCount || 0,
-            }));
-            const requiredMembers = p.max_members ?? reqs.reduce((sum, requirement) => sum + requirement.requiredCount, 0);
-            const acceptedMembers = resolveAcceptedMembers(p, reqs);
-            return { id: p.id, authorId: p.author_id, acceptedMembers, requiredMembers, currentMembers: p.current_members ?? 0, status: p.status };
-          }).filter((entry) => entry.acceptedMembers !== entry.currentMembers && entry.authorId === user?.id);
-
-          setPosts(plainData.map(p => {
-            const author = profileMap.get(p.author_id);
-            const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
-              skills: r.skills || (r.skill ? [r.skill] : []),
-              requiredCount: r.requiredCount,
-              acceptedCount: r.acceptedCount || 0,
-            }));
-            const requiredMembers = p.max_members ?? reqs.reduce((s, r) => s + r.requiredCount, 0);
-            const acceptedMembers = resolveAcceptedMembers(p, reqs);
-            return {
-              id: p.id,
-              title: p.title,
-              description: p.description,
-              chatroomId: p.chatroom_id ?? null,
-              author: {
-                id: p.author_id,
-                name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
-                avatar: author?.profile_picture_url || undefined,
-                type: author?.role === 'faculty' ? 'Faculty' : 'Student',
-              },
-              skills: reqs.flatMap(r => r.skills),
-              requirements: reqs,
-              requiredMembers,
-              acceptedMembers,
-              purpose: p.purpose,
-              createdAt: p.created_at,
-              deadline: p.deadline ?? null,
-              isOwned: p.author_id === user?.id,
-            };
-          }));
-
-          void Promise.all(
-            syncedUpdates.map((entry) => syncVisibleCount(entry.id, entry.acceptedMembers, entry.requiredMembers, entry.status))
-          );
-        }
-      } else if (data) {
-        const syncedUpdates = data.map((p: any) => {
-          const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
-            skills: r.skills || (r.skill ? [r.skill] : []),
-            requiredCount: r.requiredCount,
-            acceptedCount: r.acceptedCount || 0,
-          }));
-          const requiredMembers = p.max_members ?? reqs.reduce((sum, requirement) => sum + requirement.requiredCount, 0);
-          const acceptedMembers = resolveAcceptedMembers(p, reqs);
-          return { id: p.id, authorId: p.author_id, acceptedMembers, requiredMembers, currentMembers: p.current_members ?? 0, status: p.status };
-        }).filter((entry) => entry.acceptedMembers !== entry.currentMembers && entry.authorId === user?.id);
-
-        setPosts(data.map((p: any) => {
-          const author = p.profiles;
-          const reqs = ((p.skill_requirements as unknown as SkillRequirement[]) || []).map(r => ({
-            skills: r.skills || (r.skill ? [r.skill] : []),
-            requiredCount: r.requiredCount,
-            acceptedCount: r.acceptedCount || 0,
-          }));
-          const requiredMembers = p.max_members ?? reqs.reduce((s, r) => s + r.requiredCount, 0);
-          const acceptedMembers = resolveAcceptedMembers(p, reqs);
           return {
-            id: p.id,
-            title: p.title,
-            description: p.description,
-            chatroomId: p.chatroom_id ?? null,
-            author: {
-              id: p.author_id,
-              name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
-              avatar: author?.profile_picture_url || undefined,
-              type: author?.role === 'faculty' ? 'Faculty' : 'Student',
-            },
-            skills: reqs.flatMap(r => r.skills),
-            requirements: reqs,
-            requiredMembers,
+            id: post.id,
+            authorId: post.author_id,
             acceptedMembers,
-            purpose: p.purpose,
-            createdAt: p.created_at,
-            deadline: p.deadline ?? null,
-            isOwned: p.author_id === user?.id,
+            requiredMembers,
+            currentMembers: post.current_members ?? 0,
+            status: post.status,
           };
-        }));
+        })
+        .filter((entry) => entry.acceptedMembers !== entry.currentMembers && entry.authorId === user?.id);
 
-        void Promise.all(
-          syncedUpdates.map((entry) => syncVisibleCount(entry.id, entry.acceptedMembers, entry.requiredMembers, entry.status))
-        );
-      }
+      setPosts(rows.map((post: any) => {
+        const author = profileMap.get(post.author_id);
+        const requirements = toRequirements(post.skill_requirements);
+        const requiredMembers = post.max_members ?? requirements.reduce((sum, requirement) => sum + requirement.requiredCount, 0);
+        const acceptedMembers = resolveAcceptedMembers(post, requirements);
+
+        return {
+          id: post.id,
+          title: post.title,
+          description: post.description,
+          chatroomId: post.chatroom_id ?? null,
+          author: {
+            id: post.author_id,
+            name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
+            avatar: author?.profile_picture_url || undefined,
+            type: author?.role === 'faculty' ? 'Faculty' : 'Student',
+          },
+          skills: requirements.flatMap((requirement) => requirement.skills),
+          requirements,
+          requiredMembers,
+          acceptedMembers,
+          purpose: post.purpose,
+          createdAt: post.created_at,
+          deadline: post.deadline ?? null,
+          isOwned: post.author_id === user?.id,
+        };
+      }));
+
+      void Promise.all(
+        syncedUpdates.map((entry) => syncVisibleCount(entry.id, entry.acceptedMembers, entry.requiredMembers, entry.status))
+      );
+    } catch (error) {
+      console.error('Failed to load posts:', error);
+      setPosts([]);
+    } finally {
       hasLoadedOnceRef.current = true;
       setLoading(false);
+    }
   }, [user?.id, user]);
 
   useEffect(() => {
@@ -417,7 +339,13 @@ const HomePage: React.FC = () => {
   const isMyPost = (post: HomePost) => user?.id === post.author.id;
 
   const getMatchScore = (post: HomePost): number => {
-    return Math.round(recommendationScores[post.id]?.recommendationPercent ?? 0);
+    return Math.round(recommendationScores[post.id]?.matchPercent ?? 0);
+  };
+
+  const getMatchBand = (score: number): 'Strong match' | 'Moderate match' | 'Low match' => {
+    if (score >= 65) return 'Strong match';
+    if (score >= 40) return 'Moderate match';
+    return 'Low match';
   };
 
   const handleDeleteClick = (postId: string) => {
@@ -678,12 +606,15 @@ const HomePage: React.FC = () => {
                             </Button>
                           )}
                           {!owned && getMatchScore(post) > 0 && (
-                            <span className={`ml-auto inline-flex w-1/2 min-w-[138px] items-center justify-center px-2 py-1 text-[10px] font-bold rounded ${
-                              getMatchScore(post) >= 75 ? 'bg-united-green/15 text-united-green' :
+                            <span className={`ml-auto inline-flex w-1/2 min-w-[138px] flex-col items-center justify-center px-2 py-1 text-[10px] font-bold rounded leading-tight ${
+                              getMatchScore(post) >= 65 ? 'bg-united-green/15 text-united-green' :
                               getMatchScore(post) >= 40 ? 'bg-united-amber/15 text-united-amber' :
                               'bg-primary/10 text-primary'
                             }`}>
-                              {getMatchScore(post)}% recommendation
+                              <span>{getMatchScore(post)}% match</span>
+                              <span className="text-[9px] font-semibold uppercase tracking-wide">
+                                {getMatchBand(getMatchScore(post))}
+                              </span>
                             </span>
                           )}
                         </div>

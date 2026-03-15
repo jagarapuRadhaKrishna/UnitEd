@@ -20,7 +20,7 @@ export const DEVELOPERS: DeveloperProfile[] = [
     avatar_url: '/image/krishna.png',
     linkedin: 'https://www.linkedin.com/in/jagarapuradhakrishna/',
     github: 'https://github.com/jagarapuRadhaKrishna',
-    portfolio: 'https://jrk-portfolio.netlify.app/',
+    portfolio: 'https://radha-krishna-dev-portfolio.vercel.app/',
     about_preview:
       'Hi, I’m Jagarapu Radha Krishna, a Backend and Full Stack Developer with a strong focus on building scalable, efficient, and user-friendly web applications. My primary interest lies in designing reliable backend systems and developing full-stack platforms that solve real-world problems. I work with modern technologies such as React.js, Next.js, Node.js, Express.js, PostgreSQL, and MongoDB to build dynamic and high-performance applications.',
     about_paragraphs: [
