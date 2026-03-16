@@ -25,7 +25,7 @@ const LoginPage: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate(user.role === 'student' ? '/home' : '/dashboard', { replace: true });
+      navigate('/home', { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 

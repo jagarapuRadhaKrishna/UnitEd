@@ -17,14 +17,10 @@ const PublicNavbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // If user is logged in, redirect to appropriate page
+  // If the user is already authenticated, send them to the main app home.
   useEffect(() => {
     if (user) {
-      if (user.role === 'student') {
-        navigate('/home');
-      } else {
-        navigate('/dashboard');
-      }
+      navigate('/home');
     }
   }, [user, navigate]);
 
